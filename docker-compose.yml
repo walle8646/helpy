@@ -1,0 +1,10 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - ./dev.db:/app/dev.db
+    env_file:
+      - .env

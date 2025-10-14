@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Helpy</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-left">
+            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo" style="height:32px;">
+            <span class="navbar-title">Helpy</span>
+        </div>
+        <div class="navbar-links">
+            <a href="#">Reels</a>
+            <a href="#">Notifications</a>
+            <a href="#">Profile</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-title">Get advice from<br>people who can help</div>
+            <div class="hero-desc">
+                Connect with others, share knowledge, and<br>
+                receive personalized consultations for a fee.
+            </div>
+            <button class="hero-btn">Join Now</button>
+        </div>
+        <img class="hero-img" src="{{ hero_img_url }}" alt="Network Illustration">
+    </section>
+
+    <!-- How Helpy Works -->
+    <section class="how-works">
+        <div class="how-title">How Helpy Works</div>
+        <div class="how-steps">
+            <div class="how-step">
+                <div class="how-icon">🔍</div>
+                <div class="how-step-title">Find Consultants</div>
+                <div class="how-step-desc">
+                    Browse through a range of knowledge consultations across various fields.
+                </div>
+            </div>
+            <div class="how-step">
+                <div class="how-icon">💬</div>
+                <div class="how-step-title">Request a Consultation</div>
+                <div class="how-step-desc">
+                    Describe your needs and submit a request to find the right consultant.
+                </div>
+            </div>
+            <div class="how-step">
+                <div class="how-icon">📹</div>
+                <div class="how-step-title">Get Personalized Advice</div>
+                <div class="how-step-desc">
+                    Schedule a session and receive customized guidance via video.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured Consultants -->
+    <section class="featured">
+        <div class="featured-title">Featured Consultants</div>
+        <div class="consultants">
+            <div class="consultant-card">
+                <img class="consultant-photo" src="{{ sara_img_url }}" alt="Sarah Williams">
+                <div class="consultant-name">Sarah Williams</div>
+                <div class="consultant-role">Career Development</div>
+                <button class="consultant-btn">Request a Consultation</button>
+            </div>
+            <div class="consultant-card">
+                <img class="consultant-photo" src="{{ mic_img_url }}" alt="Michael Johnson">
+                <div class="consultant-name">Michael Johnson</div>
+                <div class="consultant-role">Marketing Strategy</div>
+                <button class="consultant-btn">Request a Consultation</button>
+            </div>
+            <div class="consultant-card">
+                <img class="consultant-photo" src="{{ amily_img_url }}" alt="Emily Davis">
+                <div class="consultant-name">Emily Davis</div>
+                <div class="consultant-role">Expat Living</div>
+                <button class="consultant-btn">Request a Consultation</button>
+            </div>
+            <div class="consultant-card">
+                <img class="consultant-photo" src="{{ david_img_url }}" alt="David Martinez">
+                <div class="consultant-name">David Martinez</div>
+                <div class="consultant-role">Fitness & Nutrition</div>
+                <button class="consultant-btn">Request a Consultation</button>
+            </div>
+        </div>
+    </section>
+    <script src="/static/script.js"></script>
+</body>
+</html>

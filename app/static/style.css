@@ -1,0 +1,181 @@
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #fff;
+    margin: 0;
+    padding: 0;
+    color: #222;
+}
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 40px 16px 40px;
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+}
+.navbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.navbar-logo {
+    height: 36px;
+}
+.navbar-title {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #2563eb;
+    letter-spacing: -1px;
+}
+.navbar-links {
+    display: flex;
+    gap: 32px;
+    font-size: 1.1rem;
+}
+.navbar-links a {
+    color: #222;
+    text-decoration: none;
+    font-weight: 500;
+}
+.hero {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;              /* ridotto ancora il gap */
+    padding: 24px 0 24px 0; /* padding più compatto */
+    max-width: 1100px;      /* larghezza massima più contenuta */
+    margin: 0 auto;
+    width: 90vw;
+    min-height: 220px;      /* ancora più basso */
+}
+.hero-content {
+    max-width: 480px;       /* testo meno largo */
+}
+.hero-title {
+    font-size: 2.4rem;      /* titolo più piccolo */
+    font-weight: 700;
+    margin-bottom: 18px;
+    line-height: 1.1;
+}
+.hero-desc {
+    font-size: 1.1rem;
+    color: #444;
+    margin-bottom: 28px;
+}
+.hero-btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 14px 32px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.hero-btn:hover {
+    background: #1746a2;
+}
+.hero-img {
+    max-width: 260px;       /* immagine più piccola */
+    width: 100%;
+}
+.how-works {
+    background: #f9fafb;
+    padding: 48px 0 32px 0;
+    text-align: center;
+}
+.how-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 32px;
+}
+.how-steps {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    margin-bottom: 10px;
+}
+.how-step {
+    max-width: 220px;
+}
+.how-icon {
+    font-size: 2.2rem;
+    margin-bottom: 12px;
+    color: #2563eb;
+}
+.how-step-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.how-step-desc {
+    color: #555;
+    font-size: 1rem;
+}
+.featured {
+    padding: 48px 0 48px 0;
+    background: #fff;
+    text-align: center;
+}
+.featured-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 32px;
+}
+.consultants {
+    display: flex;
+    justify-content: center;
+    gap: 36px;
+    flex-wrap: wrap;
+}
+.consultant-card {
+    background: #f9fafb;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 24px 18px 20px 18px;
+    width: 210px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.consultant-photo {
+    width: 110px;      /* aumentato da 80px */
+    height: 110px;     /* aumentato da 80px */
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 16px;
+    border: 2px solid #e5e7eb;
+}
+.consultant-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+.consultant-role {
+    color: #555;
+    font-size: 0.98rem;
+    margin-bottom: 18px;
+}
+.consultant-btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 18px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.consultant-btn:hover {
+    background: #1746a2;
+}
+@media (max-width: 900px) {
+    .hero, .how-steps, .consultants {
+        flex-direction: column;
+        align-items: center;
+    }
+    .hero-img {
+        margin-top: 32px;
+    }
+}
