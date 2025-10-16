@@ -170,6 +170,141 @@ body {
 .consultant-btn:hover {
     background: #1746a2;
 }
+.register-btn {
+    display: inline-block;
+    background: #2563eb;
+    color: #fff !important;
+    font-weight: 600;
+    padding: 10px 28px;
+    border-radius: 7px;
+    text-decoration: none;
+    font-size: 1.08rem;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.08);
+    transition: background 0.2s, box-shadow 0.2s;
+    border: none;
+}
+.register-btn:hover {
+    background: #1746a2;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.15);
+    color: #fff;
+}
+
+/* Register page styles */
+.register-container {
+    max-width: 480px;
+    margin: 80px auto;
+    padding: 48px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+.register-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+.register-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 8px;
+}
+.register-header p {
+    color: #666;
+    font-size: 1.05rem;
+}
+.register-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.form-group label {
+    font-weight: 600;
+    color: #333;
+    font-size: 1rem;
+}
+.form-group input {
+    padding: 14px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    transition: border-color 0.2s;
+    font-family: inherit;
+}
+.form-group input:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+.register-form-btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    margin-top: 8px;
+}
+.register-form-btn:hover {
+    background: #1746a2;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.2);
+}
+.back-link {
+    text-align: center;
+    margin-top: 24px;
+}
+.back-link a {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+}
+.back-link a:hover {
+    text-decoration: underline;
+}
+.error-message {
+    background: #fee;
+    border-left: 4px solid #f44;
+    padding: 12px;
+    border-radius: 6px;
+    color: #c33;
+    font-size: 0.95rem;
+    display: none;
+}
+.success-message {
+    background: #efe;
+    border-left: 4px solid #4a4;
+    padding: 12px;
+    border-radius: 6px;
+    color: #363;
+    font-size: 0.95rem;
+    display: none;
+}
+
+.register-step {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#userEmail {
+    color: #2563eb;
+}
+
 @media (max-width: 900px) {
     .hero, .how-steps, .consultants {
         flex-direction: column;

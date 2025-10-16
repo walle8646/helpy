@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Helpy</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-left">
+            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo" style="height:32px;">
+            <span class="navbar-title">Helpy</span>
+        </div>
+        <div class="navbar-links">
+            <a href="/">Home</a>
+        </div>
+    </nav>
+
+    <!-- Registration Container -->
+    <div class="register-container">
+        <!-- Step 1: Registration Form -->
+        <div id="registerStep" class="register-step">
+            <div class="register-header">
+                <h1>Create Your Account</h1>
+                <p>Join Helpy and connect with experts</p>
+            </div>
+            
+            <div id="errorMessage" class="error-message"></div>
+
+            <form class="register-form" id="registerForm">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required placeholder="your@email.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" minlength="8" required placeholder="At least 8 characters">
+                </div>
+                
+                <button type="submit" class="register-form-btn">Register</button>
+            </form>
+        </div>
+
+        <!-- Step 2: Confirmation Code Form -->
+        <div id="confirmStep" class="register-step" style="display: none;">
+            <div class="register-header">
+                <h1>Check Your Email</h1>
+                <p>We've sent a 6-digit code to <strong id="userEmail"></strong></p>
+            </div>
+            
+            <div id="confirmErrorMessage" class="error-message"></div>
+
+            <form class="register-form" id="confirmForm">
+                <div class="form-group">
+                    <label for="code">Confirmation Code</label>
+                    <input type="text" id="code" name="code" required placeholder="123456" maxlength="6" pattern="\d{6}">
+                </div>
+                
+                <button type="submit" class="register-form-btn">Confirm</button>
+            </form>
+        </div>
+
+        <!-- Step 3: Success Message -->
+        <div id="successStep" class="register-step" style="display: none;">
+            <div class="register-header">
+                <h1>🎉 Welcome to Helpy!</h1>
+                <p>Your account has been successfully verified.</p>
+            </div>
+            <div class="success-message" style="display: block;">
+                You can now log in and start connecting with experts!
+            </div>
+            <a href="/" class="register-form-btn" style="text-align: center; display: block; text-decoration: none; margin-top: 24px;">Go to Home</a>
+        </div>
+
+        <div class="back-link">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
