@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.logger_config import logger
 from app.database import create_db_and_tables
-from app.routes import home, api, user_register, user_login  # AGGIUNGI user_login
+from app.routes import home, api, user_register, user_login, user_profile, public_profile  # AGGIUNGI public_profile
 from fastapi import APIRouter
 from app.models import ImageLink
 from app.database import get_session
@@ -13,7 +13,9 @@ app = FastAPI(title="helpy")
 app.include_router(home.router)
 app.include_router(api.router)
 app.include_router(user_register.router)
-app.include_router(user_login.router)  # AGGIUNGI QUESTA RIGA
+app.include_router(user_login.router)
+app.include_router(user_profile.router)
+app.include_router(public_profile.router)  # AGGIUNGI QUESTA RIGA
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -31,6 +33,8 @@ def create_image_link(link: ImageLink):
         session.commit()
         session.refresh(link)
         return link
+
+app.include_router(router)
 
 @app.on_event("startup")
 def on_startup():

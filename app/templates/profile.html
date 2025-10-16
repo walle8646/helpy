@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile - Helpy</title>
+    <title>Profilo - Helpy</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/profile.css">
 </head>
 <body>
     <nav class="navbar">
@@ -18,30 +19,211 @@
         </div>
     </nav>
 
-    <div class="register-container">
-        <div class="register-header">
-            <h1>👤 Your Profile</h1>
-            <p>Welcome to your Helpy account</p>
-        </div>
+    <div class="profile-container">
+        <main class="main-content">
+            <!-- Cover Image -->
+            <div class="cover-image"></div>
+            
+            <!-- Profile Header -->
+            <header class="profile-header card">
+                <div class="profile-avatar-large">👤</div>
+                <div class="info">
+                    <h1>{{ user.nome or 'Nome non impostato' }}</h1>
+                    <p>{{ user.professione or 'Professione non impostata' }}</p>
+                    <small style="color: #888;">{{ user.email }}</small>
+                    <button id="editProfileBtn" class="btn-edit">✏️ Modifica Profilo</button>
+                </div>
+            </header>
 
-        <div class="profile-info">
-            <div class="profile-field">
-                <label>Email:</label>
-                <p>{{ user.email }}</p>
-            </div>
-            <div class="profile-field">
-                <label>Password:</label>
-                <p>{{ user.password_md5[:8] }}••••••••</p>
-            </div>
-            <div class="profile-field">
-                <label>Account Status:</label>
-                <p>{% if user.confirmed == 1 %}<span style="color:#4a4;">✓ Verified</span>{% else %}<span style="color:#c33;">Not Verified</span>{% endif %}</p>
-            </div>
-        </div>
+            <!-- Edit Mode Form (Hidden by default) -->
+            <section class="card" id="editSection" style="display:none;">
+                <h2>Modifica Profilo</h2>
+                <div id="successMessage" class="success-message" style="display:none;"></div>
+                <div id="errorMessage" class="error-message" style="display:none;"></div>
+                
+                <form id="profileForm" class="profile-form">
+                    <div class="form-group">
+                        <label>Nome</label>
+                        <input type="text" name="nome" value="{{ user.nome or '' }}" placeholder="Inserisci il tuo nome">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Professione</label>
+                        <input type="text" name="professione" value="{{ user.professione or '' }}" placeholder="Es: Lead Software Developer">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Macro Aree</label>
+                        <input type="text" name="macro_aree" value="{{ user.macro_aree or '' }}" placeholder="Es: Marketing, IT, Business">
+                        <small>Separa con virgole</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Aree di Interesse</label>
+                        <textarea name="aree_interesse" rows="4" placeholder="Es: Sviluppo Mobile, Leadership, Crescita Personale">{{ user.aree_interesse or '' }}</textarea>
+                        <small>Separa con virgole o a capo</small>
+                    </div>
 
-        <div class="back-link">
-            <a href="/">← Back to Home</a>
-        </div>
+                    <div class="form-group">
+                        <label>Descrizione</label>
+                        <textarea name="descrizione" rows="5" placeholder="Raccontaci di te, della tua esperienza e come puoi aiutare gli altri">{{ user.descrizione or '' }}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Prezzo Consulenza (€)</label>
+                        <input type="number" name="prezzo_consulenza" value="{{ user.prezzo_consulenza or 150 }}" min="0" step="10">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Durata Consulenza (minuti)</label>
+                        <input type="number" name="durata_consulenza" value="{{ user.durata_consulenza or 60 }}" min="15" step="15">
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+                        <button type="button" id="cancelEditBtn" class="btn btn-secondary">Annulla</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Description Section -->
+            <section class="card" id="viewSection">
+                <h2>Descrizione</h2>
+                <p>{{ user.nome or 'Utente' }} è un membro della community Helpy. Completa il tuo profilo per far sapere agli altri chi sei!</p>
+            </section>
+
+            <!-- Areas of Interest -->
+            <section class="card">
+                <h2>Aree di Interesse</h2>
+                {% if aree_interesse_list %}
+                <ul>
+                    {% for area in aree_interesse_list %}
+                    <li>{{ area.strip() }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p style="color:#888;">Nessuna area di interesse specificata. Modifica il profilo per aggiungerne.</p>
+                {% endif %}
+            </section>
+
+            <!-- Skills / Macro Areas -->
+            <section class="card">
+                <h2>Competenze</h2>
+                <div class="skills-container">
+                    {% if macro_aree_list %}
+                        {% for skill in macro_aree_list %}
+                        <span class="skill-tag">{{ skill.strip() }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <p style="color:#888;">Nessuna competenza specificata.</p>
+                    {% endif %}
+                </div>
+            </section>
+            
+            <!-- Reviews Section -->
+            <section class="card">
+                <h2>Recensioni</h2>
+                <p style="color:#888;">Nessuna recensione disponibile al momento.</p>
+            </section>
+        </main>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Stats Card -->
+            <section class="consultation-card">
+                <h2>Le tue Statistiche</h2>
+                
+                <div class="stat-item">
+                    <div class="stat-label">Bollini</div>
+                    <div class="stat-value">{{ user.bollini }}</div>
+                </div>
+                
+                <div class="stat-item">
+                    <div class="stat-label">Consulenze Acquistate</div>
+                    <div class="stat-value">{{ user.consulenze_acquistate }}</div>
+                </div>
+                
+                <div class="stat-item">
+                    <div class="stat-label">Consulenze Vendute</div>
+                    <div class="stat-value">{{ user.consulenze_vendute }}</div>
+                </div>
+
+                <a href="/dashboard" class="btn btn-primary">Vai alla Dashboard</a>
+            </section>
+            
+            <!-- Account Info -->
+            <section class="card">
+                <h3>Account</h3>
+                <div class="account-info">
+                    <p><strong>Email:</strong><br>{{ user.email }}</p>
+                    <p><strong>Status:</strong><br>
+                        {% if user.confirmed == 1 %}
+                        <span style="color:#28a745;">✓ Verificato</span>
+                        {% else %}
+                        <span style="color:#dc3545;">Non Verificato</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>Membro dal:</strong><br>{{ user.created_at[:10] if user.created_at else 'N/A' }}</p>
+                </div>
+                <a href="/reset-password" class="btn btn-secondary">Cambia Password</a>
+            </section>
+        </aside>
     </div>
+
+    <script>
+        const editBtn = document.getElementById('editProfileBtn');
+        const cancelBtn = document.getElementById('cancelEditBtn');
+        const editSection = document.getElementById('editSection');
+        const viewSection = document.getElementById('viewSection');
+        const profileForm = document.getElementById('profileForm');
+
+        // Toggle edit mode
+        editBtn.addEventListener('click', () => {
+            editSection.style.display = 'block';
+            viewSection.style.display = 'none';
+            window.scrollTo({ top: editSection.offsetTop - 80, behavior: 'smooth' });
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            editSection.style.display = 'none';
+            viewSection.style.display = 'block';
+        });
+
+        // Submit form
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const successDiv = document.getElementById('successMessage');
+            const errorDiv = document.getElementById('errorMessage');
+            successDiv.style.display = 'none';
+            errorDiv.style.display = 'none';
+            
+            const formData = new FormData(profileForm);
+            
+            try {
+                const response = await fetch('/api/update-profile', {
+                    method: 'POST',
+                    body: new URLSearchParams(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    successDiv.textContent = 'Profilo aggiornato con successo!';
+                    successDiv.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    errorDiv.textContent = data.error || 'Errore durante l\'aggiornamento';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Errore di connessione';
+                errorDiv.style.display = 'block';
+                console.error('Error:', error);
+            }
+        });
+    </script>
 </body>
 </html>
