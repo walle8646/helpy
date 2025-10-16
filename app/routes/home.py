@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.database import get_session
 from app.models import ImageLink
+from app.models_user import User
 from sqlmodel import select
 from app.logger_config import logger
 
@@ -24,6 +25,23 @@ def home(request: Request):
         results = session.exec(statement).all()
         for img in results:
             urls[img.name] = img.url
+    
+    # Aggiungi la gestione dell'utente loggato
+    user = None
+    session_token = request.cookies.get("session_token")
+    
+    if session_token:
+        try:
+            from app.auth import verify_token
+            payload = verify_token(session_token)
+            user_id = payload.get("user_id")
+            
+            if user_id:
+                with get_session() as session:
+                    user = session.get(User, user_id)
+        except:
+            pass  # Token non valido o scaduto
+    
     return templates.TemplateResponse(
         "home.html",
         {
@@ -33,6 +51,7 @@ def home(request: Request):
             "mic_img_url": urls["mic"],
             "david_img_url": urls["david"],
             "amily_img_url": urls["amily"],
-            "title": "Helpy - Home"
+            "title": "Helpy - Home",
+            "user": user  # Aggiungi l'utente al template
         }
     )

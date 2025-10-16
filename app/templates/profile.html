@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Helpy</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-left">
+            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo" style="height:32px;">
+            <span class="navbar-title">Helpy</span>
+        </div>
+        <div class="navbar-links">
+            <a href="/">Home</a>
+            <a href="/logout" class="register-btn" style="background:#e74c3c;">Logout</a>
+        </div>
+    </nav>
+
+    <div class="register-container">
+        <div class="register-header">
+            <h1>👤 Your Profile</h1>
+            <p>Welcome to your Helpy account</p>
+        </div>
+
+        <div class="profile-info">
+            <div class="profile-field">
+                <label>Email:</label>
+                <p>{{ user.email }}</p>
+            </div>
+            <div class="profile-field">
+                <label>Password:</label>
+                <p>{{ user.password_md5[:8] }}••••••••</p>
+            </div>
+            <div class="profile-field">
+                <label>Account Status:</label>
+                <p>{% if user.confirmed == 1 %}<span style="color:#4a4;">✓ Verified</span>{% else %}<span style="color:#c33;">Not Verified</span>{% endif %}</p>
+            </div>
+        </div>
+
+        <div class="back-link">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

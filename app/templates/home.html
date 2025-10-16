@@ -13,21 +13,39 @@
             <span class="navbar-title">Helpy</span>
         </div>
         <div class="navbar-links">
-            <a href="/register" class="register-btn">Register</a>
+            {% if user %}
+                <!-- Utente loggato: mostra Profile e Logout -->
+                <span style="color:#666; margin-right:16px;">Hello, {{ user.email }}</span>
+                <a href="/profile" class="register-btn">Profile</a>
+                <a href="/logout" class="register-btn" style="background:#e74c3c; margin-left:12px;">Logout</a>
+            {% else %}
+                <!-- Utente NON loggato: mostra Register e Login -->
+                <a href="/register" class="register-btn">Register</a>
+                <a href="/login" class="register-btn" style="background:#1746a2; margin-left:12px;">Login</a>
+            {% endif %}
         </div>
     </nav>
 
     <!-- Hero Section -->
     <section class="hero">
-        <div class="hero-content">
-            <div class="hero-title">Get advice from<br>people who can help</div>
-            <div class="hero-desc">
-                Connect with others, share knowledge, and<br>
-                receive personalized consultations for a fee.
+        {% if user %}
+            <!-- Utente loggato: solo testo -->
+            <div class="hero-content">
+                <h1 class="hero-title">Welcome back, {{ user.email.split('@')[0] }}! 👋</h1>
+                <p class="hero-desc">Ready to connect with experts?</p>
+                <a href="/dashboard" class="hero-btn">Go to Dashboard</a>
             </div>
-            <button class="hero-btn">Join Now</button>
-        </div>
-        <img class="hero-img" src="{{ hero_img_url }}" alt="Network Illustration">
+        {% else %}
+            <!-- Utente NON loggato: layout originale con immagine a destra -->
+            <div class="hero-content">
+                <h1 class="hero-title">Get advice from people who can help</h1>
+                <p class="hero-desc">Connect with others, share knowledge, and receive personalized consultations for a fee.</p>
+                <a href="/register" class="hero-btn">Join Now</a>
+            </div>
+            {% if hero_img_url %}
+            <img class="hero-img" src="{{ hero_img_url }}" alt="Helpy Network">
+            {% endif %}
+        {% endif %}
     </section>
 
     <!-- How Helpy Works -->

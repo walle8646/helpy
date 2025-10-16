@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Helpy</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-left">
+            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo" style="height:32px;">
+            <span class="navbar-title">Helpy</span>
+        </div>
+        <div class="navbar-links">
+            <a href="/">Home</a>
+            <a href="/register" class="register-btn">Register</a>
+        </div>
+    </nav>
+
+    <div class="register-container">
+        <div class="register-header">
+            <h1>Welcome Back</h1>
+            <p>Log in to your Helpy account</p>
+        </div>
+        
+        <div id="errorMessage" class="error-message"></div>
+        <div id="emailNotFound" class="error-message" style="display:none;">
+            <p>Email not found. <a href="/register" style="color:#2563eb; font-weight:600;">Create a new account</a></p>
+        </div>
+        <div id="wrongPassword" class="error-message" style="display:none;">
+            <p>Wrong password. <a href="#" id="resetPasswordLink" style="color:#2563eb; font-weight:600;">Reset your password</a></p>
+        </div>
+
+        <form class="register-form" id="loginForm" onsubmit="return false;">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required placeholder="your@email.com">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="Enter your password">
+            </div>
+            
+            <button type="submit" class="register-form-btn">Log In</button>
+        </form>
+
+        <div class="back-link">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
