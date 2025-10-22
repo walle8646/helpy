@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.models_user import User
+from app.models_category import Category
 from app.database import get_session
 from app.logger_config import logger
 
@@ -16,8 +17,12 @@ def public_user_profile(request: Request, user_id: int):
         if not user:
             return RedirectResponse("/")
         
-        # Converti stringhe in liste
-        macro_aree_list = user.macro_aree.split(',') if user.macro_aree else []
+        # Carica la categoria
+        category = None
+        if user.category_id:
+            category = session.get(Category, user.category_id)
+        
+        # Converti aree_interesse da stringa a lista (rimuovi macro_aree)
         aree_interesse_list = user.aree_interesse.split(',') if user.aree_interesse else []
         
         # Ottieni l'utente loggato (se c'è)
@@ -39,7 +44,7 @@ def public_user_profile(request: Request, user_id: int):
             "request": request,
             "user": user,
             "current_user": current_user,
-            "macro_aree_list": macro_aree_list,
+            "category": category,
             "aree_interesse_list": aree_interesse_list,
             "is_own_profile": current_user and current_user.id == user.id
         })

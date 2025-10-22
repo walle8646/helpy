@@ -113,62 +113,107 @@ body {
     font-size: 1rem;
 }
 .featured {
-    padding: 48px 0 48px 0;
+    padding: 48px 20px;
     background: #fff;
-    text-align: center;
 }
 .featured-title {
-    font-size: 1.5rem;
+    font-size: 1.8rem;
     font-weight: 700;
-    margin-bottom: 32px;
+    margin-bottom: 40px;
+    color: #222;
+    text-align: center;
 }
 .consultants {
-    display: flex;
-    justify-content: center;
-    gap: 36px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 20px;
 }
 .consultant-card {
-    background: #f9fafb;
+    background: white;
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    padding: 24px 18px 20px 18px;
-    width: 210px;
+    padding: 30px 25px;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
+.consultant-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
 .consultant-photo {
-    width: 110px;      /* aumentato da 80px */
-    height: 110px;     /* aumentato da 80px */
+    width: 100px;
+    height: 100px;
     border-radius: 50%;
-    object-fit: cover;
-    margin-bottom: 16px;
-    border: 2px solid #e5e7eb;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    margin-bottom: 20px;
+    flex-shrink: 0;
 }
 .consultant-name {
+    font-size: 1.35em;
     font-weight: 600;
-    font-size: 1.1rem;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
+    color: #222;
 }
 .consultant-role {
-    color: #555;
-    font-size: 0.98rem;
-    margin-bottom: 18px;
+    color: #666;
+    margin-bottom: 15px;
+    font-size: 0.95em;
+    line-height: 1.4;
+    min-height: 40px;
+}
+.consultant-category {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    margin: 10px 0;
+}
+.consultant-price {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #007bff;
+    margin: 15px 0 10px 0;
+}
+.consultant-stats {
+    color: #888;
+    font-size: 0.9em;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
 }
 .consultant-btn {
-    background: #2563eb;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    padding: 8px 18px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    padding: 14px 20px;
+    background: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.05em;
+    transition: all 0.2s;
+    box-sizing: border-box;
+    margin-top: auto;
 }
 .consultant-btn:hover {
-    background: #1746a2;
+    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 .register-btn {
     display: inline-block;
@@ -508,6 +553,43 @@ body {
     background: #1d4ed8;
 }
 
+/* Consultation Card - Fix button alignment */
+.consultation-card {
+    background: white;
+    border-radius: 12px;
+    padding: 30px 25px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    text-align: center;
+    box-sizing: border-box; /* AGGIUNGI QUESTA RIGA */
+}
+
+/* Fix per il bottone */
+.consultation-card .btn {
+    display: block;
+    width: 100%;
+    max-width: 100%; /* AGGIUNGI QUESTA RIGA */
+    padding: 16px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.2s;
+    box-sizing: border-box; /* AGGIUNGI QUESTA RIGA */
+    margin: 10px 0;
+}
+
+/* Testo sotto il bottone */
+.consultation-card p {
+    font-size: 0.85em;
+    color: #888;
+    margin: 12px 0 0 0;
+    padding: 0; /* AGGIUNGI QUESTA RIGA */
+    line-height: 1.5;
+}
+
 @media (max-width: 768px) {
     .profile-container {
         flex-direction: column;
@@ -523,5 +605,133 @@ body {
     
     .profile-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Consultant Cards - 4 per riga compatti */
+.consultants {
+    padding: 48px 20px;
+    background: #fff;
+}
+
+.consultants h2 {
+    text-align: center;
+    font-size: 1.8rem;
+    margin-bottom: 40px;
+    color: #222;
+}
+
+.consultant-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    max-width: 1300px;
+    margin: 0 auto;
+}
+
+.consultant-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px 20px;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.consultant-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+/* Avatar con foto profilo */
+.consultant-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 16px;
+    display: block;
+    border: 3px solid #007bff;
+    transition: border-color 0.2s;
+}
+
+.consultant-card:hover .consultant-avatar {
+    border-color: #0056b3;
+}
+
+/* Avatar default (emoji) */
+.consultant-avatar-default {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    margin: 0 auto 16px;
+    border: 3px solid #667eea;
+    transition: all 0.2s;
+}
+
+.consultant-card:hover .consultant-avatar-default {
+    border-color: #764ba2;
+}
+
+.consultant-card h3 {
+    font-size: 1.35em;
+    font-weight: 600;
+    margin: 0 0 6px 0;
+    color: #222;
+}
+
+.consultant-profession {
+    color: #666;
+    font-size: 0.95em;
+    margin: 0 0 12px 0;
+    min-height: 40px;
+    line-height: 1.4;
+}
+
+.consultant-category {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 600;
+    margin: 8px 0;
+}
+
+.consultant-stats {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 12px;
+    font-size: 0.85em;
+    color: #888;
+}
+
+.consultant-stats span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.consultant-price {
+    margin-top: 12px;
+    font-size: 1.1em;
+    font-weight: 700;
+    color: #28a745;
+}
+
+@media (max-width: 768px) {
+    .consultant-grid {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     }
 }

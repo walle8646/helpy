@@ -32,7 +32,15 @@
             
             <!-- Profile Header -->
             <header class="profile-header card">
-                <div class="profile-avatar-large">👤</div>
+                <!-- 🔥 FOTO PROFILO O AVATAR DEFAULT -->
+                {% if user.profile_picture %}
+                <img src="{{ user.profile_picture }}" alt="{{ user.nome }}" class="profile-avatar-large">
+                {% else %}
+                <div class="profile-avatar-large">
+                    {{ category.icon if category else '👤' }}
+                </div>
+                {% endif %}
+                
                 <div class="info">
                     <h1>{{ user.nome or 'Nome non disponibile' }}</h1>
                     <p>{{ user.professione or 'Professionista' }}</p>
@@ -87,6 +95,21 @@
                 <p style="color:#888;">Nessuna recensione disponibile al momento.</p>
                 <!-- Qui in futuro aggiungeremo le recensioni reali -->
             </section>
+
+            <!-- Category Badge -->
+            {% if category %}
+            <section class="card">
+                <h2>Categoria</h2>
+                <div class="category-badge" style="background:{{ category.color }}20; border-left:4px solid {{ category.color }}; padding:16px; border-radius:8px;">
+                    <div style="font-size:2em; margin-bottom:8px;">{{ category.icon }}</div>
+                    <h3 style="margin:0 0 8px 0; color:{{ category.color }};">{{ category.name }}</h3>
+                    <p style="margin:0; color:#666;">{{ category.description }}</p>
+                    {% if category.target %}
+                    <small style="color:#888; display:block; margin-top:8px;"><strong>Target:</strong> {{ category.target }}</small>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
         </main>
 
         <!-- Sidebar -->
@@ -107,24 +130,26 @@
                 <div class="btn btn-secondary" style="cursor: not-allowed; opacity: 0.6;">Non puoi prenotare te stesso</div>
                 {% elif not current_user %}
                 <a href="/login?redirect=/user/{{ user.id }}" class="btn btn-primary">Accedi per Prenotare</a>
-                <p style="font-size: 0.85em; color: #777; margin-top: 12px;">Devi essere loggato per richiedere una consulenza</p>
+                <p>Devi essere loggato per richiedere una consulenza</p>
                 {% else %}
                 <a href="/book/{{ user.id }}" class="btn btn-primary">Prenota Ora</a>
-                <p style="font-size: 0.85em; color: #777; margin-top: 12px;">Verrai reindirizzato al calendario per scegliere la data.</p>
+                <p>Verrai reindirizzato al calendario per scegliere la data.</p>
                 {% endif %}
             </section>
             
             <!-- Stats Card -->
             <section class="card">
                 <h3>Statistiche</h3>
+                
                 <div class="stat-item">
                     <div class="stat-label">Consulenze Vendute</div>
-                    <div class="stat-value" style="font-size:1.5em;">{{ user.consulenze_vendute }}</div>
+                    <div class="stat-value">{{ user.consulenze_vendute }}</div>
                 </div>
-                <div class="stat-item" style="margin-top:15px;">
+                
+                <div class="stat-item">
                     <div class="stat-label">Valutazione Media</div>
                     <div class="stars">⭐⭐⭐⭐⭐</div>
-                    <p style="font-size:0.9em; color:#888; margin:5px 0 0 0;">(0 recensioni)</p>
+                    <p style="margin:5px 0 0 0; font-size:0.9em; color:#888;">(0 recensioni)</p>
                 </div>
             </section>
 
@@ -132,7 +157,7 @@
             {% if not is_own_profile and current_user %}
             <section class="card">
                 <h3>Messaggistica</h3>
-                <p style="color: #555; font-size:0.95em;">Puoi inviare un messaggio per domande veloci prima di prenotare.</p>
+                <p style="text-align:center; color: #555; font-size:0.95em; margin-bottom:16px;">Puoi inviare un messaggio per domande veloci prima di prenotare.</p>
                 <a href="/messages/{{ user.id }}" class="btn btn-secondary">Invia Messaggio</a>
             </section>
             {% endif %}

@@ -13,11 +13,13 @@ class User(SQLModel, table=True):
     # Campi profilo
     nome: Optional[str] = Field(default=None)
     professione: Optional[str] = Field(default=None)
-    descrizione: Optional[str] = Field(default=None)  # NUOVO: descrizione biografica
-    macro_aree: Optional[str] = Field(default=None)
+    descrizione: Optional[str] = Field(default=None)
+    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+    
     bollini: int = Field(default=0)
     consulenze_acquistate: int = Field(default=0)
     consulenze_vendute: int = Field(default=0)
     aree_interesse: Optional[str] = Field(default=None)
-    prezzo_consulenza: Optional[int] = Field(default=150)  # NUOVO: prezzo in euro
-    durata_consulenza: Optional[int] = Field(default=60)  # NUOVO: durata in minuti
+    prezzo_consulenza: Optional[int] = Field(default=150)
+    durata_consulenza: Optional[int] = Field(default=60)
+    profile_picture: Optional[str] = None  # 🔥 AGGIUNGI QUESTA RIGA

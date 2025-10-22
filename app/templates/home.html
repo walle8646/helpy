@@ -31,9 +31,9 @@
         {% if user %}
             <!-- Utente loggato: solo testo -->
             <div class="hero-content">
-                <h1 class="hero-title">Welcome back, {{ user.email.split('@')[0] }}! 👋</h1>
+                <h1 class="hero-title">Welcome back, {{ user.nome or user.email.split('@')[0] }}! 👋</h1>
                 <p class="hero-desc">Ready to connect with experts?</p>
-                <a href="/dashboard" class="hero-btn">Go to Dashboard</a>
+                <a href="/consultants" class="hero-btn">Browse Consultants</a>
             </div>
         {% else %}
             <!-- Utente NON loggato: layout originale con immagine a destra -->
@@ -76,36 +76,45 @@
         </div>
     </section>
 
-    <!-- Featured Consultants -->
+    <!-- Featured Consultants Section -->
     <section class="featured">
-        <div class="featured-title">Featured Consultants</div>
-        <div class="consultants">
-            <div class="consultant-card">
-                <img class="consultant-photo" src="{{ sara_img_url }}" alt="Sarah Williams">
-                <div class="consultant-name">Sarah Williams</div>
-                <div class="consultant-role">Career Development</div>
-                <button class="consultant-btn">Request a Consultation</button>
-            </div>
-            <div class="consultant-card">
-                <img class="consultant-photo" src="{{ mic_img_url }}" alt="Michael Johnson">
-                <div class="consultant-name">Michael Johnson</div>
-                <div class="consultant-role">Marketing Strategy</div>
-                <button class="consultant-btn">Request a Consultation</button>
-            </div>
-            <div class="consultant-card">
-                <img class="consultant-photo" src="{{ amily_img_url }}" alt="Emily Davis">
-                <div class="consultant-name">Emily Davis</div>
-                <div class="consultant-role">Expat Living</div>
-                <button class="consultant-btn">Request a Consultation</button>
-            </div>
-            <div class="consultant-card">
-                <img class="consultant-photo" src="{{ david_img_url }}" alt="David Martinez">
-                <div class="consultant-name">David Martinez</div>
-                <div class="consultant-role">Fitness & Nutrition</div>
-                <button class="consultant-btn">Request a Consultation</button>
-            </div>
+        <h2 class="featured-title">I Nostri Top Consulenti</h2>
+        
+        <div class="consultant-grid">
+            {% for item in consultants %}
+            <a href="/user/{{ item.user.id }}" class="consultant-card">
+                {% if item.user.profile_picture %}
+                <img src="{{ item.user.profile_picture }}" alt="{{ item.user.nome }}" class="consultant-avatar">
+                {% else %}
+                <div class="consultant-avatar-default">
+                    {{ item.category.icon if item.category else '👤' }}
+                </div>
+                {% endif %}
+                
+                <h3>{{ item.user.nome }}</h3>
+                <p class="consultant-profession">{{ item.user.professione or 'Consulente' }}</p>
+                
+                {% if item.category %}
+                <span class="consultant-category" style="background: {{ item.category.color }}20; color: {{ item.category.color }};">
+                    {{ item.category.icon }} {{ item.category.name }}
+                </span>
+                {% endif %}
+                
+                <div class="consultant-stats">
+                    <span>⭐ {{ item.user.bollini }} Bollini</span>
+                    <span>💼 {{ item.user.consulenze_vendute }} Consulenze</span>
+                </div>
+                
+                {% if item.user.prezzo_consulenza %}
+                <div class="consultant-price">
+                    💰 €{{ item.user.prezzo_consulenza }}/ora
+                </div>
+                {% endif %}
+            </a>
+            {% endfor %}
         </div>
     </section>
+    
     <script src="/static/script.js"></script>
 </body>
 </html>

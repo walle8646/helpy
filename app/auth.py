@@ -1,35 +1,29 @@
+import jwt
 from datetime import datetime, timedelta
 from typing import Optional
-from jose import JWTError, jwt
-from fastapi import HTTPException, Cookie
-import os
 
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
+SECRET_KEY = "your-secret-key-change-this-in-production-123456789"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 giorni
+ACCESS_TOKEN_EXPIRE_DAYS = 7
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Crea un JWT token"""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+    
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 def verify_token(token: str) -> dict:
+    """Verifica e decodifica un JWT token"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-def get_current_user_id(token: Optional[str] = Cookie(None, alias="session_token")) -> int:
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    payload = verify_token(token)
-    user_id = payload.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return user_id
+    except jwt.ExpiredSignatureError:
+        raise Exception("Token expired")
+    except jwt.InvalidTokenError:
+        raise Exception("Invalid token")
