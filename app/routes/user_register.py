@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import select
-from app.models_user import User
+from app.models import User
 from app.database import get_session
 from app.utils_user import hash_md5, gen_code6, send_confirmation_email
 from app.logger_config import logger

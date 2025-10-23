@@ -2,8 +2,8 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import select, or_, and_
-from app.models_user import User
-from app.models_category import Category
+from app.models import User
+from app.models import Category
 from app.database import get_session
 from app.logger_config import logger
 from typing import Optional

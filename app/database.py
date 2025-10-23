@@ -1,8 +1,6 @@
 from sqlmodel import SQLModel, create_engine, Session
 import os
 from app.logger_config import logger
-from app.models import ImageLink  # ...existing code...
-from app.models_user import User  # AGGIUNGI QUESTA RIGA
 from contextlib import contextmanager
 
 # Ottieni DATABASE_URL da environment
@@ -25,10 +23,14 @@ engine = create_engine(
 
 @contextmanager
 def get_session():
+    """Context manager per sessione database"""
     with Session(engine) as session:
         yield session
 
 def create_db_and_tables():
     """Crea tutte le tabelle se non esistono"""
     logger.info("Creating database and tables")
+    # Import modelli per registrarli
+    from app.models import User, Category, Consultation
+    
     SQLModel.metadata.create_all(engine)
