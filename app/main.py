@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from app.routes import home, api, user_register, user_login, user_profile, public_profile
+from app.routes import home, api, user_register, user_login, user_profile, public_profile, consultants
 from app.database import create_db_and_tables
 from app.logger_config import logger
 from pathlib import Path
@@ -22,6 +22,7 @@ app.include_router(user_register.router)
 app.include_router(user_login.router)       # Login/Logout
 app.include_router(user_profile.router)     # 🔥 /profile con categorie
 app.include_router(public_profile.router)
+app.include_router(consultants.router)
 
 @app.on_event("startup")
 def on_startup():

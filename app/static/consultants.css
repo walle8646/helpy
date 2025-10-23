@@ -1,0 +1,484 @@
+/* Search Hero */
+.search-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 60px 20px;
+    color: white;
+    text-align: center;
+}
+
+.search-container h1 {
+    font-size: 2.2em;
+    margin-bottom: 30px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.search-form {
+    max-width: 700px;
+    margin: 0 auto;
+    display: flex;
+    gap: 15px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 18px 24px;
+    border: none;
+    border-radius: 50px;
+    font-size: 1.1em;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.search-btn {
+    padding: 18px 40px;
+    background: white;
+    color: #667eea;
+    border: none;
+    border-radius: 50px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.search-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0,0,0,0.15);
+}
+
+/* Layout */
+.consultants-container {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 40px;
+    max-width: 1400px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+/* Sidebar Filtri */
+.filters-sidebar {
+    position: sticky;
+    top: 20px;
+    align-self: flex-start;
+}
+
+.filters-sidebar h3 {
+    font-size: 1.3em;
+    margin-bottom: 20px;
+    color: #222;
+}
+
+.category-filters {
+    list-style: none;
+    padding: 0;
+}
+
+.category-filters li {
+    margin-bottom: 8px;
+}
+
+.category-filters a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    color: #555;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.category-filters a:hover {
+    background: #f5f5f5;
+}
+
+.category-filters a.active {
+    background: #e3f2fd;
+    color: #1976d2;
+    font-weight: 600;
+}
+
+.category-icon {
+    font-size: 1.5em;
+}
+
+/* Results Header */
+.results-header {
+    margin-bottom: 30px;
+}
+
+.results-header p {
+    color: #666;
+    font-size: 1.05em;
+}
+
+/* Griglia Consulenti - 4 per riga */
+.consultants-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+}
+
+.consultant-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+}
+
+.consultant-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+
+.card-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    flex: 1;
+}
+
+.consultant-avatar,
+.consultant-avatar-default {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    margin-bottom: 16px;
+    object-fit: cover;
+}
+
+.consultant-avatar {
+    border: 3px solid #007bff;
+}
+
+.consultant-avatar-default {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3em;
+    border: 3px solid #667eea;
+}
+
+.consultant-card h3 {
+    font-size: 1.3em;
+    margin: 0 0 8px 0;
+    color: #222;
+}
+
+.profession {
+    color: #666;
+    font-size: 0.95em;
+    margin: 0 0 12px 0;
+    min-height: 42px;
+}
+
+.category-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 600;
+    margin: 10px 0;
+}
+
+.consultant-stats {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin: 15px 0;
+    font-size: 0.9em;
+    color: #888;
+}
+
+.rating {
+    color: #ffc107;
+    font-weight: 600;
+}
+
+.price {
+    margin-top: 12px;
+    color: #666;
+    font-size: 0.95em;
+}
+
+.price strong {
+    color: #28a745;
+    font-size: 1.2em;
+}
+
+.btn-consult {
+    width: 100%;
+    padding: 14px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: all 0.2s;
+}
+
+.btn-consult:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+}
+
+/* Filtro Range Prezzo */
+.price-filter-form {
+    margin-top: 0;
+}
+
+.price-inputs {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+/* Filtro Range Prezzo - Layout Verticale */
+.additional-filters {
+    margin-top: 30px;
+    padding-top: 25px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.additional-filters h4 {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    color: #222;
+}
+
+/* Layout verticale per gli input */
+.price-inputs-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.price-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.currency-symbol {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #667eea;
+    font-weight: 700;
+    font-size: 1.1em;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.price-input {
+    width: 100%;
+    padding: 13px 14px 13px 34px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    color: #333;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+.price-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.price-input::placeholder {
+    color: #aaa;
+    font-weight: 400;
+}
+
+.btn-apply-price {
+    width: 100%;
+    padding: 13px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 10px;
+    box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-apply-price:disabled {
+    background: linear-gradient(135deg, #ccc 0%, #aaa 100%);
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.6;
+}
+
+.btn-apply-price:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-apply-price:not(:disabled):active {
+    transform: translateY(0);
+}
+
+.btn-reset-price {
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    text-align: center;
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.9em;
+    font-weight: 600;
+    transition: all 0.2s;
+    margin-bottom: 12px;
+    box-sizing: border-box; /* 🔥 AGGIUNTO */
+}
+
+.btn-reset-price:hover {
+    background: #ffe69c;
+    border-color: #ffdf6b;
+}
+
+.price-suggestions {
+    display: flex;
+    gap: 8px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+}
+
+.price-tag {
+    flex: 1;
+    min-width: 80px;
+    padding: 10px 14px;
+    background: white;
+    color: #555;
+    text-align: center;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.88em;
+    font-weight: 700;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.price-tag:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+}
+
+/* Suggerimenti ricerca */
+.search-suggestions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.suggestion-label {
+    font-size: 0.9em;
+    color: rgba(255,255,255,0.8);
+    font-weight: 600;
+}
+
+.search-tag {
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 0.85em;
+    font-weight: 600;
+    transition: all 0.2s;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.search-tag:hover {
+    background: white;
+    color: #667eea;
+    transform: translateY(-2px);
+}
+
+/* Paginazione */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 50px;
+}
+
+.page-btn,
+.page-number {
+    padding: 10px 18px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    color: #555;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.page-number.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.page-btn:hover,
+.page-number:hover {
+    background: #f5f5f5;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .consultants-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .consultants-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .filters-sidebar {
+        position: static;
+    }
+    
+    .consultants-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .search-form {
+        flex-direction: column;
+    }
+}

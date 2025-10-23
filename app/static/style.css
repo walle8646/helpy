@@ -590,6 +590,26 @@ body {
     line-height: 1.5;
 }
 
+.price-input-wrapper {
+    position: relative;
+    flex: 1;
+}
+
+.currency-symbol {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #667eea;
+    font-weight: 700;
+    font-size: 1.1em;
+    pointer-events: none;
+}
+
+.price-input-wrapper .price-input {
+    padding-left: 28px;
+}
+
 @media (max-width: 768px) {
     .profile-container {
         flex-direction: column;
@@ -734,4 +754,8 @@ body {
     .consultant-grid {
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     }
+}
+
+.price-filter-form * {
+    box-sizing: border-box;
 }
