@@ -3,25 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trova Consulenti - Helpyer</title>
+    <title>Consulenti - Helpy</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/consultants.css">
 </head>
 <body>
+
     <!-- Navbar -->
     <nav class="navbar">
         <div class="navbar-left">
-            <span class="navbar-logo">💎</span>
-            <span class="navbar-title">Helpyer</span>
+            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo">
+            <a href="/" class="navbar-title">Helpy</a>
         </div>
-        <div class="navbar-center">
+        <div class="navbar-links">
             <a href="/">Home</a>
-            <a href="/consultants" class="active">Consulenti</a>
-            <a href="#">Come Funziona</a>
-        </div>
-        <div class="navbar-right">
-            <a href="/login" class="btn-login">Accedi</a>
-            <a href="/register" class="btn-register">Registrati</a>
+            <a href="/consultants">Consulenti</a>
+            
+            <!-- ✅ Mostra bottoni diversi se loggato -->
+            {% if user %}
+                <a href="/profile" class="register-btn">👤 {{ user.nome }}</a>
+                <a href="/logout" class="register-btn" style="background: #e74c3c; margin-left: 8px;">Logout</a>
+            {% else %}
+                <a href="/login" class="register-btn" style="background: #1746a2; margin-right: 8px;">Login</a>
+                <a href="/register" class="register-btn">Registrati</a>
+            {% endif %}
         </div>
     </nav>
 

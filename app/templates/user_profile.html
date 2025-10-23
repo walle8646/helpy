@@ -15,12 +15,12 @@
         </div>
         <div class="navbar-links">
             <a href="/">Home</a>
-            {% if current_user %}
-                <a href="/profile" class="register-btn">Il Mio Profilo</a>
-                <a href="/logout" class="register-btn" style="background:#e74c3c; margin-left:12px;">Logout</a>
+            {% if user %}
+                <a href="/profile" class="register-btn">👤 {{ user.nome }}</a>
+                <a href="/logout" class="register-btn" style="background: #e74c3c; margin-left: 8px;">Logout</a>
             {% else %}
-                <a href="/register" class="register-btn">Register</a>
-                <a href="/login" class="register-btn" style="background:#1746a2; margin-left:12px;">Login</a>
+                <a href="/login" class="register-btn" style="background: #1746a2; margin-right: 8px;">Login</a>
+                <a href="/register" class="register-btn">Registrati</a>
             {% endif %}
         </div>
     </nav>
@@ -128,7 +128,7 @@
 
                 {% if is_own_profile %}
                 <div class="btn btn-secondary" style="cursor: not-allowed; opacity: 0.6;">Non puoi prenotare te stesso</div>
-                {% elif not current_user %}
+                {% elif not user %}
                 <a href="/login?redirect=/user/{{ user.id }}" class="btn btn-primary">Accedi per Prenotare</a>
                 <p>Devi essere loggato per richiedere una consulenza</p>
                 {% else %}

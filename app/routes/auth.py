@@ -1,76 +1,126 @@
-import jwt
-from datetime import datetime, timedelta
-from typing import Optional
-from fastapi import APIRouter, Request, Form, Depends, HTTPException
-from fastapi.responses import RedirectResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select
+from fastapi import APIRouter, Request, Form, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
 from app.models import User
-from passlib.context import CryptContext
-
-SECRET_KEY = "your-secret-key-change-this-in-production-123456789"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 7
+from sqlmodel import select
+import hashlib
+from typing import Optional
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Crea un JWT token"""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+def verify_token(request: Request) -> Optional[User]:
+    """Verifica se l'utente è loggato tramite session"""
+    user_id = request.session.get("user_id")
     
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    if not user_id:
+        return None
+    
+    with get_session() as session:
+        user = session.get(User, user_id)
+        return user
 
-def verify_token(token: str) -> dict:
-    """Verifica e decodifica un JWT token"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise Exception("Token expired")
-    except jwt.InvalidTokenError:
-        raise Exception("Invalid token")
+async def get_current_user(request: Request) -> User:
+    """Dependency che richiede autenticazione"""
+    user = verify_token(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    return user
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Pagina di login"""
-    return templates.TemplateResponse("auth/login.html", {"request": request})
+    # ❌ RIMUOVI QUESTO (causa loop):
+    # if verify_token(request):
+    #     return RedirectResponse("/profile", status_code=302)
+    
+    # ✅ Mostra sempre la pagina login
+    return request.app.state.templates.TemplateResponse(
+        "login.html",
+        {"request": request}
+    )
 
 @router.post("/login")
 async def login(
     request: Request,
     email: str = Form(...),
-    password: str = Form(...),
-    session: Session = Depends(get_session)
+    password: str = Form(...)
 ):
-    """Gestisce il login"""
-    # Trova utente
-    statement = select(User).where(User.email == email)
-    user = session.exec(statement).first()
-    
-    if not user or not pwd_context.verify(password, user.password):
-        return templates.TemplateResponse(
-            "auth/login.html",
-            {"request": request, "error": "Email o password errati"}
-        )
-    
-    # Salva user_id in session (usa cookie sicuro in produzione)
-    response = RedirectResponse(url="/profile", status_code=303)
-    response.set_cookie(key="user_id", value=str(user.id))
-    return response
+    """Login con form HTML"""
+    with get_session() as session:
+        statement = select(User).where(User.email == email)
+        user = session.exec(statement).first()
+        
+        if not user:
+            return request.app.state.templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": "Email non trovata"}
+            )
+        
+        password_hash = hashlib.md5(password.encode()).hexdigest()
+        
+        if user.password_md5 != password_hash:
+            return request.app.state.templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": "Password errata"}
+            )
+        
+        if user.confirmed != 1:
+            return request.app.state.templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": "Conferma prima la tua email"}
+            )
+        
+        # ✅ SALVA IN SESSION
+        request.session["user_id"] = user.id
+        request.session["user_email"] = user.email
+        request.session["user_nome"] = user.nome or "User"
+        
+        # ✅ REDIRECT A /profile
+        return RedirectResponse("/profile", status_code=302)
+
+@router.post("/api/login")
+async def api_login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...)
+):
+    """API Login (ritorna JSON)"""
+    with get_session() as session:
+        statement = select(User).where(User.email == email)
+        user = session.exec(statement).first()
+        
+        if not user:
+            return JSONResponse({"error": "Email non trovata"}, status_code=404)
+        
+        password_hash = hashlib.md5(password.encode()).hexdigest()
+        
+        if user.password_md5 != password_hash:
+            return JSONResponse({"error": "Password errata"}, status_code=401)
+        
+        if user.confirmed != 1:
+            return JSONResponse({"error": "Conferma la tua email"}, status_code=403)
+        
+        # ✅ SALVA IN SESSION
+        request.session["user_id"] = user.id
+        request.session["user_email"] = user.email
+        
+        return JSONResponse({
+            "message": "Login successful",
+            "redirect_url": "/profile",  # ✅ /profile
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "nome": user.nome
+            }
+        })
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
     """Pagina di registrazione"""
-    return templates.TemplateResponse("auth/register.html", {"request": request})
+    return request.app.state.templates.TemplateResponse(
+        "register.html",
+        {"request": request}
+    )
 
 @router.post("/register")
 async def register(
@@ -78,38 +128,34 @@ async def register(
     email: str = Form(...),
     password: str = Form(...),
     nome: str = Form(...),
-    session: Session = Depends(get_session)
+    cognome: str = Form(None)
 ):
     """Gestisce la registrazione"""
-    # Verifica se email già esiste
-    statement = select(User).where(User.email == email)
-    existing_user = session.exec(statement).first()
-    
-    if existing_user:
-        return templates.TemplateResponse(
-            "auth/register.html",
-            {"request": request, "error": "Email già registrata"}
+    with get_session() as session:
+        existing = session.exec(select(User).where(User.email == email)).first()
+        if existing:
+            return request.app.state.templates.TemplateResponse(
+                "register.html",
+                {"request": request, "error": "Email già registrata"}
+            )
+        
+        password_hash = hashlib.md5(password.encode()).hexdigest()
+        
+        new_user = User(
+            email=email,
+            password_md5=password_hash,
+            nome=nome,
+            cognome=cognome,
+            confirmed=0
         )
-    
-    # Crea nuovo utente
-    hashed_password = pwd_context.hash(password)
-    new_user = User(
-        email=email,
-        password=hashed_password,
-        nome=nome,
-        confirmed=True
-    )
-    
-    session.add(new_user)
-    session.commit()
-    session.refresh(new_user)
-    
-    # Redirect a login
-    return RedirectResponse(url="/login", status_code=303)
+        
+        session.add(new_user)
+        session.commit()
+        
+        return RedirectResponse("/login?registered=true", status_code=302)
 
 @router.get("/logout")
-async def logout():
-    """Logout"""
-    response = RedirectResponse(url="/", status_code=303)
-    response.delete_cookie(key="user_id")
-    return response
+async def logout(request: Request):
+    """Logout utente"""
+    request.session.clear()
+    return RedirectResponse("/", status_code=302)

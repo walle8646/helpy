@@ -3,10 +3,18 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware  # ✅ IMPORT
 from app.database import create_db_and_tables
 from app.routes import home, auth, consultants, user_profile
 
 app = FastAPI(title="Helpy", version="1.0.0")
+
+# ✅ AGGIUNGI QUESTO (PRIMA di includere le routes)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "helpy-super-secret-key-change-in-production-2024"),
+    max_age=86400  # 24 ore (opzionale)
+)
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
@@ -24,7 +32,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # Include routes
 app.include_router(home.router)
 app.include_router(auth.router)
-app.include_router(user_profile.router)  # ✅ Già include /user/{user_id}
+app.include_router(user_profile.router)
 app.include_router(consultants.router)
 
 # Crea tabelle al startup

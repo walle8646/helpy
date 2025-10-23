@@ -1,164 +1,174 @@
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from sqlmodel import select, or_, and_
-from app.models import User
-from app.models import Category
 from app.database import get_session
-from app.logger_config import logger
+from app.models import User, Category
+from app.routes.auth import verify_token  # ✅ DEVE ESSERE IMPORTATO
+from sqlmodel import select, or_, func
 from typing import Optional
-import re
+from app.logger_config import logger
+import math
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-
-# 🔥 Dizionario di parole correlate per ricerca intelligente
-SEARCH_KEYWORDS = {
-    # Finanza e Business
-    "finanziamenti": ["finanza", "prestiti", "credito", "banca", "investimenti", "capitale", "fundraising", "business plan", "startup"],
-    "soldi": ["finanza", "investimenti", "risparmio", "budget", "trading", "crypto", "denaro"],
-    "investimenti": ["finanza", "azioni", "trading", "crypto", "portafoglio", "rendite", "immobili"],
-    "startup": ["business", "imprenditoria", "fundraising", "pitch", "innovazione"],
-    
-    # Lavoro e Carriera
-    "lavoro": ["carriera", "cv", "colloqui", "linkedin", "recruiting", "hr"],
-    "cv": ["curriculum", "resume", "lettera motivazionale", "career"],
-    "colloquio": ["intervista", "recruiting", "selezione", "hr"],
-    "cambio lavoro": ["career", "transizione", "orientamento"],
-    
-    # Marketing e Digital
-    "marketing": ["seo", "ads", "social media", "instagram", "facebook", "google", "pubblicità"],
-    "social": ["instagram", "tiktok", "facebook", "social media", "content"],
-    "seo": ["google", "posizionamento", "traffico", "blog", "content"],
-    "vendere online": ["e-commerce", "shopify", "amazon", "dropshipping"],
-    
-    # Tech e Programmazione
-    "programmazione": ["coding", "developer", "software", "python", "javascript", "web"],
-    "sito web": ["wordpress", "web design", "frontend", "html", "css"],
-    "app": ["mobile", "ios", "android", "react native", "flutter"],
-    
-    # Design e Creatività
-    "design": ["grafica", "logo", "branding", "ui", "ux", "figma"],
-    "logo": ["branding", "brand identity", "grafica"],
-    
-    # Benessere
-    "dieta": ["nutrizione", "alimentazione", "perdere peso", "meal prep"],
-    "fitness": ["allenamento", "palestra", "personal trainer", "workout"],
-    "stress": ["mindfulness", "benessere", "psicologia", "yoga"],
-    
-    # Estero
-    "estero": ["expat", "trasferimento", "visto", "emigrare", "remote work"],
-    "visto": ["immigrazione", "cittadinanza", "permesso", "relocation"],
-}
-
-def expand_search_query(query: str) -> list:
-    """
-    Espande la query di ricerca con parole correlate
-    """
-    query_lower = query.lower().strip()
-    expanded_terms = [query_lower]
-    
-    # Cerca parole chiave correlate
-    for keyword, related_terms in SEARCH_KEYWORDS.items():
-        if keyword in query_lower or query_lower in keyword:
-            expanded_terms.extend(related_terms)
-    
-    # Rimuovi duplicati
-    return list(set(expanded_terms))
 
 @router.get("/consultants", response_class=HTMLResponse)
-def consultants_page(
+async def list_consultants(
     request: Request,
-    category: Optional[int] = Query(None),
+    category: Optional[int] = Query(None, alias="category"),
     search: Optional[str] = Query(None),
     min_price: Optional[int] = Query(None),
     max_price: Optional[int] = Query(None),
     page: int = Query(1, ge=1)
 ):
-    per_page = 12
-    offset = (page - 1) * per_page
+    """Pagina lista consulenti con filtri"""
+    
+    # ✅ AGGIUNGI QUESTO (controlla se è presente)
+    current_user = verify_token(request)
+    
+    # ✅ AGGIUNGI QUESTO LOG TEMPORANEO
+    if current_user:
+        logger.info(f"✅ User logged: {current_user.email} (ID: {current_user.id})")
+    else:
+        logger.warning("⚠️ No user logged in")
     
     with get_session() as session:
-        # Carica tutte le categorie per i filtri
-        categories = session.exec(select(Category)).all()
-        
-        # Query base: solo utenti confermati con nome
-        query = select(User).where(
-            and_(
-                User.confirmed == 1,
-                User.nome.isnot(None)
+        try:
+            # Query base
+            query = select(User).where(User.bollini > 0)
+            
+            # Filtro categoria
+            if category:
+                query = query.where(User.category_id == category)
+            
+            # Filtro ricerca
+            if search:
+                search_term = f"%{search}%"
+                query = query.where(
+                    or_(
+                        User.nome.ilike(search_term),
+                        User.professione.ilike(search_term),
+                        User.descrizione.ilike(search_term)
+                    )
+                )
+            
+            # Filtro prezzo
+            if min_price is not None:
+                query = query.where(User.prezzo_consulenza >= min_price)
+            if max_price is not None:
+                query = query.where(User.prezzo_consulenza <= max_price)
+            
+            # Conta totale
+            count_query = select(func.count()).select_from(query.subquery())
+            total_count = session.exec(count_query).one()
+            
+            # Paginazione
+            per_page = 12
+            total_pages = math.ceil(total_count / per_page)
+            offset = (page - 1) * per_page
+            
+            query = query.order_by(User.bollini.desc()).limit(per_page).offset(offset)
+            
+            consultants_list = session.exec(query).all()
+            
+            # Carica categorie
+            consultants = []
+            for user in consultants_list:
+                cat = None
+                if user.category_id:
+                    cat = session.get(Category, user.category_id)
+                
+                consultants.append({
+                    "user": user,
+                    "category": cat
+                })
+            
+            categories = session.exec(select(Category)).all()
+            
+            logger.info(f"Consultants page loaded: {len(consultants)} results")
+            
+            # ✅ VERIFICA CHE `user` SIA PASSATO QUI
+            return request.app.state.templates.TemplateResponse(
+                "consultants.html",
+                {
+                    "request": request,
+                    "consultants": consultants,
+                    "categories": categories,
+                    "selected_category": category,
+                    "search_query": search or "",
+                    "min_price": min_price,
+                    "max_price": max_price,
+                    "total_count": total_count,
+                    "current_page": page,
+                    "total_pages": total_pages,
+                    "user": current_user  # ✅ DEVE ESSERE PRESENTE
+                }
             )
+        
+        except Exception as e:
+            logger.error(f"Error loading consultants: {e}", exc_info=True)
+            
+            return request.app.state.templates.TemplateResponse(
+                "consultants.html",
+                {
+                    "request": request,
+                    "consultants": [],
+                    "categories": [],
+                    "selected_category": category,
+                    "search_query": search or "",
+                    "min_price": min_price,
+                    "max_price": max_price,
+                    "total_count": 0,
+                    "current_page": 1,
+                    "total_pages": 1,
+                    "user": current_user,  # ✅ ANCHE IN CASO DI ERRORE
+                    "error": "Errore nel caricamento dei consulenti"
+                }
+            )
+
+@router.get("/category/{slug}", response_class=HTMLResponse)
+async def category_page(slug: str, request: Request):
+    """Pagina categoria specifica"""
+    
+    # ✅ AGGIUNGI: Controlla se utente è loggato
+    current_user = verify_token(request)
+    
+    with get_session() as session:
+        # Trova categoria
+        category = session.exec(select(Category).where(Category.slug == slug)).first()
+        
+        if not category:
+            return request.app.state.templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "error": "Categoria non trovata",
+                    "user": current_user  # ✅ Passa utente
+                },
+                status_code=404
+            )
+        
+        # Carica consulenti della categoria
+        consultants_query = (
+            select(User)
+            .where(User.category_id == category.id)
+            .where(User.bollini > 0)
+            .order_by(User.bollini.desc())
         )
+        consultants_list = session.exec(consultants_query).all()
         
-        # Filtro per categoria
-        if category:
-            query = query.where(User.category_id == category)
-        
-        # 🔥 RICERCA INTELLIGENTE con termini espansi
-        if search:
-            # Espandi la query con termini correlati
-            expanded_terms = expand_search_query(search)
-            
-            # Crea condizioni OR per tutti i termini
-            search_conditions = []
-            for term in expanded_terms:
-                term_pattern = f"%{term}%"
-                search_conditions.append(User.nome.like(term_pattern))
-                search_conditions.append(User.professione.like(term_pattern))
-                search_conditions.append(User.descrizione.like(term_pattern))
-                search_conditions.append(User.aree_interesse.like(term_pattern))
-            
-            # Applica tutte le condizioni con OR
-            if search_conditions:
-                query = query.where(or_(*search_conditions))
-            
-            logger.info(f"Ricerca: '{search}' → Termini espansi: {expanded_terms}")
-        
-        # Filtro per range di prezzo
-        if min_price is not None and min_price >= 10:
-            query = query.where(User.prezzo_consulenza >= min_price)
-        
-        if max_price is not None and max_price >= 10:
-            query = query.where(User.prezzo_consulenza <= max_price)
-        
-        # Ordina per rilevanza (bollini e consulenze vendute)
-        query = query.order_by(User.bollini.desc(), User.consulenze_vendute.desc())
-        
-        # Conta totale per paginazione
-        total_count = len(session.exec(query).all())
-        total_pages = (total_count + per_page - 1) // per_page
-        
-        # Applica paginazione
-        consultants = session.exec(query.limit(per_page).offset(offset)).all()
-        
-        # Carica le categorie per ogni consulente
-        consultants_with_category = []
-        for consultant in consultants:
-            category_obj = None
-            if consultant.category_id:
-                category_obj = session.get(Category, consultant.category_id)
-            consultants_with_category.append({
-                "user": consultant,
-                "category": category_obj
+        # Aggiungi categoria a ogni consulente
+        consultants = []
+        for user in consultants_list:
+            consultants.append({
+                "user": user,
+                "category": category
             })
         
-        response = templates.TemplateResponse("consultants.html", {
-            "request": request,
-            "consultants": consultants_with_category,
-            "categories": categories,
-            "selected_category": category,
-            "search_query": search or "",
-            "min_price": min_price,
-            "max_price": max_price,
-            "current_page": page,
-            "total_pages": total_pages,
-            "total_count": total_count
-        })
-        
-        # Aggiungi intestazioni per il caching
-        response.headers["Cache-Control"] = "public, max-age=3600"  # Cache per 1 ora
-        response.headers["Expires"] = "Wed, 21 Oct 2025 07:28:00 GMT"
-        
-        logger.info(f"Filtri applicati - Category: {category}, Search: {search}, Min: {min_price}, Max: {max_price}")
-        
-        return response
+        return request.app.state.templates.TemplateResponse(
+            "category.html",
+            {
+                "request": request,
+                "category": category,
+                "consultants": consultants,
+                "user": current_user  # ✅ Passa utente loggato
+            }
+        )

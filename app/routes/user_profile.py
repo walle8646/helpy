@@ -1,72 +1,69 @@
-from fastapi import APIRouter, Request, Form, UploadFile, File, HTTPException
+from fastapi import APIRouter, Request, Form, UploadFile, File, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from sqlmodel import select
-from app.models import User
-from app.models import Category
+from app.models import User, Category
 from app.database import get_session
-from app.routes.auth import verify_token
 from app.logger_config import logger
+from app.routes.auth import verify_token, get_current_user  # ✅ Import da auth.py
 from typing import Optional
-import os
 import uuid
 from pathlib import Path
+from sqlmodel import select
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
+# ✅ MODIFICA QUESTA ROUTE (aggiungi controllo manuale)
 @router.get("/profile", response_class=HTMLResponse)
-def user_profile(request: Request):
-    session_token = request.cookies.get("session_token")
-    logger.info(f"Profile accessed, cookie: {session_token[:20] if session_token else 'None'}...")
+async def user_profile(request: Request):
+    """Profilo privato dell'utente loggato"""
     
-    if not session_token:
-        logger.warning("No session token found, redirecting to login")
-        return RedirectResponse("/login")
+    # ✅ AGGIUNGI QUESTO: Controlla autenticazione manualmente
+    user = verify_token(request)
     
+    # ✅ AGGIUNGI QUESTO: Se non loggato, redirect a /login
+    if not user:
+        logger.warning("User not authenticated, redirecting to login")
+        return RedirectResponse("/login", status_code=302)
+    
+    # ✅ Resto del codice rimane uguale
     try:
-        payload = verify_token(session_token)
-        user_id = payload.get("user_id")
-        logger.info(f"Token verified, user_id: {user_id}")
-        
-        if not user_id:
-            logger.warning("No user_id in token")
-            return RedirectResponse("/login")
-        
-        # 🔥 USA WITH per il context manager
         with get_session() as session:
-            user = session.get(User, user_id)
+            # Refresh user da DB
+            user = session.get(User, user.id)
+            
             if not user:
-                logger.warning(f"User {user_id} not found in database")
+                logger.warning(f"User {user.id} not found in database")
                 return RedirectResponse("/login")
             
-            # CARICA TUTTE LE CATEGORIE
+            # Carica categorie
             categories = session.exec(select(Category)).all()
-            logger.info(f"✅ Loaded {len(categories)} categories: {[c.name for c in categories]}")
+            logger.info(f"✅ Loaded {len(categories)} categories")
             
-            # Carica la categoria dell'utente
+            # Categoria utente
             user_category = None
             if user.category_id:
                 user_category = session.get(Category, user.category_id)
-                logger.info(f"User category: {user_category.name if user_category else 'None'}")
             
-            # Converti aree_interesse da stringa a lista
+            # Aree interesse
             aree_interesse_list = user.aree_interesse.split(',') if user.aree_interesse else []
             
-            return templates.TemplateResponse("profile.html", {
-                "request": request,
-                "user": user,
-                "categories": categories,
-                "user_category": user_category,
-                "aree_interesse_list": aree_interesse_list
-            })
+            return request.app.state.templates.TemplateResponse(
+                "profile.html",
+                {
+                    "request": request,
+                    "user": user,
+                    "categories": categories,
+                    "user_category": user_category,
+                    "aree_interesse_list": aree_interesse_list
+                }
+            )
     except Exception as e:
         logger.error(f"Error in profile: {e}", exc_info=True)
         return RedirectResponse("/login")
 
 @router.post("/api/update-profile")
-def update_profile(
+async def update_profile(
     request: Request,
+    current_user: User = Depends(get_current_user),  # ✅ USA DEPENDENCY
     nome: Optional[str] = Form(None),
     professione: Optional[str] = Form(None),
     descrizione: Optional[str] = Form(None),
@@ -75,21 +72,11 @@ def update_profile(
     prezzo_consulenza: Optional[int] = Form(None),
     durata_consulenza: Optional[int] = Form(None)
 ):
-    session_token = request.cookies.get("session_token")
-    
-    if not session_token:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
-    
+    """Aggiorna profilo utente"""
     try:
-        payload = verify_token(session_token)
-        user_id = payload.get("user_id")
-        
-        if not user_id:
-            return JSONResponse({"error": "Invalid token"}, status_code=401)
-        
-        # 🔥 USA WITH
         with get_session() as session:
-            user = session.get(User, user_id)
+            user = session.get(User, current_user.id)
+            
             if not user:
                 return JSONResponse({"error": "User not found"}, status_code=404)
             
@@ -101,7 +88,6 @@ def update_profile(
                 user.descrizione = descrizione
             if category_id is not None:
                 user.category_id = category_id if category_id > 0 else None
-                logger.info(f"Updated category_id to: {user.category_id}")
             if aree_interesse is not None:
                 user.aree_interesse = aree_interesse
             if prezzo_consulenza is not None:
@@ -111,9 +97,8 @@ def update_profile(
             
             session.add(user)
             session.commit()
-            session.refresh(user)
             
-            logger.info(f"Profile updated for user: {user.email}, category_id: {user.category_id}")
+            logger.info(f"Profile updated for user: {user.email}")
             
             return JSONResponse({"message": "Profile updated successfully"}, status_code=200)
     except Exception as e:
@@ -123,56 +108,42 @@ def update_profile(
 @router.post("/api/upload-profile-picture")
 async def upload_profile_picture(
     request: Request,
+    current_user: User = Depends(get_current_user),  # ✅ USA DEPENDENCY
     file: UploadFile = File(...)
 ):
-    session_token = request.cookies.get("session_token")
-    
-    if not session_token:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
-    
+    """Upload immagine profilo"""
     try:
-        payload = verify_token(session_token)
-        user_id = payload.get("user_id")
-        
-        if not user_id:
-            return JSONResponse({"error": "Invalid token"}, status_code=401)
-        
-        # Verifica che sia un'immagine
         if not file.content_type.startswith('image/'):
             return JSONResponse({"error": "File must be an image"}, status_code=400)
         
-        # Crea la cartella uploads se non esiste
         upload_dir = Path("app/static/uploads/profile_pictures")
         upload_dir.mkdir(parents=True, exist_ok=True)
         
-        # Genera nome file unico
         file_extension = file.filename.split('.')[-1]
-        unique_filename = f"{user_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+        unique_filename = f"{current_user.id}_{uuid.uuid4().hex[:8]}.{file_extension}"
         file_path = upload_dir / unique_filename
         
-        # Salva il file
         with open(file_path, "wb") as buffer:
             content = await file.read()
             buffer.write(content)
         
-        # Aggiorna il database
         with get_session() as session:
-            user = session.get(User, user_id)
+            user = session.get(User, current_user.id)
+            
             if not user:
                 return JSONResponse({"error": "User not found"}, status_code=404)
             
-            # Elimina la vecchia immagine se esiste
+            # Elimina vecchia immagine
             if user.profile_picture:
                 old_file = Path(f"app/static{user.profile_picture}")
                 if old_file.exists():
                     old_file.unlink()
             
-            # Salva il nuovo percorso (relativo a /static/)
             user.profile_picture = f"/uploads/profile_pictures/{unique_filename}"
             session.add(user)
             session.commit()
             
-            logger.info(f"Profile picture uploaded for user {user.email}: {unique_filename}")
+            logger.info(f"Profile picture uploaded: {unique_filename}")
             
             return JSONResponse({
                 "message": "Profile picture uploaded successfully",
@@ -185,17 +156,28 @@ async def upload_profile_picture(
 
 @router.get("/user/{user_id}", response_class=HTMLResponse)
 async def view_user_profile(user_id: int, request: Request):
-    """Visualizza profilo pubblico di un utente"""
+    """Profilo pubblico di un utente"""
+    
+    # ✅ AGGIUNGI: Controlla se utente è loggato
+    current_user = verify_token(request)
+    
     with get_session() as session:
         user = session.get(User, user_id)
         
         if not user:
             raise HTTPException(status_code=404, detail="Utente non trovato")
         
+        # Carica categoria dell'utente
+        category = None
+        if user.category_id:
+            category = session.get(Category, user.category_id)
+        
         return request.app.state.templates.TemplateResponse(
             "user_profile.html",
             {
                 "request": request,
-                "user": user
+                "profile_user": user,  # Utente del profilo visualizzato
+                "category": category,
+                "user": current_user  # ✅ Utente loggato (per navbar)
             }
         )
