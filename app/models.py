@@ -25,7 +25,6 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     password_md5: str  # ✅ CAMBIATO da 'password' a 'password_md5'
     nome: Optional[str] = None
-    cognome: Optional[str] = None
     professione: Optional[str] = None
     
     # Relazione con categoria
@@ -36,7 +35,6 @@ class User(SQLModel, table=True):
     prezzo_consulenza: Optional[int] = None
     consulenze_vendute: int = Field(default=0)
     consulenze_acquistate: int = Field(default=0)
-    rating: Optional[float] = None
     bollini: int = Field(default=0)
     descrizione: Optional[str] = None
     aree_interesse: Optional[str] = None
@@ -44,11 +42,9 @@ class User(SQLModel, table=True):
     # Status
     confirmed: int = Field(default=0)
     confirmation_code: Optional[str] = None
-    disponibile: bool = Field(default=True)
     
     # Timestamps
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 class Consultation(SQLModel, table=True):
     """Prenotazione consulenza"""

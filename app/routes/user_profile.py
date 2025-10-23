@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form, UploadFile, File
+from fastapi import APIRouter, Request, Form, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import select
@@ -182,3 +182,20 @@ async def upload_profile_picture(
     except Exception as e:
         logger.error(f"Error uploading profile picture: {e}", exc_info=True)
         return JSONResponse({"error": "Failed to upload image"}, status_code=500)
+
+@router.get("/user/{user_id}", response_class=HTMLResponse)
+async def view_user_profile(user_id: int, request: Request):
+    """Visualizza profilo pubblico di un utente"""
+    with get_session() as session:
+        user = session.get(User, user_id)
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="Utente non trovato")
+        
+        return request.app.state.templates.TemplateResponse(
+            "user_profile.html",
+            {
+                "request": request,
+                "user": user
+            }
+        )
