@@ -9,20 +9,22 @@ class ImageLink(SQLModel, table=True):
     description: str = Field(default="")
 
 class Category(SQLModel, table=True):
-    """Categoria di consulenza"""
     id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(index=True)
+    name: str = Field(unique=True, index=True)
     slug: str = Field(unique=True, index=True)
-    description: Optional[str] = None
+    icon: Optional[str] = Field(default="🎯")
+    description: Optional[str] = Field(default=None)
+    target: Optional[str] = Field(default=None)
+    color: Optional[str] = Field(default="#4CAF50")
 
 class User(SQLModel, table=True):
     """Modello utente/consulente"""
-    __tablename__ = "user"  # Nome esplicito tabella
+    __tablename__ = "user"
     
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
-    password: str  # Hash bcrypt
-    nome: str
+    password_md5: str  # ✅ CAMBIATO da 'password' a 'password_md5'
+    nome: Optional[str] = None
     cognome: Optional[str] = None
     professione: Optional[str] = None
     
@@ -30,16 +32,18 @@ class User(SQLModel, table=True):
     category_id: Optional[int] = Field(default=None, foreign_key="category.id")
     
     # Profilo consulente
-    profile_picture_url: Optional[str] = None
-    prezzo_consulenza: Optional[int] = None  # in €
+    profile_picture: Optional[str] = None  # Path relativo (es: /uploads/profile_pictures/xxx.jpg)
+    prezzo_consulenza: Optional[int] = None
     consulenze_vendute: int = Field(default=0)
+    consulenze_acquistate: int = Field(default=0)
     rating: Optional[float] = None
     bollini: int = Field(default=0)
     descrizione: Optional[str] = None
-    aree_interesse: Optional[str] = None  # JSON string
+    aree_interesse: Optional[str] = None
     
     # Status
-    confirmed: bool = Field(default=False)
+    confirmed: int = Field(default=0)
+    confirmation_code: Optional[str] = None
     disponibile: bool = Field(default=True)
     
     # Timestamps

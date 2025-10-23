@@ -31,6 +31,9 @@ def on_startup():
 async def root():
     return {"message": "Helpy API is running"}
 
+# === ESECUZIONE LOCALE ===
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    # Leggi porta da variabile d'ambiente (default 8080 in locale)
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
