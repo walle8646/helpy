@@ -25,6 +25,7 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     password_md5: str  # ✅ CAMBIATO da 'password' a 'password_md5'
     nome: Optional[str] = None
+    cognome: Optional[str] = None
     professione: Optional[str] = None
     
     # Relazione con categoria

@@ -3,24 +3,25 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware  # ✅ IMPORT
+from starlette.middleware.sessions import SessionMiddleware
 from app.database import create_db_and_tables
 from app.routes import home, auth, consultants, user_profile
+from app.logger_config import logger
 
 app = FastAPI(title="Helpy", version="1.0.0")
 
-# ✅ AGGIUNGI QUESTO (PRIMA di includere le routes)
+# Session middleware
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "helpy-super-secret-key-change-in-production-2024"),
-    max_age=86400  # 24 ore (opzionale)
+    max_age=86400
 )
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
 app.state.templates = templates
 
-# Crea directory uploads se non esiste
+# Crea directory uploads
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 (UPLOAD_DIR / "profile_pictures").mkdir(exist_ok=True)
@@ -30,23 +31,19 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include routes
-app.include_router(home.router)
-app.include_router(auth.router)
-app.include_router(user_profile.router)
-app.include_router(consultants.router)
+app.include_router(home.router, tags=["home"])
+app.include_router(auth.router, tags=["auth"])
+app.include_router(user_profile.router, tags=["profile"])
+app.include_router(consultants.router, tags=["consultants"])
 
-# Crea tabelle al startup
+# Database init
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+    logger.info("✅ Helpy started successfully")
 
-@app.get("/")
-async def root():
-    return {"message": "Helpy API is running"}
-
-# === ESECUZIONE LOCALE ===
+# Esecuzione locale
 if __name__ == "__main__":
     import uvicorn
-    # Leggi porta da variabile d'ambiente (default 8080 in locale)
     port = int(os.getenv("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=True)

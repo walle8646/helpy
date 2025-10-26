@@ -133,10 +133,12 @@
             <div class="consultants-grid">
                 {% for item in consultants %}
                 <div class="consultant-card">
-                    <a href="/user/{{ item.user.id }}" class="card-link">
+                    <!-- ✅ CORREZIONE 1: item.user.id → item.id -->
+                    <a href="/user/{{ item.id }}" class="card-link">
                         <!-- Avatar -->
-                        {% if item.user.profile_picture %}
-                        <img src="{{ item.user.profile_picture }}" alt="{{ item.user.nome }}" class="consultant-avatar">
+                        <!-- ✅ CORREZIONE 2: item.user.profile_picture → item.profile_picture -->
+                        {% if item.profile_picture %}
+                        <img src="{{ item.profile_picture }}" alt="{{ item.nome }}" class="consultant-avatar">
                         {% else %}
                         <div class="consultant-avatar-default">
                             {{ item.category.icon if item.category else '👤' }}
@@ -144,8 +146,10 @@
                         {% endif %}
 
                         <!-- Info -->
-                        <h3>{{ item.user.nome }}</h3>
-                        <p class="profession">{{ item.user.professione or 'Consulente' }}</p>
+                        <!-- ✅ CORREZIONE 3: item.user.nome → item.nome -->
+                        <h3>{{ item.nome }} {{ item.cognome or '' }}</h3>
+                        <!-- ✅ CORREZIONE 4: item.user.professione → item.professione -->
+                        <p class="profession">{{ item.professione or 'Consulente' }}</p>
 
                         <!-- Categoria -->
                         {% if item.category %}
@@ -156,13 +160,16 @@
 
                         <!-- Stats -->
                         <div class="consultant-stats">
-                            <span class="rating">⭐ {{ item.user.bollini }}</span>
-                            <span class="reviews">{{ item.user.consulenze_vendute }} recensioni</span>
+                            <!-- ✅ CORREZIONE 5: item.user.bollini → item.bollini -->
+                            <span class="rating">⭐ {{ item.bollini }}</span>
+                            <!-- ✅ CORREZIONE 6: item.user.consulenze_vendute → item.consulenze_vendute -->
+                            <span class="reviews">{{ item.consulenze_vendute }} recensioni</span>
                         </div>
 
                         <!-- Prezzo -->
-                        {% if item.user.prezzo_consulenza %}
-                        <div class="price">A partire da: <strong>€{{ item.user.prezzo_consulenza }}</strong></div>
+                        <!-- ✅ CORREZIONE 7: item.user.prezzo_consulenza → item.prezzo_consulenza -->
+                        {% if item.prezzo_consulenza %}
+                        <div class="price">A partire da: <strong>€{{ item.prezzo_consulenza }}</strong></div>
                         {% endif %}
                     </a>
 

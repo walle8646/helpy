@@ -1,93 +1,78 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Helpy</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+
     <nav class="navbar">
         <div class="navbar-left">
-            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo" style="height:32px;">
-            <a href="/" class="navbar-title" style="text-decoration:none; color:inherit;">Helpy</a>
+            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo">
+            <a href="/" class="navbar-title">Helpy</a>
         </div>
         <div class="navbar-links">
-            <a href="/register" class="register-btn">Register</a>
+            <a href="/">Home</a>
+            <a href="/register" class="register-btn">Registrati</a>
         </div>
     </nav>
 
-    <section style="max-width: 480px; margin: 120px auto; padding: 0 24px;">
-        <div style="background: white; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 48px;">
+    <div style="max-width: 500px; margin: 120px auto; padding: 48px; background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.1);">
+        <h1 style="text-align: center; margin-bottom: 32px; color: #1a1a1a;">🔐 Accedi a Helpy</h1>
+        
+        <form id="loginForm">
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Email</label>
+                <input type="email" name="email" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
+            </div>
+
+            <div style="margin-bottom: 32px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Password</label>
+                <input type="password" name="password" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
+            </div>
+
+            <div id="loginError" style="display: none; background: #fee; border: 1px solid #fcc; color: #c33; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: center;"></div>
+
+            <button type="submit" class="hero-btn" style="width: 100%; padding: 14px; border: none; cursor: pointer; font-size: 18px; font-weight: 600;">
+                Accedi
+            </button>
+        </form>
+
+        <p style="text-align: center; margin-top: 24px; color: #666;">
+            Non hai un account? <a href="/register" style="color: #667eea; font-weight: 600;">Registrati</a>
+        </p>
+    </div>
+
+    <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const errorDiv = document.getElementById('loginError');
+        
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                body: formData
+            });
             
-            <h1 style="font-size: 32px; margin: 0 0 8px 0; color: #1a1a1a; text-align: center; font-weight: 700;">
-                Welcome Back! 👋
-            </h1>
-            <p style="font-size: 16px; color: #666; text-align: center; margin: 0 0 32px 0;">
-                Login to access your Helpy account
-            </p>
+            const data = await response.json();
+            
+            if (response.ok) {
+                window.location.href = data.redirect_url || '/profile';
+            } else {
+                errorDiv.textContent = data.error || 'Errore durante il login';
+                errorDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            errorDiv.textContent = 'Errore di connessione. Riprova.';
+            errorDiv.style.display = 'block';
+        }
+    });
+    </script>
 
-            {% if error %}
-            <div style="background: #fee; border: 1px solid #fcc; color: #c33; padding: 16px; border-radius: 8px; margin-bottom: 24px; text-align: center;">
-                ⚠️ {{ error }}
-            </div>
-            {% endif %}
-
-            {% if request.query_params.get('registered') %}
-            <div style="background: #efe; border: 1px solid #cfc; color: #3c3; padding: 16px; border-radius: 8px; margin-bottom: 24px; text-align: center;">
-                ✅ Registrazione completata! Effettua il login.
-            </div>
-            {% endif %}
-
-            <!-- ✅ USA /login INVECE DI /api/login -->
-            <form method="POST" action="/login" style="display: flex; flex-direction: column; gap: 20px;">
-                
-                <div>
-                    <label for="email" style="display: block; font-weight: 600; margin-bottom: 8px; color: #1a1a1a;">
-                        Email Address
-                    </label>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email" 
-                        required
-                        placeholder="your@email.com"
-                        style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; box-sizing: border-box;"
-                    >
-                </div>
-
-                <div>
-                    <label for="password" style="display: block; font-weight: 600; margin-bottom: 8px; color: #1a1a1a;">
-                        Password
-                    </label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        required
-                        placeholder="••••••••"
-                        style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; box-sizing: border-box;"
-                    >
-                </div>
-
-                <button 
-                    type="submit" 
-                    class="hero-btn" 
-                    style="width: 100%; padding: 16px; font-size: 18px; border: none; cursor: pointer;">
-                    🔓 Login
-                </button>
-
-            </form>
-
-            <div style="text-align: center; margin-top: 32px; padding-top: 32px; border-top: 1px solid #e0e0e0;">
-                <p style="color: #666; margin: 0;">
-                    Don't have an account? 
-                    <a href="/register" style="color: #667eea; text-decoration: none; font-weight: 600;">
-                        Register here
-                    </a>
-                </p>
-            </div>
-
-        </div>
-    </section>
 </body>
 </html>
