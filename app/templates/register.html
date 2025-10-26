@@ -1,112 +1,147 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrati - Helpy</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
+{% extends "base.html" %}
 
-    <nav class="navbar">
-        <div class="navbar-left">
-            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo">
-            <a href="/" class="navbar-title">Helpy</a>
-        </div>
-        <div class="navbar-links">
-            <a href="/">Home</a>
-            <a href="/login" class="register-btn" style="background: #1746a2;">Login</a>
-        </div>
-    </nav>
+{% block title %}Registrati - Helpy{% endblock %}
 
-    <div style="max-width: 500px; margin: 120px auto; padding: 48px; background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.1);">
+{% block content %}
+<div style="max-width: 500px; margin: 80px auto; padding: 48px; background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.1);">
+    
+    <!-- FORM REGISTRAZIONE -->
+    <div id="registerStep">
+        <h1 style="text-align: center; margin-bottom: 32px; color: #1a1a1a;">✨ Registrati su Helpy</h1>
         
-        <!-- FORM REGISTRAZIONE -->
-        <div id="registerStep">
-            <h1 style="text-align: center; margin-bottom: 32px; color: #1a1a1a;">✨ Registrati su Helpy</h1>
-            
-            <form id="registerForm">
-                <div style="margin-bottom: 24px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Nome *</label>
-                    <input type="text" name="nome" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-                </div>
+        <form id="registerForm">
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Nome *</label>
+                <input 
+                    type="text" 
+                    name="nome" 
+                    required 
+                    placeholder="Inserisci il tuo nome"
+                    style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;"
+                    onfocus="this.style.borderColor='#667eea'"
+                    onblur="this.style.borderColor='#e0e0e0'"
+                >
+            </div>
 
-                <!-- ✅ AGGIUNGI CAMPO COGNOME -->
-                <div style="margin-bottom: 24px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Cognome</label>
-                    <input type="text" name="cognome" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-                </div>
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Cognome</label>
+                <input 
+                    type="text" 
+                    name="cognome" 
+                    placeholder="Inserisci il tuo cognome (facoltativo)"
+                    style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;"
+                    onfocus="this.style.borderColor='#667eea'"
+                    onblur="this.style.borderColor='#e0e0e0'"
+                >
+            </div>
 
-                <div style="margin-bottom: 24px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Email *</label>
-                    <input type="email" name="email" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-                </div>
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Email *</label>
+                <input 
+                    type="email" 
+                    name="email" 
+                    required 
+                    placeholder="tua@email.com"
+                    style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;"
+                    onfocus="this.style.borderColor='#667eea'"
+                    onblur="this.style.borderColor='#e0e0e0'"
+                >
+            </div>
 
-                <div style="margin-bottom: 32px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Password *</label>
-                    <input type="password" name="password" required minlength="6" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-                    <small style="color: #666; font-size: 14px;">Minimo 6 caratteri</small>
-                </div>
+            <div style="margin-bottom: 32px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Password *</label>
+                <input 
+                    type="password" 
+                    name="password" 
+                    required 
+                    minlength="6" 
+                    placeholder="••••••••"
+                    style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;"
+                    onfocus="this.style.borderColor='#667eea'"
+                    onblur="this.style.borderColor='#e0e0e0'"
+                >
+                <small style="color: #666; font-size: 14px; margin-top: 4px; display: block;">Minimo 6 caratteri</small>
+            </div>
 
-                <div id="registerError" style="display: none; background: #fee; border: 1px solid #fcc; color: #c33; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: center;"></div>
+            <div id="registerError" style="display: none; background: #fee; border-left: 4px solid #e74c3c; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <strong style="color: #e74c3c;"></strong>
+            </div>
 
-                <button type="submit" class="hero-btn" style="width: 100%; padding: 14px; border: none; cursor: pointer; font-size: 18px; font-weight: 600;">
-                    Registrati
-                </button>
-            </form>
+            <button 
+                type="submit" 
+                class="hero-btn" 
+                style="width: 100%; padding: 16px; border: none; cursor: pointer; font-size: 18px; font-weight: 600; margin-top: 8px;"
+            >
+                Registrati Gratis
+            </button>
+        </form>
 
-            <p style="text-align: center; margin-top: 24px; color: #666;">
-                Hai già un account? <a href="/login" style="color: #667eea; font-weight: 600;">Accedi</a>
-            </p>
-        </div>
-
-        <!-- FORM VERIFICA EMAIL -->
-        <div id="verifyStep" style="display: none;">
-            <h1 style="text-align: center; margin-bottom: 16px; color: #1a1a1a;">📧 Verifica Email</h1>
-            <p style="text-align: center; color: #666; margin-bottom: 32px;">
-                Abbiamo inviato un codice a 6 cifre a <strong id="verifyEmail"></strong>
-            </p>
-
-            <form id="verifyForm">
-                <div style="margin-bottom: 24px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a; text-align: center;">Inserisci il codice</label>
-                    <input 
-                        type="text" 
-                        name="code" 
-                        id="verifyCode" 
-                        required 
-                        maxlength="6"
-                        pattern="[0-9]{6}"
-                        placeholder="000000"
-                        style="width: 100%; padding: 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 28px; text-align: center; letter-spacing: 8px; font-weight: bold;"
-                    >
-                </div>
-
-                <div id="verifyError" style="display: none; background: #fee; border: 1px solid #fcc; color: #c33; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: center;"></div>
-
-                <button type="submit" class="hero-btn" style="width: 100%; padding: 14px; border: none; cursor: pointer; font-size: 18px; font-weight: 600;">
-                    Verifica Email
-                </button>
-            </form>
-
-            <p style="text-align: center; margin-top: 24px; color: #666;">
-                Non hai ricevuto il codice? 
-                <a href="#" id="resendBtn" style="color: #667eea; font-weight: 600;">Invia di nuovo</a>
-            </p>
-        </div>
-
+        <p style="text-align: center; margin-top: 24px; color: #666;">
+            Hai già un account? <a href="/login" style="color: #667eea; font-weight: 600; text-decoration: none;">Accedi</a>
+        </p>
     </div>
 
-    <script>
+    <!-- FORM VERIFICA EMAIL -->
+    <div id="verifyStep" style="display: none;">
+        <h1 style="text-align: center; margin-bottom: 16px; color: #1a1a1a;">📧 Verifica Email</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 32px;">
+            Abbiamo inviato un codice a 6 cifre a <strong id="verifyEmail" style="color: #667eea;"></strong>
+        </p>
+
+        <form id="verifyForm">
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a; text-align: center;">Inserisci il codice</label>
+                <input 
+                    type="text" 
+                    name="code" 
+                    id="verifyCode" 
+                    required 
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    placeholder="000000"
+                    style="width: 100%; padding: 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 28px; text-align: center; letter-spacing: 8px; font-weight: bold; transition: border-color 0.3s;"
+                    onfocus="this.style.borderColor='#667eea'"
+                    onblur="this.style.borderColor='#e0e0e0'"
+                >
+            </div>
+
+            <div id="verifyError" style="display: none; background: #fee; border-left: 4px solid #e74c3c; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <strong style="color: #e74c3c;"></strong>
+            </div>
+
+            <button 
+                type="submit" 
+                class="hero-btn" 
+                style="width: 100%; padding: 16px; border: none; cursor: pointer; font-size: 18px; font-weight: 600;"
+            >
+                Verifica Email
+            </button>
+        </form>
+
+        <p style="text-align: center; margin-top: 24px; color: #666;">
+            Non hai ricevuto il codice? 
+            <a href="#" id="resendBtn" style="color: #667eea; font-weight: 600; text-decoration: none;">Invia di nuovo</a>
+        </p>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
     let userEmail = '';
 
-    // HANDLE REGISTRAZIONE
+    // ========== HANDLE REGISTRAZIONE ==========
     document.getElementById('registerForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const formData = new FormData(e.target);
         const errorDiv = document.getElementById('registerError');
+        const errorText = errorDiv.querySelector('strong');
         userEmail = formData.get('email');
+        
+        // Nascondi errore precedente
+        errorDiv.style.display = 'none';
         
         try {
             const response = await fetch('/api/register', {
@@ -117,39 +152,44 @@
             const data = await response.json();
             
             if (response.ok && data.requires_verification) {
-                // Mostra form verifica
+                // Mostra form verifica email
                 document.getElementById('registerStep').style.display = 'none';
                 document.getElementById('verifyStep').style.display = 'block';
                 document.getElementById('verifyEmail').textContent = userEmail;
             } else if (response.ok) {
+                // Registrazione completata senza verifica
                 window.location.href = data.redirect_url || '/profile';
             } else {
-                // ✅ GESTISCI EMAIL GIÀ REGISTRATA
+                // Errore durante registrazione
                 if (data.show_login_link) {
-                    errorDiv.innerHTML = `
-                        ${data.message || data.error}<br>
-                        <a href="${data.redirect_url}" style="color: #667eea; font-weight: 600; text-decoration: underline;">
+                    errorText.innerHTML = `
+                        ❌ ${data.message || data.error}<br>
+                        <a href="${data.redirect_url}" style="color: #667eea; font-weight: 600; text-decoration: underline; margin-top: 8px; display: inline-block;">
                             Vai al Login →
                         </a>
                     `;
                 } else {
-                    errorDiv.textContent = data.error || 'Errore durante la registrazione';
+                    errorText.textContent = '❌ ' + (data.error || 'Errore durante la registrazione');
                 }
                 errorDiv.style.display = 'block';
             }
         } catch (error) {
             console.error('Error:', error);
-            errorDiv.textContent = 'Errore di connessione. Riprova.';
+            errorText.textContent = '❌ Errore di connessione. Riprova.';
             errorDiv.style.display = 'block';
         }
     });
 
-    // HANDLE VERIFICA
+    // ========== HANDLE VERIFICA EMAIL ==========
     document.getElementById('verifyForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const code = document.getElementById('verifyCode').value;
         const errorDiv = document.getElementById('verifyError');
+        const errorText = errorDiv.querySelector('strong');
+        
+        // Nascondi errore precedente
+        errorDiv.style.display = 'none';
         
         const formData = new FormData();
         formData.append('email', userEmail);
@@ -164,19 +204,21 @@
             const data = await response.json();
             
             if (response.ok) {
+                // Verifica completata con successo
                 window.location.href = data.redirect_url || '/profile';
             } else {
-                errorDiv.textContent = data.error || 'Codice non valido';
+                // Codice non valido
+                errorText.textContent = '❌ ' + (data.error || 'Codice non valido');
                 errorDiv.style.display = 'block';
             }
         } catch (error) {
             console.error('Error:', error);
-            errorDiv.textContent = 'Errore di connessione. Riprova.';
+            errorText.textContent = '❌ Errore di connessione. Riprova.';
             errorDiv.style.display = 'block';
         }
     });
 
-    // HANDLE REINVIO CODICE
+    // ========== HANDLE REINVIO CODICE ==========
     document.getElementById('resendBtn').addEventListener('click', async (e) => {
         e.preventDefault();
         
@@ -197,10 +239,9 @@
                 alert('❌ ' + (data.error || 'Errore. Riprova.'));
             }
         } catch (error) {
+            console.error('Error:', error);
             alert('❌ Errore di connessione. Riprova.');
         }
     });
-    </script>
-
-</body>
-</html>
+</script>
+{% endblock %}

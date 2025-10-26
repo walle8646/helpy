@@ -1,35 +1,12 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consulenti - Helpy</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/consultants.css">
-</head>
-<body>
+{% extends "base.html" %}
 
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="navbar-left">
-            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo">
-            <a href="/" class="navbar-title">Helpy</a>
-        </div>
-        <div class="navbar-links">
-            <a href="/">Home</a>
-            <a href="/consultants">Consulenti</a>
-            
-            <!-- ✅ Mostra bottoni diversi se loggato -->
-            {% if user %}
-                <a href="/profile" class="register-btn">👤 {{ user.nome }}</a>
-                <a href="/logout" class="register-btn" style="background: #e74c3c; margin-left: 8px;">Logout</a>
-            {% else %}
-                <a href="/login" class="register-btn" style="background: #1746a2; margin-right: 8px;">Login</a>
-                <a href="/register" class="register-btn">Registrati</a>
-            {% endif %}
-        </div>
-    </nav>
+{% block title %}Consulenti - Helpy{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="/static/consultants.css">
+{% endblock %}
+
+{% block content %}
     <!-- Hero Section con Ricerca -->
     <section class="search-hero">
         <div class="search-container">
@@ -133,10 +110,8 @@
             <div class="consultants-grid">
                 {% for item in consultants %}
                 <div class="consultant-card">
-                    <!-- ✅ CORREZIONE 1: item.user.id → item.id -->
                     <a href="/user/{{ item.id }}" class="card-link">
                         <!-- Avatar -->
-                        <!-- ✅ CORREZIONE 2: item.user.profile_picture → item.profile_picture -->
                         {% if item.profile_picture %}
                         <img src="{{ item.profile_picture }}" alt="{{ item.nome }}" class="consultant-avatar">
                         {% else %}
@@ -146,9 +121,7 @@
                         {% endif %}
 
                         <!-- Info -->
-                        <!-- ✅ CORREZIONE 3: item.user.nome → item.nome -->
                         <h3>{{ item.nome }} {{ item.cognome or '' }}</h3>
-                        <!-- ✅ CORREZIONE 4: item.user.professione → item.professione -->
                         <p class="profession">{{ item.professione or 'Consulente' }}</p>
 
                         <!-- Categoria -->
@@ -160,14 +133,11 @@
 
                         <!-- Stats -->
                         <div class="consultant-stats">
-                            <!-- ✅ CORREZIONE 5: item.user.bollini → item.bollini -->
                             <span class="rating">⭐ {{ item.bollini }}</span>
-                            <!-- ✅ CORREZIONE 6: item.user.consulenze_vendute → item.consulenze_vendute -->
                             <span class="reviews">{{ item.consulenze_vendute }} recensioni</span>
                         </div>
 
                         <!-- Prezzo -->
-                        <!-- ✅ CORREZIONE 7: item.user.prezzo_consulenza → item.prezzo_consulenza -->
                         {% if item.prezzo_consulenza %}
                         <div class="price">A partire da: <strong>€{{ item.prezzo_consulenza }}</strong></div>
                         {% endif %}
@@ -200,8 +170,10 @@
             {% endif %}
         </main>
     </div>
+{% endblock %}
 
-    <script>
+{% block extra_js %}
+<script>
     // 🔥 Filtro Prezzo Dinamico
     const minPriceInput = document.getElementById('minPrice');
     const maxPriceInput = document.getElementById('maxPrice');
@@ -271,6 +243,5 @@
 
     // Check iniziale
     checkPriceInputs();
-    </script>
-</body>
-</html>
+</script>
+{% endblock %}

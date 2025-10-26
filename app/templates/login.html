@@ -1,78 +1,94 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Helpy</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
+{% extends "base.html" %}
 
-    <nav class="navbar">
-        <div class="navbar-left">
-            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo">
-            <a href="/" class="navbar-title">Helpy</a>
+{% block title %}Login - Helpy{% endblock %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 80px auto; padding: 48px; background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.1);">
+    <h1 style="text-align: center; margin-bottom: 32px; color: #1a1a1a;">🔐 Accedi a Helpy</h1>
+    
+    <form id="loginForm">
+        <div style="margin-bottom: 24px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Email</label>
+            <input 
+                type="email" 
+                name="email" 
+                required 
+                placeholder="tua@email.com"
+                style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;"
+                onfocus="this.style.borderColor='#667eea'"
+                onblur="this.style.borderColor='#e0e0e0'"
+            >
         </div>
-        <div class="navbar-links">
-            <a href="/">Home</a>
-            <a href="/register" class="register-btn">Registrati</a>
+
+        <div style="margin-bottom: 24px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Password</label>
+            <input 
+                type="password" 
+                name="password" 
+                required 
+                placeholder="••••••••"
+                style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;"
+                onfocus="this.style.borderColor='#667eea'"
+                onblur="this.style.borderColor='#e0e0e0'"
+            >
         </div>
-    </nav>
 
-    <div style="max-width: 500px; margin: 120px auto; padding: 48px; background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.1);">
-        <h1 style="text-align: center; margin-bottom: 32px; color: #1a1a1a;">🔐 Accedi a Helpy</h1>
+        <div style="text-align: right; margin-bottom: 24px;">
+            <a href="/reset-password" style="color: #667eea; font-weight: 600; text-decoration: none; font-size: 14px;">Password dimenticata?</a>
+        </div>
+
+        <div id="loginError" style="display: none; background: #fee; border-left: 4px solid #e74c3c; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <strong style="color: #e74c3c;"></strong>
+        </div>
+
+        <button 
+            type="submit" 
+            class="hero-btn" 
+            style="width: 100%; padding: 16px; border: none; cursor: pointer; font-size: 18px; font-weight: 600; margin-top: 8px;"
+        >
+            Accedi
+        </button>
+    </form>
+
+    <p style="text-align: center; margin-top: 24px; color: #666;">
+        Non hai un account? <a href="/register" style="color: #667eea; font-weight: 600; text-decoration: none;">Registrati Gratis</a>
+    </p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const errorDiv = document.getElementById('loginError');
+    const errorText = errorDiv.querySelector('strong');
+    
+    // Nascondi errore precedente
+    errorDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            body: formData
+        });
         
-        <form id="loginForm">
-            <div style="margin-bottom: 24px;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Email</label>
-                <input type="email" name="email" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-            </div>
-
-            <div style="margin-bottom: 32px;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #1a1a1a;">Password</label>
-                <input type="password" name="password" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-            </div>
-
-            <div id="loginError" style="display: none; background: #fee; border: 1px solid #fcc; color: #c33; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: center;"></div>
-
-            <button type="submit" class="hero-btn" style="width: 100%; padding: 14px; border: none; cursor: pointer; font-size: 18px; font-weight: 600;">
-                Accedi
-            </button>
-        </form>
-
-        <p style="text-align: center; margin-top: 24px; color: #666;">
-            Non hai un account? <a href="/register" style="color: #667eea; font-weight: 600;">Registrati</a>
-        </p>
-    </div>
-
-    <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
+        const data = await response.json();
         
-        const formData = new FormData(e.target);
-        const errorDiv = document.getElementById('loginError');
-        
-        try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok) {
-                window.location.href = data.redirect_url || '/profile';
-            } else {
-                errorDiv.textContent = data.error || 'Errore durante il login';
-                errorDiv.style.display = 'block';
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            errorDiv.textContent = 'Errore di connessione. Riprova.';
+        if (response.ok) {
+            // Login riuscito: redirect
+            window.location.href = data.redirect_url || '/profile';
+        } else {
+            // Login fallito: mostra errore
+            errorText.textContent = '❌ ' + (data.error || 'Errore durante il login');
             errorDiv.style.display = 'block';
         }
-    });
-    </script>
-
-</body>
-</html>
+    } catch (error) {
+        console.error('Error:', error);
+        errorText.textContent = '❌ Errore di connessione. Riprova.';
+        errorDiv.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}
