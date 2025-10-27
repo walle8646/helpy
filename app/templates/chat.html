@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Chat con {{ other_user.nome }} - Helpy{% endblock %}
+
+{% block content %}
+<style>
+    .chat-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        height: calc(100vh - 80px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        border-radius: 12px 12px 0 0;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .chat-header img {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: 2px solid white;
+        object-fit: cover;
+    }
+
+    .chat-header-info h2 {
+        margin: 0;
+        font-size: 20px;
+    }
+
+    .chat-header-info p {
+        margin: 4px 0 0;
+        opacity: 0.9;
+        font-size: 14px;
+    }
+
+    .messages-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        background: #f5f5f5;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .message {
+        max-width: 70%;
+        padding: 12px 16px;
+        border-radius: 18px;
+        word-wrap: break-word;
+        animation: messageSlide 0.3s ease;
+    }
+
+    @keyframes messageSlide {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .message-mine {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+
+    .message-theirs {
+        background: white;
+        color: #333;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .message-time {
+        font-size: 11px;
+        opacity: 0.7;
+        margin-top: 4px;
+    }
+
+    .message-input-container {
+        padding: 20px;
+        background: white;
+        border-radius: 0 0 12px 12px;
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    }
+
+    .message-input-container form {
+        display: flex;
+        gap: 12px;
+    }
+
+    .message-input-container textarea {
+        flex: 1;
+        padding: 12px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 25px;
+        resize: none;
+        font-family: inherit;
+        font-size: 14px;
+        transition: border-color 0.3s;
+    }
+
+    .message-input-container textarea:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+
+    .message-input-container button {
+        padding: 12px 28px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 25px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .message-input-container button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .empty-chat {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+
+    .empty-chat-icon {
+        font-size: 64px;
+        margin-bottom: 16px;
+    }
+</style>
+
+<div class="chat-container">
+    <!-- HEADER CHAT -->
+    <div class="chat-header">
+        <a href="/user/{{ other_user.id }}" style="text-decoration: none;">
+            <img src="{{ other_user.profile_picture or 'https://ui-avatars.com/api/?name=' + other_user.nome|urlencode + '&background=667eea&color=fff' }}" 
+                 alt="{{ other_user.nome }}"
+                 onerror="this.src='https://ui-avatars.com/api/?name=User&background=667eea&color=fff'">
+        </a>
+        <div class="chat-header-info">
+            <h2>{{ other_user.nome }} {{ other_user.cognome or '' }}</h2>
+            <p>{{ other_user.professione or 'Utente' }}</p>
+        </div>
+        <a href="/messaggi" style="margin-left: auto; color: white; font-size: 24px; text-decoration: none;" title="Torna all'inbox">
+            ⬅️
+        </a>
+    </div>
+
+    <!-- AREA MESSAGGI -->
+    <div class="messages-area" id="messagesArea">
+        <div class="empty-chat">
+            <div class="empty-chat-icon">💬</div>
+            <p>Caricamento messaggi...</p>
+        </div>
+    </div>
+
+    <!-- INPUT MESSAGGIO -->
+    <div class="message-input-container">
+        <form id="messageForm" onsubmit="sendMessage(event)">
+            <textarea 
+                id="messageInput" 
+                placeholder="Scrivi un messaggio..."
+                rows="1"
+                maxlength="2000"
+                required
+                onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(event); }"
+            ></textarea>
+            <button type="submit">Invia</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const OTHER_USER_ID = {{ other_user.id }};
+    const CURRENT_USER_ID = {{ user.id }};  // ✅ CAMBIATO DA current_user a user
+    
+    let lastMessageId = null;
+
+    // ========== CARICA MESSAGGI ==========
+    async function loadMessages() {
+        try {
+            const response = await fetch(`/api/messaggi/${OTHER_USER_ID}`);
+            const messages = await response.json();
+
+            const messagesArea = document.getElementById('messagesArea');
+
+            if (response.ok) {
+                if (messages.length === 0) {
+                    messagesArea.innerHTML = `
+                        <div class="empty-chat">
+                            <div class="empty-chat-icon">💬</div>
+                            <p>Nessun messaggio ancora</p>
+                            <p style="font-size: 14px;">Inizia la conversazione!</p>
+                        </div>
+                    `;
+                } else {
+                    messagesArea.innerHTML = messages.map(msg => {
+                        const time = new Date(msg.created_at).toLocaleString('it-IT', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+
+                        const isMine = msg.is_mine;
+                        lastMessageId = msg.id;
+
+                        return `
+                            <div class="message ${isMine ? 'message-mine' : 'message-theirs'}">
+                                <div>${msg.content}</div>
+                                <div class="message-time">${time}</div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    // Scroll al fondo
+                    messagesArea.scrollTop = messagesArea.scrollHeight;
+                }
+            } else {
+                messagesArea.innerHTML = `
+                    <div class="empty-chat">
+                        <div class="empty-chat-icon">❌</div>
+                        <p style="color: #e74c3c;">${messages.error || 'Errore caricamento messaggi'}</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading messages:', error);
+            document.getElementById('messagesArea').innerHTML = `
+                <div class="empty-chat">
+                    <div class="empty-chat-icon">❌</div>
+                    <p style="color: #e74c3c;">Errore di connessione</p>
+                </div>
+            `;
+        }
+    }
+
+    // ========== INVIA MESSAGGIO ==========
+    async function sendMessage(event) {
+        event.preventDefault();
+
+        const input = document.getElementById('messageInput');
+        const content = input.value.trim();
+
+        if (!content) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('content', content);
+
+            const response = await fetch(`/api/messaggi/${OTHER_USER_ID}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                // Pulisci input
+                input.value = '';
+                input.style.height = 'auto';
+
+                // Ricarica messaggi
+                await loadMessages();
+            } else {
+                alert(result.error || 'Errore invio messaggio');
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            alert('Errore di connessione');
+        }
+    }
+
+    // ========== AUTO-RESIZE TEXTAREA ==========
+    const textarea = document.getElementById('messageInput');
+    textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    // ========== CARICA MESSAGGI ALL'AVVIO ==========
+    loadMessages();
+
+    // ========== REFRESH AUTOMATICO OGNI 5 SECONDI ==========
+    setInterval(loadMessages, 5000);
+</script>
+{% endblock %}

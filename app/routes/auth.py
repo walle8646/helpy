@@ -8,23 +8,61 @@ import hashlib
 from typing import Optional
 from app.logger_config import logger
 from app.utils.email import generate_verification_code, send_verification_email
+import os
+import jwt
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
 def verify_token(request: Request) -> Optional[User]:
-    """Verifica se l'utente è loggato tramite session"""
-    user_id = request.session.get("user_id")
+    """
+    Verifica token JWT e restituisce utente autenticato
+    """
+    try:
+        # ✅ Leggi token dalla sessione
+        token = request.session.get("access_token")
+        
+        if not token:
+            logger.warning("⚠️ No access_token in session")
+            logger.debug(f"Session keys: {list(request.session.keys())}")
+            return None
+        
+        # Decodifica JWT
+        JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            user_id = payload.get("user_id")
+            
+            if not user_id:
+                logger.warning("⚠️ No user_id in token payload")
+                return None
+        
+        except jwt.ExpiredSignatureError:
+            logger.warning("⚠️ Token expired")
+            return None
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"⚠️ Invalid token: {e}")
+            return None
+        
+        # ✅ Ottieni utente dal database
+        with get_session() as session:
+            user = session.get(User, user_id)
+            
+            if not user:
+                logger.warning(f"⚠️ User {user_id} not found in database")
+                return None
+            
+            logger.info(f"✅ User authenticated: {user.nome} (ID: {user.id})")
+            return user
     
-    if not user_id:
+    except Exception as e:
+        logger.error(f"Error verifying token: {e}", exc_info=True)
         return None
-    
-    with get_session() as session:
-        user = session.get(User, user_id)
-        return user
 
-async def get_current_user(request: Request) -> User:
-    """Dependency che richiede autenticazione"""
-    user = verify_token(request)
+# Alias per compatibilità
+def get_current_user(request: Request) -> Optional[User]:
+    """Alias di verify_token"""
+    return verify_token(request)
     if not user:
         raise HTTPException(status_code=401, detail="Non autenticato")
     return user
@@ -74,34 +112,61 @@ async def api_login(
     email: str = Form(...),
     password: str = Form(...)
 ):
-    """API Login (ritorna JSON)"""
-    with get_session() as session:
-        statement = select(User).where(User.email == email)
-        user = session.exec(statement).first()
-        
-        if not user:
-            return JSONResponse({"error": "Email non trovata"}, status_code=404)
-        
-        password_hash = hashlib.md5(password.encode()).hexdigest()
-        
-        if user.password_md5 != password_hash:
-            return JSONResponse({"error": "Password errata"}, status_code=401)
-        
-        if user.confirmed != 1:
-            return JSONResponse({"error": "Conferma la tua email"}, status_code=403)
-        
-        request.session["user_id"] = user.id
-        request.session["user_email"] = user.email
-        
-        return JSONResponse({
-            "message": "Login successful",
-            "redirect_url": "/profile",
-            "user": {
-                "id": user.id,
+    """API endpoint per login (AJAX)"""
+    try:
+        with get_session() as session:
+            user = session.exec(
+                select(User).where(User.email == email)
+            ).first()
+            
+            if not user:
+                return JSONResponse(
+                    {"error": "Email o password non corretti"},
+                    status_code=401
+                )
+            
+            # Verifica password
+            password_hash = hashlib.md5(password.encode()).hexdigest()
+            if user.password_md5 != password_hash:
+                return JSONResponse(
+                    {"error": "Email o password non corretti"},
+                    status_code=401
+                )
+            
+            # ✅ Genera token JWT
+            JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
+            token_data = {
+                "user_id": user.id,
                 "email": user.email,
-                "nome": user.nome
+                "exp": datetime.utcnow() + timedelta(days=7)
             }
-        })
+            access_token = jwt.encode(token_data, JWT_SECRET, algorithm="HS256")
+            
+            # ✅ SALVA TOKEN IN SESSION (IMPORTANTE!)
+            request.session["access_token"] = access_token
+            request.session["user_id"] = user.id
+            request.session["user_email"] = user.email
+            request.session["user_nome"] = user.nome
+            
+            logger.info(f"✅ User logged in: {user.nome} ({user.email})")
+            logger.info(f"🔑 Session data: {request.session}")  # Debug
+            
+            return JSONResponse({
+                "success": True,
+                "message": "Login effettuato con successo",
+                "user": {
+                    "id": user.id,
+                    "nome": user.nome,
+                    "email": user.email
+                }
+            }, status_code=200)
+    
+    except Exception as e:
+        logger.error(f"Login error: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore durante il login"},
+            status_code=500
+        )
 
 @router.post("/api/register")
 async def api_register(

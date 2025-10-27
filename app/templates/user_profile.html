@@ -144,6 +144,13 @@
             <a href="/messages/{{ user.id }}" class="btn btn-secondary">Invia Messaggio</a>
         </section>
         {% endif %}
+
+        <!-- Bottone Messaggistica -->
+        <div class="profile-actions" style="margin-top: 24px;">
+            <a href="/messaggi/{{ user.id }}" class="hero-btn" style="display: inline-block; text-decoration: none;">
+                💬 Invia Messaggio
+            </a>
+        </div>
     </aside>
 </div>
 {% endblock %}

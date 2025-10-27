@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from app.database import create_db_and_tables
-from app.routes import home, auth, consultants, user_profile
+from app.routes import home, auth, consultants, user_profile, messages
 from app.logger_config import logger
 
 app = FastAPI(title="Helpy", version="1.0.0")
@@ -35,6 +35,8 @@ app.include_router(home.router, tags=["home"])
 app.include_router(auth.router, tags=["auth"])
 app.include_router(user_profile.router, tags=["profile"])
 app.include_router(consultants.router, tags=["consultants"])
+app.include_router(messages.router, tags=["messages"])  # ✅ Aggiungi questo
+
 
 # Database init
 @app.on_event("startup")
