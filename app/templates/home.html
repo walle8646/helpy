@@ -1,31 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Helpy</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="navbar-left">
-            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo" style="height:32px;">
-            <span class="navbar-title">Helpy</span>
-        </div>
-        <div class="navbar-links">
-            {% if user %}
-                <!-- Utente loggato: mostra Profile e Logout -->
-                <span style="color:#666; margin-right:16px;">Hello, {{ user.email }}</span>
-                <a href="/profile" class="register-btn">Profile</a>
-                <a href="/logout" class="register-btn" style="background:#e74c3c; margin-left:12px;">Logout</a>
-            {% else %}
-                <!-- Utente NON loggato: mostra Register e Login -->
-                <a href="/register" class="register-btn">Register</a>
-                <a href="/login" class="register-btn" style="background:#1746a2; margin-left:12px;">Login</a>
-            {% endif %}
-        </div>
-    </nav>
+{% extends "base.html" %}
 
+{% block title %}Helpy - Get Advice from People Who Can Help{% endblock %}
+
+{% block content %}
     <!-- Hero Section -->
     <section class="hero">
         {% if user %}
@@ -113,8 +90,9 @@
             </a>
             {% endfor %}
         </div>
+        
+        <div style="text-align: center; margin-top: 48px;">
+            <a href="/consultants" class="hero-btn">Vedi Tutti i Consulenti →</a>
+        </div>
     </section>
-    
-    <script src="/static/script.js"></script>
-</body>
-</html>
+{% endblock %}

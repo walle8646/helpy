@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Messaggi - Helpy{% endblock %}
+
+{% block content %}
+<style>
+    .inbox-container {
+        max-width: 800px;
+        margin: 80px auto 20px;
+        padding: 20px;
+    }
+
+    .inbox-header {
+        margin-bottom: 32px;
+    }
+
+    .inbox-header h1 {
+        font-size: 32px;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+    }
+
+    .conversation-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .conversation-item {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .conversation-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+
+    .conversation-avatar img {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .conversation-info {
+        flex: 1;
+    }
+
+    .conversation-name {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 4px;
+    }
+
+    .conversation-preview {
+        font-size: 14px;
+        color: #666;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .conversation-meta {
+        text-align: right;
+    }
+
+    .conversation-time {
+        font-size: 12px;
+        color: #999;
+        margin-bottom: 4px;
+    }
+
+    .unread-badge {
+        background: #667eea;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 16px;
+    }
+</style>
+
+<div class="inbox-container">
+    <div class="inbox-header">
+        <h1>💬 Messaggi</h1>
+        <p style="color: #666;">Le tue conversazioni</p>
+    </div>
+
+    <div class="conversation-list" id="conversationList">
+        <div class="loading-messages" style="text-align: center; padding: 40px; color: #999;">
+            Caricamento conversazioni...
+        </div>
+    </div>
+</div>
+
+<script>
+    // ✅ Usa "user" invece di "current_user"
+    const CURRENT_USER = {{ user.id if user else 'null' }};
+
+    async function loadConversations() {
+        try {
+            const response = await fetch('/api/conversations');
+            const data = await response.json();
+
+            const listContainer = document.getElementById('conversationList');
+
+            if (response.ok) {
+                if (data.length === 0) {
+                    listContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <p>Nessuna conversazione ancora</p>
+                            <p style="font-size: 14px;">Inizia a chattare con i consulenti!</p>
+                            <a href="/consultants" style="margin-top: 16px; display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; text-decoration: none;">
+                                🔍 Trova Consulenti
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    listContainer.innerHTML = data.map(conv => {
+                        const time = new Date(conv.updated_at).toLocaleString('it-IT', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+
+                        const lastMsg = conv.last_message?.content || 'Nessun messaggio';
+                        const preview = lastMsg.length > 50 ? lastMsg.substring(0, 50) + '...' : lastMsg;
+
+                        return `
+                            <a href="/messaggi/${conv.other_user.id}" class="conversation-item">
+                                <div class="conversation-avatar">
+                                    <img src="${conv.other_user.profile_picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(conv.other_user.nome) + '&background=667eea&color=fff'}" 
+                                         alt="${conv.other_user.nome}"
+                                         onerror="this.src='https://ui-avatars.com/api/?name=User&background=667eea&color=fff'">
+                                </div>
+                                <div class="conversation-info">
+                                    <div class="conversation-name">
+                                        ${conv.other_user.nome} ${conv.other_user.cognome || ''}
+                                    </div>
+                                    <div class="conversation-preview">${preview}</div>
+                                </div>
+                                <div class="conversation-meta">
+                                    <div class="conversation-time">${time}</div>
+                                    ${conv.unread_count > 0 ? `<span class="unread-badge">${conv.unread_count}</span>` : ''}
+                                </div>
+                            </a>
+                        `;
+                    }).join('');
+                }
+            } else {
+                listContainer.innerHTML = `<div style="text-align: center; color: #e74c3c; padding: 40px;">❌ ${data.error || 'Errore caricamento'}</div>`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('conversationList').innerHTML = '<div style="text-align: center; color: #e74c3c; padding: 40px;">❌ Errore di connessione</div>';
+        }
+    }
+
+    loadConversations();
+</script>
+{% endblock %}

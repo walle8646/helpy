@@ -1,184 +1,129 @@
 from fastapi import APIRouter, Request, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from sqlmodel import select
-from app.models_user import User
-from app.models_category import Category
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
-from app.auth import verify_token
+from app.models import User, Category
+from sqlmodel import select
+from app.routes.auth import verify_token
 from app.logger_config import logger
 from typing import Optional
 import os
-import uuid
-from pathlib import Path
+import hashlib
+from PIL import Image
+import io
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/profile", response_class=HTMLResponse)
-def user_profile(request: Request):
-    session_token = request.cookies.get("session_token")
-    logger.info(f"Profile accessed, cookie: {session_token[:20] if session_token else 'None'}...")
-    
-    if not session_token:
-        logger.warning("No session token found, redirecting to login")
-        return RedirectResponse("/login")
-    
+async def user_profile(request: Request):
+    """Pagina profilo utente"""
     try:
-        payload = verify_token(session_token)
-        user_id = payload.get("user_id")
-        logger.info(f"Token verified, user_id: {user_id}")
+        user = verify_token(request)
         
-        if not user_id:
-            logger.warning("No user_id in token")
-            return RedirectResponse("/login")
+        if not user:
+            logger.warning("❌ Unauthorized access to profile")
+            return RedirectResponse("/login", status_code=307)
         
-        # 🔥 USA WITH per il context manager
         with get_session() as session:
-            user = session.get(User, user_id)
-            if not user:
-                logger.warning(f"User {user_id} not found in database")
-                return RedirectResponse("/login")
+            fresh_user = session.get(User, user.id)
             
-            # CARICA TUTTE LE CATEGORIE
+            if not fresh_user:
+                logger.error(f"❌ User ID {user.id} not found in database")
+                request.session.clear()
+                return RedirectResponse("/login", status_code=307)
+            
             categories = session.exec(select(Category)).all()
-            logger.info(f"✅ Loaded {len(categories)} categories: {[c.name for c in categories]}")
+            logger.info(f"✅ Loaded {len(categories)} categories")
             
-            # Carica la categoria dell'utente
-            user_category = None
-            if user.category_id:
-                user_category = session.get(Category, user.category_id)
-                logger.info(f"User category: {user_category.name if user_category else 'None'}")
+            # ✅ AGGIUNGI cognome
+            user_data = {
+                "id": fresh_user.id,
+                "email": fresh_user.email,
+                "nome": fresh_user.nome or "",
+                "cognome": fresh_user.cognome or "",  # ✅ AGGIUNGI questo
+                "professione": fresh_user.professione or "",
+                "descrizione": fresh_user.descrizione or "",
+                "profile_picture": fresh_user.profile_picture or "/static/default-avatar.png",
+                "category_id": fresh_user.category_id,
+                "aree_interesse": fresh_user.aree_interesse or "",
+                "prezzo_consulenza": fresh_user.prezzo_consulenza or 0,
+                "bollini": fresh_user.bollini or 0,
+                "confirmed": fresh_user.confirmed,
+                "created_at": fresh_user.created_at.strftime("%d/%m/%Y") if fresh_user.created_at else "N/A"
+            }
             
-            # Converti aree_interesse da stringa a lista
-            aree_interesse_list = user.aree_interesse.split(',') if user.aree_interesse else []
+            logger.info(f"✅ Profile loaded for user: {fresh_user.email}")
             
-            return templates.TemplateResponse("profile.html", {
-                "request": request,
-                "user": user,
-                "categories": categories,
-                "user_category": user_category,
-                "aree_interesse_list": aree_interesse_list
-            })
+            return request.app.state.templates.TemplateResponse(
+                "profile.html",
+                {
+                    "request": request,
+                    "user": user_data,
+                    "categories": categories
+                }
+            )
+    
     except Exception as e:
         logger.error(f"Error in profile: {e}", exc_info=True)
-        return RedirectResponse("/login")
+        request.session.clear()
+        return RedirectResponse("/login", status_code=307)
 
-@router.post("/api/update-profile")
-def update_profile(
+@router.post("/api/profile/update")
+async def update_profile(
     request: Request,
-    nome: Optional[str] = Form(None),
-    professione: Optional[str] = Form(None),
-    descrizione: Optional[str] = Form(None),
+    nome: str = Form(None),
+    cognome: str = Form(None),  # ✅ AGGIUNGI cognome
+    professione: str = Form(None),
+    descrizione: str = Form(None),
     category_id: Optional[int] = Form(None),
-    aree_interesse: Optional[str] = Form(None),
-    prezzo_consulenza: Optional[int] = Form(None),
-    durata_consulenza: Optional[int] = Form(None)
+    aree_interesse: str = Form(None),
+    prezzo_consulenza: Optional[int] = Form(None)
 ):
-    session_token = request.cookies.get("session_token")
-    
-    if not session_token:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
-    
+    """Aggiorna profilo utente"""
     try:
-        payload = verify_token(session_token)
-        user_id = payload.get("user_id")
+        user = verify_token(request)
         
-        if not user_id:
-            return JSONResponse({"error": "Invalid token"}, status_code=401)
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
         
-        # 🔥 USA WITH
         with get_session() as session:
-            user = session.get(User, user_id)
-            if not user:
-                return JSONResponse({"error": "User not found"}, status_code=404)
+            db_user = session.get(User, user.id)
+            
+            if not db_user:
+                return JSONResponse({"error": "Utente non trovato"}, status_code=404)
             
             if nome is not None:
-                user.nome = nome
+                db_user.nome = nome
+            if cognome is not None:  # ✅ AGGIUNGI questo
+                db_user.cognome = cognome
             if professione is not None:
-                user.professione = professione
+                db_user.professione = professione
             if descrizione is not None:
-                user.descrizione = descrizione
+                db_user.descrizione = descrizione
             if category_id is not None:
-                user.category_id = category_id if category_id > 0 else None
-                logger.info(f"Updated category_id to: {user.category_id}")
+                db_user.category_id = category_id
             if aree_interesse is not None:
-                user.aree_interesse = aree_interesse
+                db_user.aree_interesse = aree_interesse
             if prezzo_consulenza is not None:
-                user.prezzo_consulenza = prezzo_consulenza
-            if durata_consulenza is not None:
-                user.durata_consulenza = durata_consulenza
+                db_user.prezzo_consulenza = prezzo_consulenza
             
-            session.add(user)
+            session.add(db_user)
             session.commit()
-            session.refresh(user)
+            session.refresh(db_user)
             
-            logger.info(f"Profile updated for user: {user.email}, category_id: {user.category_id}")
-            
-            return JSONResponse({"message": "Profile updated successfully"}, status_code=200)
-    except Exception as e:
-        logger.error(f"Error updating profile: {e}", exc_info=True)
-        return JSONResponse({"error": "Failed to update profile"}, status_code=500)
-
-@router.post("/api/upload-profile-picture")
-async def upload_profile_picture(
-    request: Request,
-    file: UploadFile = File(...)
-):
-    session_token = request.cookies.get("session_token")
-    
-    if not session_token:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
-    
-    try:
-        payload = verify_token(session_token)
-        user_id = payload.get("user_id")
-        
-        if not user_id:
-            return JSONResponse({"error": "Invalid token"}, status_code=401)
-        
-        # Verifica che sia un'immagine
-        if not file.content_type.startswith('image/'):
-            return JSONResponse({"error": "File must be an image"}, status_code=400)
-        
-        # Crea la cartella uploads se non esiste
-        upload_dir = Path("app/static/uploads/profile_pictures")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Genera nome file unico
-        file_extension = file.filename.split('.')[-1]
-        unique_filename = f"{user_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
-        file_path = upload_dir / unique_filename
-        
-        # Salva il file
-        with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
-        
-        # Aggiorna il database
-        with get_session() as session:
-            user = session.get(User, user_id)
-            if not user:
-                return JSONResponse({"error": "User not found"}, status_code=404)
-            
-            # Elimina la vecchia immagine se esiste
-            if user.profile_picture:
-                old_file = Path(f"app/static{user.profile_picture}")
-                if old_file.exists():
-                    old_file.unlink()
-            
-            # Salva il nuovo percorso (relativo a /static/)
-            user.profile_picture = f"/uploads/profile_pictures/{unique_filename}"
-            session.add(user)
-            session.commit()
-            
-            logger.info(f"Profile picture uploaded for user {user.email}: {unique_filename}")
+            logger.info(f"✅ Profile updated for user: {db_user.email}")
             
             return JSONResponse({
-                "message": "Profile picture uploaded successfully",
-                "url": user.profile_picture
+                "message": "Profilo aggiornato con successo!",
+                "user": {
+                    "nome": db_user.nome,
+                    "cognome": db_user.cognome,  # ✅ AGGIUNGI questo
+                    "professione": db_user.professione
+                }
             })
     
     except Exception as e:
-        logger.error(f"Error uploading profile picture: {e}", exc_info=True)
-        return JSONResponse({"error": "Failed to upload image"}, status_code=500)
+        logger.error(f"Error updating profile: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore durante l'aggiornamento"},
+            status_code=500
+        )

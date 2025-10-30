@@ -1,417 +1,406 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profilo - Helpy</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/profile.css">
-    <!-- Cropper.js Library -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
-    <style>
-        .modal {
-            position: fixed !important;
-            z-index: 999999 !important;
-            left: 0 !important;
-            top: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            background-color: rgba(0, 0, 0, 0.9) !important;
-            display: none !important;
-        }
-        
-        .modal[style*="display: flex"],
-        .modal[style*="display:flex"] {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-        
-        .modal-content {
-            background: white !important;
-            padding: 40px !important;
-            border-radius: 16px !important;
-            max-width: 700px !important;
-            width: 90% !important;
-            position: relative !important;
-            z-index: 1000000 !important;
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="navbar-left">
-            <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo" style="height:32px;">
-            <span class="navbar-title">Helpy</span>
-        </div>
-        <div class="navbar-links">
-            <a href="/">Home</a>
-            <a href="/logout" class="register-btn" style="background:#e74c3c;">Logout</a>
-        </div>
-    </nav>
+{% extends "base.html" %}
 
-    <div class="profile-container">
-        <main class="main-content">
-            <!-- Cover Image -->
-            <div class="cover-image"></div>
+{% block title %}Profilo - Helpy{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/profile.css">
+<!-- Cropper.js Library -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+<style>
+    .modal {
+        position: fixed !important;
+        z-index: 999999 !important;
+        left: 0 !important;
+        top: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background-color: rgba(0, 0, 0, 0.9) !important;
+        display: none !important;
+    }
+    
+    .modal[style*="display: flex"],
+    .modal[style*="display:flex"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    .modal-content {
+        background: white !important;
+        padding: 40px !important;
+        border-radius: 16px !important;
+        max-width: 700px !important;
+        width: 90% !important;
+        position: relative !important;
+        z-index: 1000000 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <main class="main-content">
+        <!-- Cover Image -->
+        <div class="cover-image"></div>
+        
+        <!-- Profile Header -->
+        <header class="profile-header card">
+            <div class="profile-avatar-container">
+                {% if user.profile_picture %}
+                <img src="{{ user.profile_picture }}" alt="Profile" class="profile-avatar-large" id="profileImage">
+                {% else %}
+                <div class="profile-avatar-large" id="profileImage">👤</div>
+                {% endif %}
+                
+                <!-- 🔥 Bottone per modificare immagine (matita) -->
+                <label for="profilePictureInput" class="edit-avatar-btn" title="Cambia immagine profilo">
+                    ✏️
+                </label>
+                <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+            </div>
             
-            <!-- Profile Header -->
-            <header class="profile-header card">
-                <div class="profile-avatar-container">
-                    {% if user.profile_picture %}
-                    <img src="{{ user.profile_picture }}" alt="Profile" class="profile-avatar-large" id="profileImage">
-                    {% else %}
-                    <div class="profile-avatar-large" id="profileImage">👤</div>
-                    {% endif %}
-                    
-                    <!-- 🔥 Bottone per modificare immagine (matita) -->
-                    <label for="profilePictureInput" class="edit-avatar-btn" title="Cambia immagine profilo">
-                        ✏️
-                    </label>
-                    <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+            <div class="info">
+                <h1>{{ user.nome or 'Nome non impostato' }}</h1>
+                <p>{{ user.professione or 'Professione non impostata' }}</p>
+                <small style="color: #888;">{{ user.email }}</small>
+                <button id="editProfileBtn" class="btn-edit">✏️ Modifica Profilo</button>
+            </div>
+        </header>
+
+        <!-- Edit Mode Form (Hidden by default) -->
+        <section class="card" id="editSection" style="display:none;">
+            <h2>Modifica Profilo</h2>
+            <div id="successMessage" class="success-message" style="display:none;"></div>
+            <div id="errorMessage" class="error-message" style="display:none;"></div>
+            
+            <form id="profileForm" class="profile-form">
+                <div class="form-group">
+                    <label>Nome</label>
+                    <input type="text" name="nome" value="{{ user.nome or '' }}" placeholder="Inserisci il tuo nome">
                 </div>
                 
-                <div class="info">
-                    <h1>{{ user.nome or 'Nome non impostato' }}</h1>
-                    <p>{{ user.professione or 'Professione non impostata' }}</p>
-                    <small style="color: #888;">{{ user.email }}</small>
-                    <button id="editProfileBtn" class="btn-edit">✏️ Modifica Profilo</button>
+                <div class="form-group">
+                    <label>Professione</label>
+                    <input type="text" name="professione" value="{{ user.professione or '' }}" placeholder="Es: Lead Software Developer">
                 </div>
-            </header>
 
-            <!-- Edit Mode Form (Hidden by default) -->
-            <section class="card" id="editSection" style="display:none;">
-                <h2>Modifica Profilo</h2>
-                <div id="successMessage" class="success-message" style="display:none;"></div>
-                <div id="errorMessage" class="error-message" style="display:none;"></div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select name="category_id" style="padding:12px; border:1px solid #ddd; border-radius:6px; font-size:1rem;">
+                        <option value="">Nessuna categoria</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if user.category_id == cat.id %}selected{% endif %}>
+                            {{ cat.icon }} {{ cat.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small style="color:#888; margin-top:4px; display:block;">Seleziona la categoria che meglio rappresenta la tua expertise</small>
+                </div>
                 
-                <form id="profileForm" class="profile-form">
-                    <div class="form-group">
-                        <label>Nome</label>
-                        <input type="text" name="nome" value="{{ user.nome or '' }}" placeholder="Inserisci il tuo nome">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Professione</label>
-                        <input type="text" name="professione" value="{{ user.professione or '' }}" placeholder="Es: Lead Software Developer">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Categoria</label>
-                        <select name="category_id" style="padding:12px; border:1px solid #ddd; border-radius:6px; font-size:1rem;">
-                            <option value="">Nessuna categoria</option>
-                            {% for cat in categories %}
-                            <option value="{{ cat.id }}" {% if user.category_id == cat.id %}selected{% endif %}>
-                                {{ cat.icon }} {{ cat.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <small style="color:#888; margin-top:4px; display:block;">Seleziona la categoria che meglio rappresenta la tua expertise</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Descrizione</label>
-                        <textarea name="descrizione" rows="5" placeholder="Raccontaci di te, della tua esperienza e come puoi aiutare gli altri">{{ user.descrizione or '' }}</textarea>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Aree di Interesse</label>
-                        <textarea name="aree_interesse" rows="4" placeholder="Es: Sviluppo Mobile, Leadership, Crescita Personale">{{ user.aree_interesse or '' }}</textarea>
-                        <small>Separa con virgole</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Prezzo Consulenza (€)</label>
-                        <input type="number" name="prezzo_consulenza" value="{{ user.prezzo_consulenza or 150 }}" min="0" step="10">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Durata Consulenza (minuti)</label>
-                        <input type="number" name="durata_consulenza" value="{{ user.durata_consulenza or 60 }}" min="15" step="15">
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Salva Modifiche</button>
-                        <button type="button" id="cancelEditBtn" class="btn btn-secondary">Annulla</button>
-                    </div>
-                </form>
-            </section>
-
-            <!-- Category Badge (se presente) -->
-            {% if user_category %}
-            <section class="card" id="viewSection">
-                <h2>Categoria</h2>
-                <div class="category-badge" style="background:{{ user_category.color }}20; border-left:4px solid {{ user_category.color }}; padding:16px; border-radius:8px;">
-                    <div style="font-size:2em; margin-bottom:8px;">{{ user_category.icon }}</div>
-                    <h3 style="margin:0 0 8px 0; color:{{ user_category.color }};">{{ user_category.name }}</h3>
-                    <p style="margin:0; color:#666;">{{ user_category.description }}</p>
+                <div class="form-group">
+                    <label>Descrizione</label>
+                    <textarea name="descrizione" rows="5" placeholder="Raccontaci di te, della tua esperienza e come puoi aiutare gli altri">{{ user.descrizione or '' }}</textarea>
                 </div>
-            </section>
+                
+                <div class="form-group">
+                    <label>Aree di Interesse</label>
+                    <textarea name="aree_interesse" rows="4" placeholder="Es: Sviluppo Mobile, Leadership, Crescita Personale">{{ user.aree_interesse or '' }}</textarea>
+                    <small>Separa con virgole</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Prezzo Consulenza (€)</label>
+                    <input type="number" name="prezzo_consulenza" value="{{ user.prezzo_consulenza or 150 }}" min="0" step="10">
+                </div>
+
+                <div class="form-group">
+                    <label>Durata Consulenza (minuti)</label>
+                    <input type="number" name="durata_consulenza" value="{{ user.durata_consulenza or 60 }}" min="15" step="15">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+                    <button type="button" id="cancelEditBtn" class="btn btn-secondary">Annulla</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Category Badge (se presente) -->
+        {% if user_category %}
+        <section class="card" id="viewSection">
+            <h2>Categoria</h2>
+            <div class="category-badge" style="background:{{ user_category.color }}20; border-left:4px solid {{ user_category.color }}; padding:16px; border-radius:8px;">
+                <div style="font-size:2em; margin-bottom:8px;">{{ user_category.icon }}</div>
+                <h3 style="margin:0 0 8px 0; color:{{ user_category.color }};">{{ user_category.name }}</h3>
+                <p style="margin:0; color:#666;">{{ user_category.description }}</p>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Description Section -->
+        <section class="card">
+            <h2>Descrizione</h2>
+            {% if user.descrizione %}
+            <p style="white-space: pre-wrap;">{{ user.descrizione }}</p>
+            {% else %}
+            <p style="color:#888;">Aggiungi una descrizione al tuo profilo per far sapere agli altri chi sei!</p>
             {% endif %}
+        </section>
 
-            <!-- Description Section -->
-            <section class="card">
-                <h2>Descrizione</h2>
-                {% if user.descrizione %}
-                <p>{{ user.descrizione }}</p>
-                {% else %}
-                <p style="color:#888;">Aggiungi una descrizione al tuo profilo per far sapere agli altri chi sei!</p>
-                {% endif %}
-            </section>
+        <!-- Areas of Interest -->
+        <section class="card">
+            <h2>Aree di Interesse</h2>
+            {% if aree_interesse_list %}
+            <ul>
+                {% for area in aree_interesse_list %}
+                <li>{{ area.strip() }}</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p style="color:#888;">Nessuna area di interesse specificata. Modifica il profilo per aggiungerne.</p>
+            {% endif %}
+        </section>
+        
+        <!-- Reviews Section -->
+        <section class="card">
+            <h2>Recensioni</h2>
+            <p style="color:#888;">Nessuna recensione disponibile al momento.</p>
+        </section>
 
-            <!-- Areas of Interest -->
-            <section class="card">
-                <h2>Aree di Interesse</h2>
-                {% if aree_interesse_list %}
-                <ul>
-                    {% for area in aree_interesse_list %}
-                    <li>{{ area.strip() }}</li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p style="color:#888;">Nessuna area di interesse specificata. Modifica il profilo per aggiungerne.</p>
-                {% endif %}
-            </section>
+    </main>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <!-- Stats Card -->
+        <section class="consultation-card">
+            <h2>Le tue Statistiche</h2>
             
-            <!-- Reviews Section -->
-            <section class="card">
-                <h2>Recensioni</h2>
-                <p style="color:#888;">Nessuna recensione disponibile al momento.</p>
-            </section>
-
-        </main>
-
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <!-- Stats Card -->
-            <section class="consultation-card">
-                <h2>Le tue Statistiche</h2>
-                
-                <div class="stat-item">
-                    <div class="stat-label">Bollini</div>
-                    <div class="stat-value">{{ user.bollini }}</div>
-                </div>
-                
-                <div class="stat-item">
-                    <div class="stat-label">Consulenze Acquistate</div>
-                    <div class="stat-value">{{ user.consulenze_acquistate }}</div>
-                </div>
-                
-                <div class="stat-item">
-                    <div class="stat-label">Consulenze Vendute</div>
-                    <div class="stat-value">{{ user.consulenze_vendute }}</div>
-                </div>
-
-                <a href="/dashboard" class="btn btn-primary">Vai alla Dashboard</a>
-            </section>
+            <div class="stat-item">
+                <div class="stat-label">Bollini</div>
+                <div class="stat-value">{{ user.bollini }}</div>
+            </div>
             
-            <!-- Account Info -->
-            <section class="card">
-                <h3>Account</h3>
-                <div class="account-info">
-                    <p><strong>Email:</strong><br>{{ user.email }}</p>
-                    <p><strong>Status:</strong><br>
-                        {% if user.confirmed == 1 %}
-                        <span style="color:#28a745;">✓ Verificato</span>
-                        {% else %}
-                        <span style="color:#dc3545;">Non Verificato</span>
-                        {% endif %}
-                    </p>
-                    <p><strong>Membro dal:</strong><br>{{ user.created_at[:10] if user.created_at else 'N/A' }}</p>
-                </div>
-                <a href="/reset-password" class="btn btn-secondary">Cambia Password</a>
-            </section>
-        </aside>
-    </div>
+            <div class="stat-item">
+                <div class="stat-label">Consulenze Acquistate</div>
+                <div class="stat-value">{{ user.consulenze_acquistate }}</div>
+            </div>
+            
+            <div class="stat-item">
+                <div class="stat-label">Consulenze Vendute</div>
+                <div class="stat-value">{{ user.consulenze_vendute }}</div>
+            </div>
 
-    <!-- 🔥 Modal per crop immagine -->
-    <div id="cropModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <h2>Ritaglia l'immagine</h2>
-            <div class="crop-container">
-                <img id="imageToCrop" style="max-width: 100%;">
+            <a href="/dashboard" class="btn btn-primary">Vai alla Dashboard</a>
+        </section>
+        
+        <!-- Account Info -->
+        <section class="card">
+            <h3>Account</h3>
+            <div class="account-info">
+                <p><strong>Email:</strong><br>{{ user.email }}</p>
+                <p><strong>Status:</strong><br>
+                    {% if user.confirmed == 1 %}
+                    <span style="color:#28a745;">✓ Verificato</span>
+                    {% else %}
+                    <span style="color:#dc3545;">Non Verificato</span>
+                    {% endif %}
+                </p>
+                <p><strong>Membro dal:</strong><br>{{ user.created_at[:10] if user.created_at else 'N/A' }}</p>
             </div>
-            <div class="modal-actions" style="margin-top: 20px;">
-                <button id="cancelCrop" class="btn btn-secondary">Annulla</button>
-                <button id="saveCrop" class="btn btn-primary">Salva</button>
-            </div>
+            <a href="/reset-password" class="btn btn-secondary">Cambia Password</a>
+        </section>
+    </aside>
+</div>
+
+<!-- 🔥 Modal per crop immagine -->
+<div id="cropModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h2>Ritaglia l'immagine</h2>
+        <div class="crop-container">
+            <img id="imageToCrop" style="max-width: 100%;">
+        </div>
+        <div class="modal-actions" style="margin-top: 20px;">
+            <button id="cancelCrop" class="btn btn-secondary">Annulla</button>
+            <button id="saveCrop" class="btn btn-primary">Salva</button>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <script>
-        // ========== EDIT PROFILE FUNCTIONALITY ==========
-        const editBtn = document.getElementById('editProfileBtn');
-        const cancelBtn = document.getElementById('cancelEditBtn');
-        const editSection = document.getElementById('editSection');
-        const viewSection = document.getElementById('viewSection');
-        const profileForm = document.getElementById('profileForm');
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<script>
+    // ========== EDIT PROFILE FUNCTIONALITY ==========
+    const editBtn = document.getElementById('editProfileBtn');
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    const editSection = document.getElementById('editSection');
+    const viewSection = document.getElementById('viewSection');
+    const profileForm = document.getElementById('profileForm');
 
-        editBtn.addEventListener('click', () => {
-            editSection.style.display = 'block';
-            if(viewSection) viewSection.style.display = 'none';
-            window.scrollTo({ top: editSection.offsetTop - 80, behavior: 'smooth' });
+    editBtn.addEventListener('click', () => {
+        editSection.style.display = 'block';
+        if(viewSection) viewSection.style.display = 'none';
+        window.scrollTo({ top: editSection.offsetTop - 80, behavior: 'smooth' });
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        editSection.style.display = 'none';
+        if(viewSection) viewSection.style.display = 'block';
+    });
+
+    profileForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const successDiv = document.getElementById('successMessage');
+        const errorDiv = document.getElementById('errorMessage');
+        successDiv.style.display = 'none';
+        errorDiv.style.display = 'none';
+        
+        const formData = new FormData(profileForm);
+        const params = new URLSearchParams(formData);
+        
+        console.log('Dati inviati:', Object.fromEntries(params));
+        
+        try {
+            const response = await fetch('/api/update-profile', {
+                method: 'POST',
+                body: params
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                successDiv.textContent = 'Profilo aggiornato con successo!';
+                successDiv.style.display = 'block';
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                errorDiv.textContent = data.error || 'Errore durante l\'aggiornamento';
+                errorDiv.style.display = 'block';
+            }
+        } catch (error) {
+            errorDiv.textContent = 'Errore di connessione';
+            errorDiv.style.display = 'block';
+            console.error('Error:', error);
+        }
+    });
+
+    // ========== PROFILE PICTURE UPLOAD & CROP ==========
+    let cropperInstance = null;
+
+    const profilePictureInput = document.getElementById('profilePictureInput');
+    const cropModal = document.getElementById('cropModal');
+    const imageToCrop = document.getElementById('imageToCrop');
+    const saveCropBtn = document.getElementById('saveCrop');
+    const cancelCropBtn = document.getElementById('cancelCrop');
+    const closeModalBtn = document.querySelector('.close-modal');
+
+    profilePictureInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        console.log('File selezionato:', file.name);
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            imageToCrop.src = event.target.result;
+            cropModal.style.display = 'flex';
+            document.body.classList.add('modal-open');
+            
+            console.log('Modal aperto');
+            
+            if (cropperInstance) {
+                cropperInstance.destroy();
+            }
+            
+            setTimeout(() => {
+                cropperInstance = new Cropper(imageToCrop, {
+                    aspectRatio: 1,
+                    viewMode: 1,
+                    autoCropArea: 0.8,
+                    responsive: true,
+                    restore: false,
+                    guides: true,
+                    center: true,
+                    highlight: true,
+                    cropBoxMovable: true,
+                    cropBoxResizable: true,
+                    background: false,
+                    movable: true,
+                    zoomable: true,
+                    scalable: true,
+                });
+                console.log('Cropper inizializzato');
+            }, 150);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    saveCropBtn.addEventListener('click', async () => {
+        console.log('Salvataggio crop...');
+        
+        const canvas = cropperInstance.getCroppedCanvas({
+            width: 400,
+            height: 400,
         });
-
-        cancelBtn.addEventListener('click', () => {
-            editSection.style.display = 'none';
-            if(viewSection) viewSection.style.display = 'block';
-        });
-
-        profileForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        
+        canvas.toBlob(async (blob) => {
+            const formData = new FormData();
+            formData.append('file', blob, 'profile.jpg');
             
-            const successDiv = document.getElementById('successMessage');
-            const errorDiv = document.getElementById('errorMessage');
-            successDiv.style.display = 'none';
-            errorDiv.style.display = 'none';
-            
-            const formData = new FormData(profileForm);
-            const params = new URLSearchParams(formData);
-            
-            console.log('Dati inviati:', Object.fromEntries(params));
+            console.log('Uploading...');
             
             try {
-                const response = await fetch('/api/update-profile', {
+                const response = await fetch('/api/upload-profile-picture', {
                     method: 'POST',
-                    body: params
+                    body: formData
                 });
                 
                 const data = await response.json();
+                console.log('Response:', data);
                 
                 if (response.ok) {
-                    successDiv.textContent = 'Profilo aggiornato con successo!';
-                    successDiv.style.display = 'block';
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
+                    const profileImage = document.getElementById('profileImage');
+                    if (profileImage.tagName === 'DIV') {
+                        const img = document.createElement('img');
+                        img.src = data.url + '?t=' + Date.now();
+                        img.alt = 'Profile';
+                        img.className = 'profile-avatar-large';
+                        img.id = 'profileImage';
+                        profileImage.replaceWith(img);
+                    } else {
+                        profileImage.src = data.url + '?t=' + Date.now();
+                    }
+                    
+                    cropModal.style.display = 'none';
+                    cropperInstance.destroy();
+                    cropperInstance = null;
+                    alert('Immagine caricata con successo!');
                 } else {
-                    errorDiv.textContent = data.error || 'Errore durante l\'aggiornamento';
-                    errorDiv.style.display = 'block';
+                    alert(data.error || 'Errore durante l\'upload');
                 }
             } catch (error) {
-                errorDiv.textContent = 'Errore di connessione';
-                errorDiv.style.display = 'block';
-                console.error('Error:', error);
+                alert('Errore di connessione');
+                console.error(error);
             }
-        });
+        }, 'image/jpeg', 0.9);
+    });
 
-        // ========== PROFILE PICTURE UPLOAD & CROP ==========
-        let cropperInstance = null;
-
-        const profilePictureInput = document.getElementById('profilePictureInput');
-        const cropModal = document.getElementById('cropModal');
-        const imageToCrop = document.getElementById('imageToCrop');
-        const saveCropBtn = document.getElementById('saveCrop');
-        const cancelCropBtn = document.getElementById('cancelCrop');
-        const closeModalBtn = document.querySelector('.close-modal');
-
-        profilePictureInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            console.log('File selezionato:', file.name);
-            
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                imageToCrop.src = event.target.result;
-                cropModal.style.display = 'flex';
-                document.body.classList.add('modal-open'); // 🔥 Blocca scroll
-                
-                console.log('Modal aperto');
-                
-                if (cropperInstance) {
-                    cropperInstance.destroy();
-                }
-                
-                setTimeout(() => {
-                    cropperInstance = new Cropper(imageToCrop, {
-                        aspectRatio: 1,
-                        viewMode: 1,
-                        autoCropArea: 0.8,
-                        responsive: true,
-                        restore: false,
-                        guides: true,
-                        center: true,
-                        highlight: true,
-                        cropBoxMovable: true,
-                        cropBoxResizable: true,
-                        background: false,
-                        movable: true,
-                        zoomable: true,
-                        scalable: true,
-                    });
-                    console.log('Cropper inizializzato');
-                }, 150);
-            };
-            reader.readAsDataURL(file);
-        });
-
-        saveCropBtn.addEventListener('click', async () => {
-            console.log('Salvataggio crop...');
-            
-            const canvas = cropperInstance.getCroppedCanvas({
-                width: 400,
-                height: 400,
-            });
-            
-            canvas.toBlob(async (blob) => {
-                const formData = new FormData();
-                formData.append('file', blob, 'profile.jpg');
-                
-                console.log('Uploading...');
-                
-                try {
-                    const response = await fetch('/api/upload-profile-picture', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const data = await response.json();
-                    console.log('Response:', data);
-                    
-                    if (response.ok) {
-                        const profileImage = document.getElementById('profileImage');
-                        if (profileImage.tagName === 'DIV') {
-                            const img = document.createElement('img');
-                            img.src = data.url + '?t=' + Date.now();
-                            img.alt = 'Profile';
-                            img.className = 'profile-avatar-large';
-                            img.id = 'profileImage';
-                            profileImage.replaceWith(img);
-                        } else {
-                            profileImage.src = data.url + '?t=' + Date.now();
-                        }
-                        
-                        cropModal.style.display = 'none';
-                        cropperInstance.destroy();
-                        cropperInstance = null;
-                        alert('Immagine caricata con successo!');
-                    } else {
-                        alert(data.error || 'Errore durante l\'upload');
-                    }
-                } catch (error) {
-                    alert('Errore di connessione');
-                    console.error(error);
-                }
-            }, 'image/jpeg', 0.9);
-        });
-
-        function closeCropModal() {
-            cropModal.style.display = 'none';
-            document.body.classList.remove('modal-open'); // 🔥 Riabilita scroll
-            if (cropperInstance) {
-                cropperInstance.destroy();
-                cropperInstance = null;
-            }
-            profilePictureInput.value = '';
+    function closeCropModal() {
+        cropModal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+        if (cropperInstance) {
+            cropperInstance.destroy();
+            cropperInstance = null;
         }
+        profilePictureInput.value = '';
+    }
 
-        cancelCropBtn.addEventListener('click', closeCropModal);
-        closeModalBtn.addEventListener('click', closeCropModal);
-    </script>
-</body>
-</html>
+    cancelCropBtn.addEventListener('click', closeCropModal);
+    closeModalBtn.addEventListener('click', closeCropModal);
+</script>
+{% endblock %}

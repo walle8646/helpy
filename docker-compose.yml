@@ -4,7 +4,11 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - .:/app
+      - ./app:/app/app  # ✅ Questo deve montare la cartella app locale
+      - ./uploads:/app/uploads
       - ./dev.db:/app/dev.db
     env_file:
       - .env
+    environment:
+      - DATABASE_URL=sqlite:///./dev.db
+      - LOG_LEVEL=DEBUG

@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.nome }} {{ user.cognome or '' }} - Helpy{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/profile.css">
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <main class="main-content">
+        <!-- Cover Image -->
+        <div class="cover-image"></div>
+        
+        <!-- Profile Header -->
+        <header class="profile-header card">
+            <!-- ✅ Foto Profilo -->
+            {% if user.profile_picture and user.profile_picture != '/static/default-avatar.png' %}
+            <img src="{{ user.profile_picture }}" alt="{{ user.nome }}" class="profile-avatar-large">
+            {% else %}
+            <div class="profile-avatar-large">
+                {{ category.icon if category else '👤' }}
+            </div>
+            {% endif %}
+            
+            <div class="info">
+                <!-- ✅ Nome completo con cognome -->
+                <h1>{{ user.nome }} {{ user.cognome or '' }}</h1>
+                <p>{{ user.professione or 'Professionista' }}</p>
+                <small style="color: #888;">Membro dal {{ user.created_at }}</small>
+                {% if is_own_profile %}
+                <a href="/profile" class="btn-edit">✏️ Modifica il tuo profilo</a>
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- Description Section -->
+        <section class="card">
+            <h2>📝 Descrizione</h2>
+            {% if user.descrizione %}
+            <p style="white-space: pre-wrap;">{{ user.descrizione }}</p>
+            {% else %}
+            <p style="color:#888;">{{ user.nome or 'Questo utente' }} non ha ancora aggiunto una descrizione al profilo.</p>
+            {% endif %}
+        </section>
+
+        <!-- Areas of Interest -->
+        {% if aree_interesse_list %}
+        <section class="card">
+            <h2>🎯 Aree di Interesse</h2>
+            <ul>
+                {% for area in aree_interesse_list %}
+                <li>{{ area }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <!-- Skills / Macro Areas -->
+        {% if macro_aree_list %}
+        <section class="card">
+            <h2>💼 Competenze</h2>
+            <div class="skills-container">
+                {% for skill in macro_aree_list %}
+                <span class="skill-tag">{{ skill }}</span>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+        
+        <!-- Reviews Section -->
+        <section class="card">
+            <h2>⭐ Recensioni e Voti</h2>
+            <p style="color:#888;">Nessuna recensione disponibile al momento.</p>
+        </section>
+
+        <!-- Category Badge -->
+        {% if category %}
+        <section class="card">
+            <h2>📂 Categoria</h2>
+            <div class="category-badge" style="background:{{ category.color }}20; border-left:4px solid {{ category.color }}; padding:16px; border-radius:8px;">
+                <div style="font-size:2em; margin-bottom:8px;">{{ category.icon }}</div>
+                <h3 style="margin:0 0 8px 0; color:{{ category.color }};">{{ category.name }}</h3>
+                <p style="margin:0; color:#666;">{{ category.description }}</p>
+                {% if category.target %}
+                <small style="color:#888; display:block; margin-top:8px;"><strong>Target:</strong> {{ category.target }}</small>
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+    </main>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <!-- Consultation Booking Card -->
+        <section class="consultation-card">
+            <h2>💬 Richiedi una Consulenza</h2>
+            <div class="price">€{{ user.prezzo_consulenza }} <span>/ {{ user.durata_consulenza }} min</span></div>
+            
+            <ul>
+                <li>✅ Consulenza personalizzata 1-on-1</li>
+                <li>✅ Sessione Q&A illimitata</li>
+                <li>✅ Follow-up via email</li>
+                <li>✅ Materiali di supporto inclusi</li>
+            </ul>
+
+            {% if is_own_profile %}
+            <div class="btn btn-secondary" style="cursor: not-allowed; opacity: 0.6;">Non puoi prenotare te stesso</div>
+            {% elif not current_user %}
+            <a href="/login?redirect=/user/{{ user.id }}" class="btn btn-primary">Accedi per Prenotare</a>
+            <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Devi essere loggato per richiedere una consulenza</p>
+            {% else %}
+            <a href="/book/{{ user.id }}" class="btn btn-primary">Prenota Ora</a>
+            <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Scegli data e orario nel calendario.</p>
+            {% endif %}
+        </section>
+        
+        <!-- Stats Card -->
+        <section class="card">
+            <h3>📊 Statistiche</h3>
+            
+            <div class="stat-item">
+                <div class="stat-label">Consulenze Vendute</div>
+                <div class="stat-value">{{ user.consulenze_vendute }}</div>
+            </div>
+            
+            <div class="stat-item">
+                <div class="stat-label">Bollini Guadagnati</div>
+                <div class="stat-value" style="color: #f59e0b;">{{ user.bollini }} 🏅</div>
+            </div>
+            
+            <div class="stat-item">
+                <div class="stat-label">Valutazione Media</div>
+                <div class="stars">⭐⭐⭐⭐⭐</div>
+                <p style="margin:5px 0 0 0; font-size:0.9em; color:#888;">(0 recensioni)</p>
+            </div>
+        </section>
+
+        <!-- ✅ Messaging Card - BOTTONE CONTENUTO NEI BORDI -->
+        {% if not is_own_profile and current_user %}
+        <section class="card" style="padding: 20px;">
+            <h3 style="margin: 0 0 12px 0; text-align: center;">📩 Messaggistica</h3>
+            <p style="text-align: center; color: #555; font-size: 0.95em; margin: 0 0 16px 0;">
+                Invia un messaggio per domande veloci.
+            </p>
+            <a href="/messaggi/{{ user.id }}" 
+               class="btn btn-secondary" 
+               style="display: block; 
+                      width: 100%; 
+                      box-sizing: border-box;
+                      text-align: center; 
+                      padding: 14px 20px; 
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                      color: white; 
+                      border-radius: 12px; 
+                      text-decoration: none; 
+                      font-weight: 600; 
+                      transition: transform 0.2s, box-shadow 0.2s;
+                      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
+                💬 Invia Messaggio
+            </a>
+        </section>
+        {% endif %}
+    </aside>
+</div>
+
+<style>
+    /* ✅ Fix hover per bottone messaggi */
+    .sidebar .card a.btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    }
+</style>
+{% endblock %}

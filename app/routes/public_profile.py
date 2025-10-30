@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from app.models_user import User
-from app.models_category import Category
+from app.models import User
+from app.models import Category
 from app.database import get_session
 from app.logger_config import logger
 
@@ -30,7 +30,7 @@ def public_user_profile(request: Request, user_id: int):
         session_token = request.cookies.get("session_token")
         if session_token:
             try:
-                from app.auth import verify_token
+                from app.routes.auth import verify_token
                 payload = verify_token(session_token)
                 current_user_id = payload.get("user_id")
                 if current_user_id:
