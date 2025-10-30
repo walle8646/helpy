@@ -92,6 +92,7 @@
         margin-top: 4px;
     }
 
+    /* ✅ FIX: Input Container con flex corretto */
     .message-input-container {
         padding: 20px;
         background: white;
@@ -101,11 +102,19 @@
 
     .message-input-container form {
         display: flex;
+        align-items: flex-end; /* ✅ Allinea in basso */
         gap: 12px;
     }
 
+    /* ✅ Wrapper textarea + counter */
+    .input-wrapper {
+        flex: 1; /* ✅ Occupa tutto lo spazio disponibile */
+        display: flex;
+        flex-direction: column;
+    }
+
     .message-input-container textarea {
-        flex: 1;
+        width: 100%; /* ✅ Larghezza piena */
         padding: 12px 16px;
         border: 2px solid #e0e0e0;
         border-radius: 25px;
@@ -113,6 +122,7 @@
         font-family: inherit;
         font-size: 14px;
         transition: border-color 0.3s;
+        box-sizing: border-box;
     }
 
     .message-input-container textarea:focus {
@@ -129,11 +139,17 @@
         font-weight: 600;
         cursor: pointer;
         transition: transform 0.2s, box-shadow 0.2s;
+        flex-shrink: 0; /* ✅ Non si restringe */
     }
 
-    .message-input-container button:hover {
+    .message-input-container button:hover:not(:disabled) {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .message-input-container button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 
     .empty-chat {
@@ -145,6 +161,79 @@
     .empty-chat-icon {
         font-size: 64px;
         margin-bottom: 16px;
+    }
+
+    /* ✅ Banner limite */
+    .chat-limit-warning {
+        background: #fff3cd;
+        color: #856404;
+        padding: 12px 20px;
+        text-align: center;
+        font-size: 14px;
+        border-left: 4px solid #ffc107;
+        margin: 0;
+    }
+
+    .chat-limit-error {
+        background: #f8d7da;
+        color: #721c24;
+        border-left: 4px solid #dc3545;
+    }
+
+    /* ✅ Bottone Prenota Consulenza */
+    .booking-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        text-align: center;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .booking-banner h3 {
+        margin: 0 0 12px;
+        font-size: 18px;
+    }
+
+    .booking-banner p {
+        margin: 0 0 16px;
+        opacity: 0.9;
+        font-size: 14px;
+    }
+
+    .booking-btn {
+        display: inline-block;
+        padding: 12px 32px;
+        background: white;
+        color: #667eea;
+        border-radius: 25px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .booking-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .char-counter {
+        font-size: 12px;
+        color: #999;
+        text-align: right;
+        margin-top: 4px;
+        padding-right: 4px;
+    }
+
+    .char-counter.warning {
+        color: #ff9800;
+        font-weight: 600;
+    }
+
+    .char-counter.error {
+        color: #e74c3c;
+        font-weight: 600;
     }
 </style>
 
@@ -165,6 +254,18 @@
         </a>
     </div>
 
+    <!-- ✅ BANNER LIMITE MESSAGGI -->
+    <div id="limitBanner" style="display: none;"></div>
+
+    <!-- ✅ BANNER PRENOTA CONSULENZA (MOSTRATO AL LIMITE) -->
+    <div id="bookingBanner" style="display: none;" class="booking-banner">
+        <h3>🎯 Vuoi continuare la conversazione?</h3>
+        <p>Hai raggiunto il limite di 15 messaggi gratuiti. Prenota una consulenza per approfondire!</p>
+        <a href="/booking/{{ other_user.id }}" class="booking-btn">
+            📅 Prenota Consulenza con {{ other_user.nome }}
+        </a>
+    </div>
+
     <!-- AREA MESSAGGI -->
     <div class="messages-area" id="messagesArea">
         <div class="empty-chat">
@@ -176,44 +277,135 @@
     <!-- INPUT MESSAGGIO -->
     <div class="message-input-container">
         <form id="messageForm" onsubmit="sendMessage(event)">
-            <textarea 
-                id="messageInput" 
-                placeholder="Scrivi un messaggio..."
-                rows="1"
-                maxlength="2000"
-                required
-                onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(event); }"
-            ></textarea>
-            <button type="submit">Invia</button>
+            <!-- ✅ Wrapper per textarea + counter -->
+            <div class="input-wrapper">
+                <textarea 
+                    id="messageInput" 
+                    placeholder="Scrivi un messaggio..."
+                    rows="1"
+                    maxlength="1000"
+                    required
+                    onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(event); }"
+                    oninput="updateCharCounter()"
+                ></textarea>
+                <!-- ✅ CONTATORE CARATTERI -->
+                <div id="charCounter" class="char-counter">0 / 1000</div>
+            </div>
+            <button type="submit" id="sendButton">Invia</button>
         </form>
     </div>
 </div>
 
 <script>
     const OTHER_USER_ID = {{ other_user.id }};
-    const CURRENT_USER_ID = {{ user.id }};  // ✅ CAMBIATO DA current_user a user
+    const CURRENT_USER_ID = {{ user.id }};
+    const MAX_MESSAGE_LENGTH = 1000;
+    const MAX_MESSAGES = 15;
     
     let lastMessageId = null;
+    let messageCount = 0;
+    let limitReached = false;
+
+    // ========== AGGIORNA CONTATORE CARATTERI ==========
+    function updateCharCounter() {
+        const input = document.getElementById('messageInput');
+        const counter = document.getElementById('charCounter');
+        const sendBtn = document.getElementById('sendButton');
+        const length = input.value.length;
+
+        counter.textContent = `${length} / ${MAX_MESSAGE_LENGTH}`;
+
+        // Cambia colore in base alla lunghezza
+        counter.classList.remove('warning', 'error');
+        if (length > MAX_MESSAGE_LENGTH * 0.9) {
+            counter.classList.add('error');
+        } else if (length > MAX_MESSAGE_LENGTH * 0.7) {
+            counter.classList.add('warning');
+        }
+
+        // Disabilita invio se troppo lungo
+        if (length > MAX_MESSAGE_LENGTH) {
+            sendBtn.disabled = true;
+        } else if (!limitReached) {
+            sendBtn.disabled = false;
+        }
+    }
+
+    // ========== MOSTRA BANNER LIMITE + BOTTONE PRENOTA ==========
+    function showLimitBanner(messagesLeft, total) {
+        const banner = document.getElementById('limitBanner');
+        const bookingBanner = document.getElementById('bookingBanner');
+        const input = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendButton');
+
+        if (messagesLeft <= 0) {
+            // ✅ LIMITE RAGGIUNTO - Mostra banner prenota
+            banner.className = 'chat-limit-warning chat-limit-error';
+            banner.innerHTML = `
+                ⚠️ <strong>Limite raggiunto!</strong> Hai inviato ${total}/${MAX_MESSAGES} messaggi gratuiti.
+            `;
+            banner.style.display = 'block';
+            
+            // ✅ MOSTRA BOTTONE PRENOTA CONSULENZA
+            bookingBanner.style.display = 'block';
+            
+            // Disabilita input
+            input.disabled = true;
+            sendBtn.disabled = true;
+            input.placeholder = 'Limite messaggi raggiunto - Prenota una consulenza per continuare';
+            limitReached = true;
+        } else if (messagesLeft <= 3) {
+            // AVVISO: POCHI MESSAGGI RIMASTI
+            banner.className = 'chat-limit-warning';
+            banner.innerHTML = `
+                ⚠️ Attenzione: ti rimangono solo <strong>${messagesLeft} messaggi</strong> su ${MAX_MESSAGES} per questa conversazione.
+            `;
+            banner.style.display = 'block';
+            bookingBanner.style.display = 'none';
+        } else {
+            banner.style.display = 'none';
+            bookingBanner.style.display = 'none';
+        }
+    }
 
     // ========== CARICA MESSAGGI ==========
     async function loadMessages() {
         try {
             const response = await fetch(`/api/messaggi/${OTHER_USER_ID}`);
-            const messages = await response.json();
+            const data = await response.json();
 
             const messagesArea = document.getElementById('messagesArea');
 
             if (response.ok) {
+                const messages = data.messages || data;
+
+                messageCount = data.total || messages.length;
+                const showing = data.showing || messages.length;
+                limitReached = data.limit_reached || false;
+
+                // ✅ AGGIORNA BANNER
+                showLimitBanner(MAX_MESSAGES - messageCount, messageCount);
+
                 if (messages.length === 0) {
                     messagesArea.innerHTML = `
                         <div class="empty-chat">
                             <div class="empty-chat-icon">💬</div>
                             <p>Nessun messaggio ancora</p>
-                            <p style="font-size: 14px;">Inizia la conversazione!</p>
+                            <p style="font-size: 14px;">Inizia la conversazione! (Max ${MAX_MESSAGES} messaggi gratuiti)</p>
                         </div>
                     `;
                 } else {
-                    messagesArea.innerHTML = messages.map(msg => {
+                    let html = '';
+
+                    if (messageCount > showing) {
+                        html += `
+                            <div style="text-align: center; padding: 12px; background: #e3f2fd; border-radius: 8px; margin-bottom: 12px; font-size: 13px; color: #1976d2;">
+                                📜 Mostrati ultimi ${showing} di ${messageCount} messaggi
+                            </div>
+                        `;
+                    }
+
+                    html += messages.map(msg => {
                         const time = new Date(msg.created_at).toLocaleString('it-IT', {
                             hour: '2-digit',
                             minute: '2-digit'
@@ -230,14 +422,14 @@
                         `;
                     }).join('');
 
-                    // Scroll al fondo
+                    messagesArea.innerHTML = html;
                     messagesArea.scrollTop = messagesArea.scrollHeight;
                 }
             } else {
                 messagesArea.innerHTML = `
                     <div class="empty-chat">
                         <div class="empty-chat-icon">❌</div>
-                        <p style="color: #e74c3c;">${messages.error || 'Errore caricamento messaggi'}</p>
+                        <p style="color: #e74c3c;">${data.error || 'Errore caricamento messaggi'}</p>
                     </div>
                 `;
             }
@@ -256,10 +448,20 @@
     async function sendMessage(event) {
         event.preventDefault();
 
+        if (limitReached) {
+            alert('Limite di messaggi raggiunto. Prenota una consulenza per continuare!');
+            return;
+        }
+
         const input = document.getElementById('messageInput');
         const content = input.value.trim();
 
         if (!content) return;
+
+        if (content.length > MAX_MESSAGE_LENGTH) {
+            alert(`Messaggio troppo lungo! (max ${MAX_MESSAGE_LENGTH} caratteri)`);
+            return;
+        }
 
         try {
             const formData = new FormData();
@@ -273,11 +475,15 @@
             const result = await response.json();
 
             if (response.ok) {
-                // Pulisci input
                 input.value = '';
                 input.style.height = 'auto';
+                updateCharCounter();
 
-                // Ricarica messaggi
+                if (result.messages_left !== undefined) {
+                    messageCount = MAX_MESSAGES - result.messages_left;
+                    showLimitBanner(result.messages_left, messageCount);
+                }
+
                 await loadMessages();
             } else {
                 alert(result.error || 'Errore invio messaggio');
@@ -295,10 +501,8 @@
         this.style.height = (this.scrollHeight) + 'px';
     });
 
-    // ========== CARICA MESSAGGI ALL'AVVIO ==========
+    // ========== INIT ==========
     loadMessages();
-
-    // ========== REFRESH AUTOMATICO OGNI 5 SECONDI ==========
     setInterval(loadMessages, 5000);
 </script>
 {% endblock %}

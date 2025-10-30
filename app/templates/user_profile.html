@@ -136,21 +136,39 @@
             </div>
         </section>
 
-        <!-- Messaging Card -->
+        <!-- ✅ Messaging Card - BOTTONE CONTENUTO NEI BORDI -->
         {% if not is_own_profile and current_user %}
-        <section class="card">
-            <h3>📩 Messaggistica</h3>
-            <p style="text-align:center; color: #555; font-size:0.95em; margin-bottom:16px;">Invia un messaggio per domande veloci.</p>
-            <a href="/messages/{{ user.id }}" class="btn btn-secondary">Invia Messaggio</a>
-        </section>
-        {% endif %}
-
-        <!-- Bottone Messaggistica -->
-        <div class="profile-actions" style="margin-top: 24px;">
-            <a href="/messaggi/{{ user.id }}" class="hero-btn" style="display: inline-block; text-decoration: none;">
+        <section class="card" style="padding: 20px;">
+            <h3 style="margin: 0 0 12px 0; text-align: center;">📩 Messaggistica</h3>
+            <p style="text-align: center; color: #555; font-size: 0.95em; margin: 0 0 16px 0;">
+                Invia un messaggio per domande veloci.
+            </p>
+            <a href="/messaggi/{{ user.id }}" 
+               class="btn btn-secondary" 
+               style="display: block; 
+                      width: 100%; 
+                      box-sizing: border-box;
+                      text-align: center; 
+                      padding: 14px 20px; 
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                      color: white; 
+                      border-radius: 12px; 
+                      text-decoration: none; 
+                      font-weight: 600; 
+                      transition: transform 0.2s, box-shadow 0.2s;
+                      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
                 💬 Invia Messaggio
             </a>
-        </div>
+        </section>
+        {% endif %}
     </aside>
 </div>
+
+<style>
+    /* ✅ Fix hover per bottone messaggi */
+    .sidebar .card a.btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    }
+</style>
 {% endblock %}

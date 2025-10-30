@@ -12,6 +12,10 @@ from app.routes.auth import verify_token, get_current_user
 
 router = APIRouter()
 
+# ========== CONFIGURAZIONE LIMITI ==========
+MAX_MESSAGES_PER_CONVERSATION = 15
+MAX_MESSAGE_LENGTH = 1000
+
 # ========== HELPER FUNCTIONS ==========
 
 def get_or_create_conversation(session, user1_id: int, user2_id: int) -> Conversation:
@@ -178,7 +182,6 @@ async def get_messages(
     limit: int = Query(50, le=100)
 ):
     """Ottieni messaggi di una conversazione"""
-    # ✅ Usa verify_token da auth.py
     current_user = verify_token(request)
     
     if not current_user:
@@ -190,13 +193,20 @@ async def get_messages(
             
             conversation = get_or_create_conversation(session, user_id, other_user_id)
             
+            # ✅ Ottieni solo gli ultimi 15 messaggi
             messages = session.exec(
                 select(Message)
                 .where(Message.conversation_id == conversation.id)
                 .order_by(Message.created_at.desc())
-                .offset(offset)
-                .limit(limit)
+                .limit(MAX_MESSAGES_PER_CONVERSATION)  # ✅ LIMITE 15 MESSAGGI
             ).all()
+            
+            # Conta messaggi totali
+            total_messages = session.exec(
+                select(func.count())
+                .select_from(Message)
+                .where(Message.conversation_id == conversation.id)
+            ).one()
             
             # Marca messaggi come letti
             unread_messages = session.exec(
@@ -230,8 +240,14 @@ async def get_messages(
                 for msg in reversed(messages)
             ]
             
-            logger.info(f"✅ Loaded {len(result)} messages for conversation {conversation.id}")
-            return JSONResponse(result, status_code=200)
+            logger.info(f"✅ Loaded {len(result)}/{total_messages} messages for conversation {conversation.id}")
+            
+            return JSONResponse({
+                "messages": result,
+                "total": total_messages,
+                "showing": len(result),
+                "limit_reached": total_messages >= MAX_MESSAGES_PER_CONVERSATION
+            }, status_code=200)
     
     except Exception as e:
         logger.error(f"Error getting messages: {e}", exc_info=True)
@@ -246,17 +262,19 @@ async def send_message(
     content: str = Form(...)
 ):
     """Invia un messaggio"""
-    # ✅ Usa verify_token da auth.py
     current_user = verify_token(request)
     
     if not current_user:
         return JSONResponse({"error": "Non autenticato"}, status_code=401)
     
+    # ✅ VALIDAZIONE LUNGHEZZA
     if not content or len(content.strip()) == 0:
         return JSONResponse({"error": "Messaggio vuoto"}, status_code=400)
     
-    if len(content) > 2000:
-        return JSONResponse({"error": "Messaggio troppo lungo (max 2000 caratteri)"}, status_code=400)
+    if len(content) > MAX_MESSAGE_LENGTH:
+        return JSONResponse({
+            "error": f"Messaggio troppo lungo (max {MAX_MESSAGE_LENGTH} caratteri)"
+        }, status_code=400)
     
     try:
         with get_session() as session:
@@ -271,6 +289,19 @@ async def send_message(
             
             conversation = get_or_create_conversation(session, user_id, other_user_id)
             
+            # ✅ VERIFICA LIMITE MESSAGGI
+            message_count = session.exec(
+                select(func.count())
+                .select_from(Message)
+                .where(Message.conversation_id == conversation.id)
+            ).one()
+            
+            if message_count >= MAX_MESSAGES_PER_CONVERSATION:
+                return JSONResponse({
+                    "error": f"Limite di {MAX_MESSAGES_PER_CONVERSATION} messaggi raggiunto per questa conversazione"
+                }, status_code=400)
+            
+            # ✅ CREA MESSAGGIO
             message = Message(
                 conversation_id=conversation.id,
                 sender_id=user_id,
@@ -285,7 +316,7 @@ async def send_message(
             session.commit()
             session.refresh(message)
             
-            logger.info(f"✅ Message sent: {current_user.nome} (#{user_id}) -> {other_user.nome} (#{other_user_id})")
+            logger.info(f"✅ Message sent: {current_user.nome} (#{user_id}) -> {other_user.nome} (#{other_user_id}) [{message_count + 1}/{MAX_MESSAGES_PER_CONVERSATION}]")
             
             return JSONResponse({
                 "success": True,
@@ -294,7 +325,8 @@ async def send_message(
                     "content": message.content,
                     "created_at": message.created_at.isoformat(),
                     "is_mine": True
-                }
+                },
+                "messages_left": MAX_MESSAGES_PER_CONVERSATION - message_count - 1
             }, status_code=201)
     
     except Exception as e:
