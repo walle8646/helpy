@@ -1,98 +1,450 @@
 {% extends "base.html" %}
 
-{% block title %}Helpy - Get Advice from People Who Can Help{% endblock %}
+{% block title %}Helpy - Connetti con Esperti{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ========== HERO SECTION SEMPLIFICATA ========== */
+    .hero-simple {
+        text-align: center;
+        padding: 20px 20px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .hero-simple-title {
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1.4;
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    @media (max-width: 768px) {
+        .hero-simple {
+            padding: 20px 20px 20px;
+        }
+        
+        .hero-simple-title {
+            font-size: 24px;
+            line-height: 1.5;
+        }
+    }
+
+    /* ========== COMBINED SECTION (HOW WORKS + CTA) ========== */
+    .combined-section {
+        background: white;
+        padding: 50px 20px;
+    }
+
+    .combined-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 40px;
+        align-items: start;
+    }
+
+    /* Left Column - How It Works */
+    .how-works-column {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .how-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 24px;
+        text-align: center;
+    }
+
+    .how-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .how-step {
+        background: #f9f9f9;
+        padding: 30px 32px;
+        border-radius: 12px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .how-step:hover {
+        transform: translateX(8px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.12);
+    }
+
+    .how-icon {
+        font-size: 40px;
+        flex-shrink: 0;
+    }
+
+    .how-step-content {
+        flex: 1;
+    }
+
+    .how-step-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 4px;
+        text-align: center;
+    }
+
+    .how-step-desc {
+        font-size: 14px;
+        color: #666;
+        line-height: 1.5;
+    }
+
+    /* Right Column - CTA Buttons */
+    .cta-column {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .cta-column-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+        text-align: center;
+    }
+
+    .cta-card {
+        background: white;
+        padding: 20px 24px;  /* Ridotto da 24px 28px */
+        border-radius: 16px;
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        border: 2px solid transparent;
+    }
+
+    .cta-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 10px 35px rgba(102, 126, 234, 0.18);
+        border-color: #667eea;
+    }
+
+    .cta-card-icon {
+        font-size: 40px;  /* Ridotto da 48px */
+        margin-bottom: 10px;  /* Ridotto da 12px */
+    }
+
+    .cta-card-title {
+        font-size: 20px;  /* Ridotto da 22px */
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 6px;  /* Ridotto da 8px */
+        text-align: center;
+    }
+
+    .cta-card-desc {
+        font-size: 13px;  /* Ridotto da 14px */
+        color: #666;
+        line-height: 1.4;
+        margin-bottom: 12px;  /* Ridotto da 16px */
+        text-align: center;
+    }
+
+    .cta-btn {
+        display: block;
+        text-align: center;
+        padding: 9px 22px;  /* Ridotto da 10px 24px */
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 50px;
+        font-size: 13px;  /* Ridotto da 14px */
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .cta-btn:hover {
+        transform: scale(1.03);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .cta-btn-secondary {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    /* Responsive - Stack on Mobile */
+    @media (max-width: 968px) {
+        .combined-container {
+            grid-template-columns: 1fr;
+            gap: 32px;
+        }
+
+        .how-step {
+            flex-direction: row;
+        }
+
+        .how-icon {
+            font-size: 36px;
+        }
+
+        .cta-column-title,
+        .how-title {
+            text-align: center;
+        }
+    }
+
+    /* ========== FEATURED CONSULTANTS ========== */
+    .featured {
+        padding: 50px 20px;
+        background: #f5f5f5;
+    }
+
+    .featured-title {
+        text-align: center;
+        font-size: 32px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 32px;
+    }
+
+    .consultant-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 24px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .consultant-card {
+        background: white;
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .consultant-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 6px 25px rgba(102, 126, 234, 0.15);
+    }
+
+    .consultant-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 12px;
+        border: 3px solid #f0f0f0;
+    }
+
+    .consultant-avatar-default {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 36px;
+        margin-bottom: 12px;
+    }
+
+    .consultant-card h3 {
+        font-size: 17px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 4px;
+    }
+
+    .consultant-profession {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 8px;
+    }
+
+    .consultant-category {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+
+    .consultant-stats {
+        display: flex;
+        gap: 12px;
+        font-size: 11px;
+        color: #666;
+        margin-bottom: 8px;
+    }
+
+    .consultant-price {
+        font-size: 16px;
+        font-weight: 700;
+        color: #667eea;
+    }
+
+    .view-all-btn {
+        display: inline-block;
+        margin-top: 32px;
+        padding: 12px 32px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 50px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .view-all-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-    <!-- Hero Section -->
-    <section class="hero">
-        {% if user %}
-            <!-- Utente loggato: solo testo -->
-            <div class="hero-content">
-                <h1 class="hero-title">Welcome back, {{ user.nome or user.email.split('@')[0] }}! 👋</h1>
-                <p class="hero-desc">Ready to connect with experts?</p>
-                <a href="/consultants" class="hero-btn">Browse Consultants</a>
-            </div>
-        {% else %}
-            <!-- Utente NON loggato: layout originale con immagine a destra -->
-            <div class="hero-content">
-                <h1 class="hero-title">Get advice from people who can help</h1>
-                <p class="hero-desc">Connect with others, share knowledge, and receive personalized consultations for a fee.</p>
-                <a href="/register" class="hero-btn">Join Now</a>
-            </div>
-            {% if hero_img_url %}
-            <img class="hero-img" src="{{ hero_img_url }}" alt="Helpy Network">
-            {% endif %}
-        {% endif %}
-    </section>
 
-    <!-- How Helpy Works -->
-    <section class="how-works">
-        <div class="how-title">How Helpy Works</div>
-        <div class="how-steps">
-            <div class="how-step">
-                <div class="how-icon">🔍</div>
-                <div class="how-step-title">Find Consultants</div>
-                <div class="how-step-desc">
-                    Browse through a range of knowledge consultations across various fields.
+<!-- ========== HERO SIMPLE ========== -->
+<section class="hero-simple">
+    <h1 class="hero-simple-title">
+        Trova l'esperto che ha già affrontato la tua sfida
+    </h1>
+</section>
+
+<!-- ========== COMBINED SECTION (HOW WORKS + CTA) ========== -->
+<section class="combined-section">
+    <div class="combined-container">
+        
+        <!-- LEFT COLUMN: How It Works -->
+        <div class="how-works-column">
+            <h2 class="how-title">Come Funziona Helpy</h2>
+            
+            <div class="how-steps">
+                <div class="how-step">
+                    <div class="how-icon">🔍</div>
+                    <div class="how-step-content">
+                        <h3 class="how-step-title">Trova Consulenti</h3>
+                        <p class="how-step-desc">
+                            Esplora un'ampia gamma di esperti in diversi settori pronti ad aiutarti.
+                        </p>
+                    </div>
                 </div>
-            </div>
-            <div class="how-step">
-                <div class="how-icon">💬</div>
-                <div class="how-step-title">Request a Consultation</div>
-                <div class="how-step-desc">
-                    Describe your needs and submit a request to find the right consultant.
+                
+                <div class="how-step">
+                    <div class="how-icon">💬</div>
+                    <div class="how-step-content">
+                        <h3 class="how-step-title">Richiedi una Consulenza</h3>
+                        <p class="how-step-desc">
+                            Descrivi le tue esigenze e trova il consulente perfetto per te.
+                        </p>
+                    </div>
                 </div>
-            </div>
-            <div class="how-step">
-                <div class="how-icon">📹</div>
-                <div class="how-step-title">Get Personalized Advice</div>
-                <div class="how-step-desc">
-                    Schedule a session and receive customized guidance via video.
+                
+                <div class="how-step">
+                    <div class="how-icon">📹</div>
+                    <div class="how-step-content">
+                        <h3 class="how-step-title">Ricevi Supporto Personalizzato</h3>
+                        <p class="how-step-desc">
+                            Prenota una sessione e ottieni consigli su misura tramite videocall.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
-    </section>
-
-    <!-- Featured Consultants Section -->
-    <section class="featured">
-        <h2 class="featured-title">I Nostri Top Consulenti</h2>
         
-        <div class="consultant-grid">
-            {% for item in consultants %}
-            <a href="/user/{{ item.user.id }}" class="consultant-card">
-                {% if item.user.profile_picture %}
-                <img src="{{ item.user.profile_picture }}" alt="{{ item.user.nome }}" class="consultant-avatar">
-                {% else %}
-                <div class="consultant-avatar-default">
-                    {{ item.category.icon if item.category else '👤' }}
-                </div>
-                {% endif %}
-                
-                <h3>{{ item.user.nome }}</h3>
-                <p class="consultant-profession">{{ item.user.professione or 'Consulente' }}</p>
-                
-                {% if item.category %}
-                <span class="consultant-category" style="background: {{ item.category.color }}20; color: {{ item.category.color }};">
-                    {{ item.category.icon }} {{ item.category.name }}
-                </span>
-                {% endif %}
-                
-                <div class="consultant-stats">
-                    <span>⭐ {{ item.user.bollini }} Bollini</span>
-                    <span>💼 {{ item.user.consulenze_vendute }} Consulenze</span>
-                </div>
-                
-                {% if item.user.prezzo_consulenza %}
-                <div class="consultant-price">
-                    💰 €{{ item.user.prezzo_consulenza }}/ora
-                </div>
-                {% endif %}
+        <!-- RIGHT COLUMN: CTA Buttons -->
+        <div class="cta-column">
+            <h2 class="cta-column-title">Inizia Subito</h2>
+            
+            <!-- CTA 1: Trova Consulenti -->
+            <a href="/consultants" class="cta-card">
+                <div class="cta-card-icon">👥</div>
+                <h3 class="cta-card-title">Trova Consulenti</h3>
+                <p class="cta-card-desc">
+                    Scopri professionisti verificati pronti a condividere la loro esperienza.
+                </p>
+                <span class="cta-btn">Esplora Consulenti →</span>
             </a>
-            {% endfor %}
+            
+            <!-- CTA 2: Q&A Community -->
+            <a href="/qa" class="cta-card">
+                <div class="cta-card-icon">❓</div>
+                <h3 class="cta-card-title">Community Q&A</h3>
+                <p class="cta-card-desc">
+                    Fai domande e ottieni risposte gratuite da esperti.
+                </p>
+                <span class="cta-btn cta-btn-secondary">Vai a Q&A →</span>
+            </a>
         </div>
         
-        <div style="text-align: center; margin-top: 48px;">
-            <a href="/consultants" class="hero-btn">Vedi Tutti i Consulenti →</a>
-        </div>
-    </section>
+    </div>
+</section>
+
+<!-- ========== FEATURED CONSULTANTS ========== -->
+<section class="featured">
+    <h2 class="featured-title">I Nostri Top Consulenti</h2>
+    
+    {% if consultants %}
+    <div class="consultant-grid">
+        {% for item in consultants %}
+        <a href="/user/{{ item.user.id }}" class="consultant-card">
+            {% if item.user.profile_picture %}
+            <img src="{{ item.user.profile_picture }}" alt="{{ item.user.nome }}" class="consultant-avatar">
+            {% else %}
+            <div class="consultant-avatar-default">
+                {{ item.category.icon if item.category else '👤' }}
+            </div>
+            {% endif %}
+            
+            <h3>{{ item.user.nome }} {{ item.user.cognome or '' }}</h3>
+            <p class="consultant-profession">{{ item.user.professione or 'Consulente' }}</p>
+            
+            {% if item.category %}
+            <span class="consultant-category" style="background: {{ item.category.color }}20; color: {{ item.category.color }};">
+                {{ item.category.icon }} {{ item.category.name }}
+            </span>
+            {% endif %}
+            
+            <div class="consultant-stats">
+                <span>⭐ {{ item.user.bollini }}</span>
+                <span>💼 {{ item.user.consulenze_vendute }}</span>
+            </div>
+            
+            {% if item.user.prezzo_consulenza %}
+            <div class="consultant-price">
+                €{{ "%.0f"|format(item.user.prezzo_consulenza) }}/ora
+            </div>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    
+    <div style="text-align: center;">
+        <a href="/consultants" class="view-all-btn">Vedi Tutti i Consulenti →</a>
+    </div>
+    {% else %}
+    <p style="text-align: center; color: #666; font-size: 18px;">
+        Nessun consulente disponibile al momento.
+    </p>
+    {% endif %}
+</section>
+
 {% endblock %}
