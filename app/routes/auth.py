@@ -551,9 +551,14 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
         logger.error(f"❌ Failed to send reset email to {email}: {e}")
         return False
 
-def send_verification_email(to_email: str, code: str) -> bool:
+def send_verification_email(to_email: str, code: str, nome: str = "User") -> bool:  # ✅ Aggiungi nome
     """
     Invia email di verifica con logging dettagliato.
+    
+    Args:
+        to_email: Email destinatario
+        code: Codice verifica 6 cifre
+        nome: Nome utente (default: "User")
     
     Returns:
         bool: True se email inviata con successo, False altrimenti
@@ -576,7 +581,8 @@ def send_verification_email(to_email: str, code: str) -> bool:
         logger.info(f"   ├─ SMTP_USER: {smtp_user}")
         logger.info(f"   ├─ SMTP_PASSWORD: {'✅ SET' if smtp_password else '❌ NOT SET'}")
         logger.info(f"   ├─ FROM_EMAIL: {from_email}")
-        logger.info(f"   └─ TO_EMAIL: {to_email}")
+        logger.info(f"   ├─ TO_EMAIL: {to_email}")
+        logger.info(f"   └─ NOME: {nome}")  # ✅ Log nome
         
         # ========== STEP 2: Validazione parametri ==========
         if not all([smtp_server, smtp_port, smtp_user, smtp_password]):
@@ -614,7 +620,7 @@ def send_verification_email(to_email: str, code: str) -> bool:
         </head>
         <body>
             <div class="container">
-                <h1>🦊 Benvenuto su Helpy!</h1>
+                <h1>🦊 Benvenuto su Helpy, {nome}!</h1>
                 <p>Grazie per esserti registrato. Ecco il tuo codice di verifica:</p>
                 <div class="code">{code}</div>
                 <p>Inserisci questo codice nella pagina di registrazione per completare la verifica del tuo account.</p>
@@ -649,6 +655,8 @@ def send_verification_email(to_email: str, code: str) -> bool:
             if smtp_port_int == 587:
                 logger.info("   ├─ Modalità: STARTTLS (porta 587)")
                 server = smtplib.SMTP(smtp_server, smtp_port_int, timeout=30)
+                logger.info("   ├─ Connessione TCP stabilita")
+                server.set_debuglevel(1)  # ✅ Debug SMTP completo
                 server.ehlo()
                 logger.info("   ├─ EHLO inviato")
                 server.starttls()
@@ -660,34 +668,44 @@ def send_verification_email(to_email: str, code: str) -> bool:
             elif smtp_port_int == 465:
                 logger.info("   ├─ Modalità: SSL (porta 465)")
                 server = smtplib.SMTP_SSL(smtp_server, smtp_port_int, timeout=30)
+                server.set_debuglevel(1)  # ✅ Debug SMTP completo
                 logger.info("   └─ Connessione SSL stabilita")
             
             # Porta non standard
             else:
                 logger.warning(f"   ⚠️  Porta non standard: {smtp_port_int}")
                 server = smtplib.SMTP(smtp_server, smtp_port_int, timeout=30)
+                server.set_debuglevel(1)  # ✅ Debug SMTP completo
                 logger.info("   └─ Connessione SMTP stabilita")
             
             logger.info("✅ STEP 4: Connessione stabilita")
             
+        except ConnectionRefusedError as e:
+            logger.error(f"❌ STEP 4: Connessione rifiutata (porta bloccata?): {e}")
+            return False
+        except TimeoutError as e:
+            logger.error(f"❌ STEP 4: Timeout connessione (firewall?): {e}")
+            return False
         except smtplib.SMTPException as e:
             logger.error(f"❌ STEP 4: Errore SMTP durante connessione: {type(e).__name__}: {e}")
             return False
         except Exception as e:
             logger.error(f"❌ STEP 4: Errore generico durante connessione: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
             return False
         
         # ========== STEP 5: Login SMTP ==========
         logger.info("🔐 STEP 5: Login SMTP...")
         logger.info(f"   ├─ Username: {smtp_user}")
-        logger.info(f"   └─ Password: {'*' * len(smtp_password)}")
+        logger.info(f"   └─ Password: {'*' * min(len(smtp_password), 16)}")
         
         try:
             server.login(smtp_user, smtp_password)
             logger.info("✅ STEP 5: Login effettuato con successo")
         except smtplib.SMTPAuthenticationError as e:
             logger.error(f"❌ STEP 5: Autenticazione fallita: {e}")
-            logger.error("   ⚠️  Controlla username/password SMTP")
+            logger.error("   ⚠️  Controlla username/password SMTP (usa App Password se Gmail)")
             server.quit()
             return False
         except Exception as e:
@@ -699,8 +717,9 @@ def send_verification_email(to_email: str, code: str) -> bool:
         logger.info("📤 STEP 6: Invio email...")
         
         try:
-            server.send_message(msg)
+            result = server.send_message(msg)
             logger.info("✅ STEP 6: Email inviata con successo!")
+            logger.info(f"   └─ Result: {result}")
         except smtplib.SMTPRecipientsRefused as e:
             logger.error(f"❌ STEP 6: Destinatario rifiutato: {e}")
             server.quit()
