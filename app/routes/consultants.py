@@ -1,212 +1,300 @@
-from fastapi import APIRouter, Request, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Request, Query
+from fastapi.responses import HTMLResponse
+from sqlmodel import select, or_, and_, func
+from typing import Optional
+import re
+
 from app.database import get_session
 from app.models import User, Category
-from sqlmodel import select, col
-from app.logger_config import logger
-from app.routes.auth import verify_token
-from typing import Optional
-import math
+from loguru import logger
 
 router = APIRouter()
+
+# ========== STOP WORDS ITALIANE ==========
+STOP_WORDS = {
+    'il', 'lo', 'la', 'i', 'gli', 'le',
+    'un', 'uno', 'una',
+    'di', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra',
+    'del', 'dello', 'della', 'dei', 'degli', 'delle',
+    'al', 'allo', 'alla', 'ai', 'agli', 'alle',
+    'dal', 'dallo', 'dalla', 'dai', 'dagli', 'dalle',
+    'nel', 'nello', 'nella', 'nei', 'negli', 'nelle',
+    'sul', 'sullo', 'sulla', 'sui', 'sugli', 'sulle',
+    'col', 'coi', 'cogli', 'con',
+    'e', 'o', 'ma', 'però', 'perché', 'come', 'quando', 'dove',
+    'che', 'chi', 'cui', 'quale', 'quanto'
+}
+
+# ========== SINONIMI E TERMINI CORRELATI (ESPANSO) ==========
+SYNONYMS = {
+    'logo': ['grafica', 'branding', 'design', 'identità', 'visiva', 'brand', 'immagine', 'marchio'],
+    'sito': ['web', 'website', 'online', 'internet', 'digitale', 'landing', 'portale'],
+    'marketing': ['pubblicità', 'ads', 'social', 'promozione', 'campagna', 'advertising'],
+    'video': ['montaggio', 'editing', 'riprese', 'audiovisivo', 'content', 'multimedia'],
+    'foto': ['fotografia', 'fotografo', 'immagini', 'shooting', 'scatti', 'photo'],
+    'testi': ['copywriting', 'scrittura', 'contenuti', 'articoli', 'blog', 'redazione'],
+    'consulenza': ['coaching', 'mentoring', 'formazione', 'supporto', 'aiuto', 'advisory'],
+    'startup': ['impresa', 'business', 'azienda', 'imprenditoria', 'lancio', 'entrepreneurship'],
+    'ecommerce': ['negozio', 'shop', 'vendita', 'online', 'commercio', 'store'],
+    'app': ['applicazione', 'mobile', 'software', 'sviluppo', 'programmazione', 'coding'],
+}
+
+# ========== SKILL/TOOL MAPPING (NUOVO!) ==========
+SKILL_CATEGORIES = {
+    'logo': ['photoshop', 'illustrator', 'figma', 'canva', 'adobe', 'sketch', 'coreldraw', 'inkscape'],
+    'grafica': ['photoshop', 'illustrator', 'indesign', 'figma', 'canva', 'adobe', 'sketch'],
+    'design': ['photoshop', 'illustrator', 'figma', 'sketch', 'adobe', 'ux', 'ui'],
+    'web': ['html', 'css', 'javascript', 'wordpress', 'webflow', 'wix', 'react', 'vue', 'angular'],
+    'sito': ['html', 'css', 'javascript', 'wordpress', 'webflow', 'wix', 'shopify'],
+    'video': ['premiere', 'after effects', 'final cut', 'davinci', 'capcut', 'editing'],
+    'foto': ['photoshop', 'lightroom', 'camera', 'fotografia', 'photo'],
+    'social': ['instagram', 'facebook', 'tiktok', 'linkedin', 'twitter', 'meta'],
+    'marketing': ['google ads', 'facebook ads', 'seo', 'sem', 'analytics', 'meta'],
+    'app': ['swift', 'kotlin', 'react native', 'flutter', 'ios', 'android'],
+}
+
+def expand_with_skills(keywords: list[str]) -> list[str]:
+    """
+    Espande keywords con skill/tool correlati.
+    
+    Es: ['logo'] → ['logo', 'photoshop', 'illustrator', 'figma', 'canva', ...]
+    """
+    expanded = set(keywords)
+    
+    for keyword in keywords:
+        # Aggiungi sinonimi
+        if keyword in SYNONYMS:
+            expanded.update(SYNONYMS[keyword])
+        
+        # Aggiungi skill/tool correlati
+        if keyword in SKILL_CATEGORIES:
+            expanded.update(SKILL_CATEGORIES[keyword])
+    
+    return list(expanded)
+
+def clean_search_query(query: str) -> list[str]:
+    """Pulisce e splitta la query di ricerca."""
+    if not query:
+        return []
+    
+    cleaned = re.sub(r'[^\w\s]', ' ', query.lower())
+    words = cleaned.split()
+    
+    keywords = [
+        word for word in words 
+        if word not in STOP_WORDS and len(word) >= 3
+    ]
+    
+    return keywords
+
+def calculate_relevance_score(user: User, keywords: list[str], expanded_keywords: list[str]) -> float:
+    """
+    Calcola uno score di rilevanza per l'utente.
+    
+    Score più alto = match migliore
+    """
+    score = 0.0
+    
+    # Concatena tutti i campi testuale dell'utente
+    user_text = ' '.join(filter(None, [
+        user.nome or '',
+        user.cognome or '',
+        user.professione or '',
+        user.descrizione or '',
+        user.aree_interesse or ''  # ✅ Rimosso macro_aree
+    ])).lower()
+    
+    # +10 punti per ogni keyword originale trovata
+    for keyword in keywords:
+        if keyword in user_text:
+            score += 10
+    
+    # +5 punti per ogni keyword espansa trovata
+    for keyword in expanded_keywords:
+        if keyword in user_text:
+            score += 5
+    
+    # +3 punti se professione matcha
+    if user.professione:
+        prof_lower = user.professione.lower()
+        for keyword in keywords:
+            if keyword in prof_lower:
+                score += 3
+    
+    # +2 punti per bollini (esperienza)
+    score += user.bollini * 2
+    
+    # +1 punto per consulenze vendute
+    score += user.consulenze_vendute
+    
+    return score
 
 @router.get("/consultants", response_class=HTMLResponse)
 async def consultants_page(
     request: Request,
     category: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
-    min_price: Optional[int] = Query(None),
-    max_price: Optional[int] = Query(None),
+    min_price: Optional[float] = Query(None),
+    max_price: Optional[float] = Query(None),
     page: int = Query(1, ge=1)
 ):
-    """Pagina lista consulenti con filtri e paginazione"""
+    """Pagina consulenti con filtri avanzati e ricerca intelligente"""
     
-    # Verifica utente corrente (se loggato)
-    current_user = verify_token(request)
-    
-    with get_session() as session:
-        # Query base: solo utenti confermati
-        query = select(User).where(User.confirmed == 1)
-        
-        # Filtro categoria
-        if category:
-            query = query.where(User.category_id == category)
-        
-        # Filtro ricerca (nome, cognome, professione, descrizione)
-        if search:
-            search_term = f"%{search}%"
-            query = query.where(
-                (User.nome.ilike(search_term)) |
-                (User.cognome.ilike(search_term)) |
-                (User.professione.ilike(search_term)) |
-                (User.descrizione.ilike(search_term))
+    try:
+        with get_session() as session:
+            # ========== CARICA CATEGORIE ==========
+            categories = session.exec(
+                select(Category).order_by(Category.name)
+            ).all()
+            
+            # ========== BASE QUERY ==========
+            query_stmt = select(User)
+            
+            # ========== FILTRO CATEGORIA ==========
+            if category:
+                query_stmt = query_stmt.where(User.category_id == category)
+            
+            # ========== FILTRO PREZZO ==========
+            if min_price is not None and min_price >= 10:
+                query_stmt = query_stmt.where(User.prezzo_consulenza >= min_price)
+            
+            if max_price is not None and max_price >= 10:
+                query_stmt = query_stmt.where(User.prezzo_consulenza <= max_price)
+            
+            # ========== RICERCA INTELLIGENTE CON SKILL MATCHING ==========
+            keywords = []
+            expanded_keywords = []
+            
+            if search:
+                keywords = clean_search_query(search)
+                expanded_keywords = expand_with_skills(keywords)
+                
+                logger.info(
+                    f"🔍 Search: '{search}'\n"
+                    f"   Keywords: {keywords}\n"
+                    f"   Expanded: {expanded_keywords[:15]}..."  # Primi 15 per brevità
+                )
+                
+                if expanded_keywords:
+                    search_conditions = []
+                    
+                    for keyword in expanded_keywords:
+                        keyword_pattern = f"%{keyword}%"
+                        
+                        search_conditions.append(
+                            or_(
+                                User.nome.ilike(keyword_pattern),
+                                User.cognome.ilike(keyword_pattern),
+                                User.professione.ilike(keyword_pattern),
+                                User.descrizione.ilike(keyword_pattern),
+                                and_(
+                                    User.aree_interesse.isnot(None),
+                                    User.aree_interesse.ilike(keyword_pattern)
+                                )
+                                # ✅ Rimosso blocco macro_aree
+                            )
+                        )
+                    
+                    query_stmt = query_stmt.where(or_(*search_conditions))
+            
+            # ========== ESEGUI QUERY (senza paginazione per scoring) ==========
+            all_results = session.exec(query_stmt).all()
+            
+            # ========== SCORING E ORDINAMENTO ==========
+            if search and keywords:
+                # Calcola score per ogni risultato
+                scored_results = [
+                    (user, calculate_relevance_score(user, keywords, expanded_keywords))
+                    for user in all_results
+                ]
+                
+                # Ordina per score decrescente
+                scored_results.sort(key=lambda x: x[1], reverse=True)
+                
+                # Log top 5 scores
+                logger.info("🏆 Top 5 scores:")
+                for user, score in scored_results[:5]:
+                    logger.info(f"   {user.nome} {user.cognome}: {score:.1f} pts")
+                
+                # Estrai solo gli utenti ordinati
+                consultants = [user for user, _ in scored_results]
+            else:
+                consultants = all_results
+            
+            total_count = len(consultants)
+            
+            # ========== PAGINAZIONE ==========
+            per_page = 12
+            offset = (page - 1) * per_page
+            total_pages = max(1, (total_count + per_page - 1) // per_page)
+            
+            consultants = consultants[offset:offset + per_page]
+            
+            # ========== ENRICHMENT DATI ==========
+            enriched_consultants = []
+            for user in consultants:
+                user_data = {
+                    'id': user.id,
+                    'nome': user.nome,
+                    'cognome': user.cognome,
+                    'professione': user.professione,
+                    'profile_picture': user.profile_picture,
+                    'prezzo_consulenza': user.prezzo_consulenza,
+                    'bollini': user.bollini,
+                    'consulenze_vendute': user.consulenze_vendute,
+                    'category': None
+                }
+                
+                if user.category_id:
+                    cat = session.get(Category, user.category_id)
+                    if cat:
+                        user_data['category'] = cat
+                
+                enriched_consultants.append(user_data)
+            
+            logger.info(
+                f"📊 Results: {total_count} found, page {page}/{total_pages}"
+                f"{f', category: {category}' if category else ''}"
+                f"{f', search: {search}' if search else ''}"
             )
+            
+            return request.app.state.templates.TemplateResponse(
+                "consultants.html",
+                {
+                    "request": request,
+                    "consultants": enriched_consultants,
+                    "categories": categories,
+                    "selected_category": category,
+                    "search_query": search or '',
+                    "min_price": min_price,
+                    "max_price": max_price,
+                    "current_page": page,
+                    "total_pages": total_pages,
+                    "total_count": total_count
+                }
+            )
+    
+    except Exception as e:
+        logger.error(f"❌ Error loading consultants page: {e}", exc_info=True)
         
-        # Filtro prezzo
-        if min_price is not None:
-            query = query.where(User.prezzo_consulenza >= min_price)
-        
-        if max_price is not None:
-            query = query.where(User.prezzo_consulenza <= max_price)
-        
-        # Conta totale risultati
-        total_count = len(session.exec(query).all())
-        
-        # Paginazione
-        items_per_page = 12
-        total_pages = math.ceil(total_count / items_per_page) if total_count > 0 else 1
-        offset = (page - 1) * items_per_page
-        
-        # Applica paginazione alla query
-        consultants = session.exec(
-            query.offset(offset).limit(items_per_page)
-        ).all()
-        
-        # Carica tutte le categorie per la sidebar
-        categories = session.exec(select(Category)).all()
-        
-        logger.info(f"✅ Loaded {len(consultants)} consultants (page {page}/{total_pages}, total: {total_count})")
+        try:
+            with get_session() as session:
+                categories = session.exec(select(Category).order_by(Category.name)).all()
+        except:
+            categories = []
         
         return request.app.state.templates.TemplateResponse(
             "consultants.html",
             {
                 "request": request,
-                "consultants": consultants,
+                "consultants": [],
                 "categories": categories,
-                "user": current_user,  # Per navbar
-                "selected_category": category,
-                "search_query": search or "",
-                "min_price": min_price,
-                "max_price": max_price,
-                "current_page": page,
-                "total_pages": total_pages,
-                "total_count": total_count
+                "selected_category": None,
+                "search_query": '',
+                "min_price": None,
+                "max_price": None,
+                "current_page": 1,
+                "total_pages": 1,
+                "total_count": 0
             }
         )
-
-@router.get("/user/{user_id}", response_class=HTMLResponse)
-async def public_user_profile(request: Request, user_id: int):
-    """Profilo pubblico di un consulente"""
-    try:
-        current_user = verify_token(request)
-        
-        with get_session() as session:
-            user = session.get(User, user_id)
-            
-            if not user:
-                logger.warning(f"❌ User ID {user_id} not found")
-                raise HTTPException(status_code=404, detail="Utente non trovato")
-            
-            if user.confirmed != 1:
-                logger.warning(f"❌ User ID {user_id} not confirmed")
-                raise HTTPException(status_code=404, detail="Profilo non disponibile")
-            
-            # Carica categoria
-            category = None
-            if user.category_id:
-                category = session.get(Category, user.category_id)
-            
-            is_own_profile = current_user and current_user.id == user.id
-            
-            # Prepara dati utente
-            user_data = {
-                "id": user.id,
-                "email": user.email,
-                "nome": user.nome or "",
-                "cognome": user.cognome or "",
-                "professione": user.professione or "",
-                "descrizione": user.descrizione or "",
-                "profile_picture": user.profile_picture or "/static/default-avatar.png",
-                "category_id": user.category_id,
-                "aree_interesse": user.aree_interesse or "",
-                "prezzo_consulenza": user.prezzo_consulenza or 150,
-                "durata_consulenza": getattr(user, 'durata_consulenza', 60),
-                "bollini": user.bollini or 0,
-                "consulenze_vendute": user.consulenze_vendute or 0,
-                "consulenze_acquistate": user.consulenze_acquistate or 0,
-                "confirmed": user.confirmed,
-                "created_at": user.created_at.strftime("%Y-%m-%d") if user.created_at else "N/A"
-            }
-            
-            # Split aree interesse
-            aree_interesse_list = []
-            if user.aree_interesse:
-                aree_interesse_list = [a.strip() for a in user.aree_interesse.split(',')]
-            
-            # Macro aree (se esiste)
-            macro_aree_list = []
-            if hasattr(user, 'macro_aree') and user.macro_aree:
-                macro_aree_list = [a.strip() for a in user.macro_aree.split(',')]
-            
-            logger.info(f"✅ Loaded public profile: {user.email} (viewed by: {current_user.email if current_user else 'guest'})")
-            
-            return request.app.state.templates.TemplateResponse(
-                "user_profile.html",
-                {
-                    "request": request,
-                    "user": user_data,
-                    "category": category,
-                    "current_user": current_user,
-                    "is_own_profile": is_own_profile,
-                    "aree_interesse_list": aree_interesse_list,
-                    "macro_aree_list": macro_aree_list
-                }
-            )
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error loading user profile: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Errore interno")
-
-@router.get("/api/consultants", response_class=JSONResponse)
-async def api_consultants(
-    category_id: Optional[int] = None,
-    search: Optional[str] = None,
-    min_price: Optional[int] = None,
-    max_price: Optional[int] = None
-):
-    """API per filtrare consulenti"""
-    try:
-        with get_session() as session:
-            query = select(User).where(User.confirmed == 1)
-            
-            if category_id:
-                query = query.where(User.category_id == category_id)
-            
-            if search:
-                search_term = f"%{search}%"
-                query = query.where(
-                    (User.nome.ilike(search_term)) |
-                    (User.cognome.ilike(search_term)) |
-                    (User.professione.ilike(search_term))
-                )
-            
-            if min_price is not None:
-                query = query.where(User.prezzo_consulenza >= min_price)
-            
-            if max_price is not None:
-                query = query.where(User.prezzo_consulenza <= max_price)
-            
-            consultants = session.exec(query).all()
-            
-            return JSONResponse({
-                "consultants": [
-                    {
-                        "id": c.id,
-                        "nome": c.nome,
-                        "cognome": c.cognome,
-                        "professione": c.professione,
-                        "descrizione": c.descrizione,
-                        "profile_picture": c.profile_picture or "/static/default-avatar.png",
-                        "prezzo_consulenza": c.prezzo_consulenza,
-                        "category_id": c.category_id,
-                        "bollini": c.bollini
-                    }
-                    for c in consultants
-                ]
-            })
-    
-    except Exception as e:
-        logger.error(f"Error in API consultants: {e}", exc_info=True)
-        return JSONResponse({"error": "Errore interno"}, status_code=500)

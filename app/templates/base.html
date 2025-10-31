@@ -3,13 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <!-- ☝️ IMPORTANTE: questo meta tag DEVE esserci -->
     <title>{% block title %}Helpy - Get Advice from People Who Can Help{% endblock %}</title>
     
     <!-- ✅ CSS Globale -->
     <link rel="stylesheet" href="/static/style.css">
-    
-    <!-- ✅ CSS Mobile Globale (NUOVO!) -->
     <link rel="stylesheet" href="/static/mobile.css">
     
     <!-- CSS specifici per pagina -->
@@ -31,10 +28,10 @@
             z-index: 1000;
         }
         
+        /* Left: Solo Logo + Helpy */
         .navbar-left {
             display: flex;
             align-items: center;
-            gap: 32px;
         }
         
         .navbar-logo-link {
@@ -58,58 +55,42 @@
             background-clip: text;
         }
         
-        .navbar-consulenti-link {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 20px;
-            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
-            border: 2px solid #667eea;
-            border-radius: 12px;
-            text-decoration: none;
-            color: #667eea;
-            font-weight: 600;
-            font-size: 16px;
-            transition: all 0.3s ease;
-        }
-        
-        .navbar-consulenti-link:hover {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-        
+        /* Right: Link semplici in riga */
         .navbar-links {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 24px;
         }
         
         .navbar-link {
-            color: #667eea;
-            font-weight: 600;
+            color: #333;
+            font-weight: 500;
+            font-size: 16px;
             text-decoration: none;
-            padding: 10px 20px;
-            transition: all 0.3s ease;
+            padding: 8px 16px;
+            transition: color 0.3s ease;
+            white-space: nowrap;
         }
         
         .navbar-link:hover {
-            color: #764ba2;
+            color: #667eea;
         }
         
+        /* Bottone registrazione con gradient */
         .register-btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 12px 28px;
+            padding: 10px 24px;
             border-radius: 25px;
             font-weight: 600;
+            font-size: 16px;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 8px;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
             transition: all 0.3s ease;
+            white-space: nowrap;
         }
         
         .register-btn:hover {
@@ -124,6 +105,32 @@
         
         .logout-btn:hover {
             box-shadow: 0 6px 16px rgba(231, 76, 60, 0.4);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 12px 20px;
+            }
+            
+            .navbar-title {
+                font-size: 22px;
+            }
+            
+            .navbar-links {
+                gap: 12px;
+            }
+            
+            .navbar-link,
+            .register-btn {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+            
+            /* Nasconde testo "Trova Consulenti" su mobile, lascia solo icona */
+            .navbar-link-text {
+                display: none;
+            }
         }
         
         /* 🎨 Stili Footer Globali */
@@ -187,29 +194,40 @@
 
     <!-- 🎯 HEADER GLOBALE -->
     <nav class="navbar">
-        <!-- Parte Sinistra: Logo + Helpy + Consulenti -->
+        <!-- Left: Solo Logo + Helpy -->
         <div class="navbar-left">
             <a href="/" class="navbar-logo-link">
                 <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo">
                 <span class="navbar-title">Helpy</span>
             </a>
-            
-            <a href="/consultants" class="navbar-consulenti-link">
-                <span style="font-size: 20px;">🔍</span>
-                <span>Trova Consulenti</span>
-            </a>
         </div>
         
-        <!-- Parte Destra: Login/Logout -->
+        <!-- Right: Link semplici in fila -->
         <div class="navbar-links">
+            <!-- Trova Consulenti -->
+            <a href="/consultants" class="navbar-link">
+                <span class="navbar-link-text">Trova Consulenti</span>
+            </a>
+            
             {% if user %}
-                <a href="/profile" class="register-btn">
-                    <span style="font-size: 18px;">👤</span> {{ user.nome or user.email.split('@')[0] }}
+                <!-- Profilo Utente -->
+                <a href="/profile" class="navbar-link">
+                    <span style="font-size: 18px;">👤</span>
+                    <span class="navbar-link-text">{{ user.nome or user.email.split('@')[0] }}</span>
                 </a>
-                <a href="/logout" class="register-btn logout-btn">Logout</a>
+                
+                <!-- Logout -->
+                <a href="/logout" class="register-btn logout-btn">
+                    Logout
+                </a>
             {% else %}
+                <!-- Accedi -->
                 <a href="/login" class="navbar-link">Accedi</a>
-                <a href="/register" class="register-btn">Registrati Gratis</a>
+                
+                <!-- Registrati -->
+                <a href="/register" class="register-btn">
+                    Registrati Gratis
+                </a>
             {% endif %}
         </div>
     </nav>

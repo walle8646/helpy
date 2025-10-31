@@ -426,6 +426,7 @@ async def register_page(request: Request):
         {"request": request}
     )
 
+
 @router.post("/api/reset-password")
 async def reset_password(
     request: Request,
