@@ -13,4 +13,4 @@ itsdangerous==2.2.0
 python-jose[cryptography]
 passlib[bcrypt]
 Pillow
-sendgrid==6.11.0  # ✅ AGGIUNGI QUESTA RIGA
+sendgrid==6.11.0

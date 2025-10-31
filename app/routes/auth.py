@@ -15,6 +15,8 @@ from email.mime.multipart import MIMEMultipart
 from loguru import logger
 import jwt
 from datetime import datetime, timedelta
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 router = APIRouter()
 
@@ -554,59 +556,39 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
 
 def send_verification_email(to_email: str, code: str, nome: str = "User") -> bool:
     """
-    Invia email di verifica con logging dettagliato.
+    Invia email di verifica usando SendGrid API (HTTP).
     
     Args:
         to_email: Email destinatario
         code: Codice verifica 6 cifre
-        nome: Nome utente (default: "User")
+        nome: Nome utente
     
     Returns:
-        bool: True se email inviata con successo, False altrimenti
+        bool: True se email inviata con successo
     """
     logger.info("=" * 80)
-    logger.info("📧 INIZIO PROCESSO INVIO EMAIL")
+    logger.info("📧 INVIO EMAIL VIA SENDGRID API")
     logger.info("=" * 80)
     
     try:
-        # ========== STEP 1: Carica configurazione SMTP ==========
-        smtp_server = os.getenv('SMTP_SERVER')
-        smtp_port = os.getenv('SMTP_PORT')
-        smtp_user = os.getenv('SMTP_USER')
-        smtp_password = os.getenv('SMTP_PASSWORD')
-        from_email = os.getenv('FROM_EMAIL', smtp_user)
+        # ========== STEP 1: Carica API Key ==========
+        api_key = os.getenv('SENDGRID_API_KEY') or os.getenv('SMTP_PASSWORD')
+        from_email = os.getenv('FROM_EMAIL', 'noreply@helpy.com')
         
-        logger.info("📋 STEP 1: Configurazione SMTP caricata")
-        logger.info(f"   ├─ SMTP_SERVER: {smtp_server}")
-        logger.info(f"   ├─ SMTP_PORT: {smtp_port}")
-        logger.info(f"   ├─ SMTP_USER: {smtp_user}")
-        logger.info(f"   ├─ SMTP_PASSWORD: {'✅ SET' if smtp_password else '❌ NOT SET'}")
+        logger.info("📋 STEP 1: Configurazione caricata")
+        logger.info(f"   ├─ API_KEY: {'✅ SET' if api_key else '❌ NOT SET'}")
         logger.info(f"   ├─ FROM_EMAIL: {from_email}")
         logger.info(f"   ├─ TO_EMAIL: {to_email}")
         logger.info(f"   └─ NOME: {nome}")
         
-        # ========== STEP 2: Validazione parametri ==========
-        if not all([smtp_server, smtp_port, smtp_user, smtp_password]):
-            missing = []
-            if not smtp_server: missing.append('SMTP_SERVER')
-            if not smtp_port: missing.append('SMTP_PORT')
-            if not smtp_user: missing.append('SMTP_USER')
-            if not smtp_password: missing.append('SMTP_PASSWORD')
-            
-            logger.error(f"❌ STEP 2: Variabili ambiente mancanti: {', '.join(missing)}")
+        if not api_key:
+            logger.error("❌ SENDGRID_API_KEY non configurata!")
             return False
         
-        logger.info("✅ STEP 2: Validazione parametri OK")
+        # ========== STEP 2: Costruisci messaggio HTML ==========
+        logger.info("📝 STEP 2: Costruzione messaggio...")
         
-        # ========== STEP 3: Costruzione messaggio email ==========
-        logger.info("📝 STEP 3: Costruzione messaggio email...")
-        
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = 'Codice di Verifica Helpy'
-        msg['From'] = from_email
-        msg['To'] = to_email
-        
-        html_body = f"""
+        html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
@@ -634,115 +616,50 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         </html>
         """
         
-        msg.attach(MIMEText(html_body, 'html'))
+        # ========== STEP 3: Crea messaggio SendGrid ==========
+        message = Mail(
+            from_email=from_email,
+            to_emails=to_email,
+            subject='Codice di Verifica Helpy',
+            html_content=html_content
+        )
         
-        logger.info("✅ STEP 3: Messaggio costruito")
-        logger.info(f"   ├─ Subject: {msg['Subject']}")
-        logger.info(f"   ├─ From: {msg['From']}")
-        logger.info(f"   ├─ To: {msg['To']}")
+        logger.info("✅ STEP 2: Messaggio costruito")
+        logger.info(f"   ├─ Subject: Codice di Verifica Helpy")
+        logger.info(f"   ├─ From: {from_email}")
+        logger.info(f"   ├─ To: {to_email}")
         logger.info(f"   └─ Codice: {code}")
         
-        # ========== STEP 4: Connessione al server SMTP ==========
-        logger.info(f"🔌 STEP 4: Connessione a {smtp_server}:{smtp_port}...")
+        # ========== STEP 4: Invia via API ==========
+        logger.info("📤 STEP 3: Invio via SendGrid API...")
         
         try:
-            smtp_port_int = int(smtp_port)
-        except ValueError:
-            logger.error(f"❌ STEP 4: SMTP_PORT non valido: {smtp_port}")
-            return False
-        
-        try:
-            if smtp_port_int == 587:
-                logger.info("   ├─ Modalità: STARTTLS (porta 587)")
-                server = smtplib.SMTP(smtp_server, smtp_port_int, timeout=30)
-                logger.info("   ├─ Connessione TCP stabilita")
-                server.ehlo()
-                logger.info("   ├─ EHLO inviato")
-                server.starttls()
-                logger.info("   ├─ STARTTLS attivato")
-                server.ehlo()
-                logger.info("   └─ Secondo EHLO inviato")
+            sg = SendGridAPIClient(api_key)
+            response = sg.send(message)
             
-            elif smtp_port_int == 465:
-                logger.info("   ├─ Modalità: SSL (porta 465)")
-                server = smtplib.SMTP_SSL(smtp_server, smtp_port_int, timeout=30)
-                logger.info("   └─ Connessione SSL stabilita")
+            logger.info(f"✅ STEP 3: Email inviata!")
+            logger.info(f"   ├─ Status Code: {response.status_code}")
+            logger.info(f"   ├─ Headers: {dict(response.headers)}")
+            logger.info(f"   └─ Body: {response.body}")
             
-            else:
-                logger.warning(f"   ⚠️  Porta non standard: {smtp_port_int}")
-                server = smtplib.SMTP(smtp_server, smtp_port_int, timeout=30)
-                logger.info("   └─ Connessione SMTP stabilita")
+            logger.info("=" * 80)
+            logger.info("🎉 EMAIL INVIATA CON SUCCESSO!")
+            logger.info("=" * 80)
             
-            logger.info("✅ STEP 4: Connessione stabilita")
+            return True
+        
+        except Exception as e:
+            logger.error(f"❌ STEP 3: Errore SendGrid API: {type(e).__name__}")
+            logger.error(f"   Messaggio: {str(e)}")
             
-        except ConnectionRefusedError as e:
-            logger.error(f"❌ STEP 4: Connessione rifiutata (porta bloccata?): {e}")
+            # Log dettagli errore SendGrid
+            if hasattr(e, 'body'):
+                logger.error(f"   Body: {e.body}")
+            if hasattr(e, 'to_dict'):
+                logger.error(f"   Details: {e.to_dict}")
+            
             return False
-        except TimeoutError as e:
-            logger.error(f"❌ STEP 4: Timeout connessione (firewall?): {e}")
-            return False
-        except smtplib.SMTPException as e:
-            logger.error(f"❌ STEP 4: Errore SMTP: {type(e).__name__}: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ STEP 4: Errore generico: {type(e).__name__}: {e}")
-            import traceback
-            logger.error(f"Traceback:\n{traceback.format_exc()}")
-            return False
-        
-        # ========== STEP 5: Login SMTP ==========
-        logger.info("🔐 STEP 5: Login SMTP...")
-        logger.info(f"   ├─ Username: {smtp_user}")
-        logger.info(f"   └─ Password: {'*' * min(len(smtp_password), 16)}")
-        
-        try:
-            server.login(smtp_user, smtp_password)
-            logger.info("✅ STEP 5: Login effettuato con successo")
-        except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"❌ STEP 5: Autenticazione fallita: {e}")
-            logger.error("   ⚠️  Controlla SMTP_USER e SMTP_PASSWORD (usa API Key SendGrid)")
-            server.quit()
-            return False
-        except Exception as e:
-            logger.error(f"❌ STEP 5: Errore durante login: {type(e).__name__}: {e}")
-            server.quit()
-            return False
-        
-        # ========== STEP 6: Invio email ==========
-        logger.info("📤 STEP 6: Invio email...")
-        
-        try:
-            result = server.send_message(msg)
-            logger.info("✅ STEP 6: Email inviata con successo!")
-            logger.info(f"   └─ Result: {result}")
-        except smtplib.SMTPRecipientsRefused as e:
-            logger.error(f"❌ STEP 6: Destinatario rifiutato: {e}")
-            server.quit()
-            return False
-        except smtplib.SMTPDataError as e:
-            logger.error(f"❌ STEP 6: Errore dati SMTP: {e}")
-            server.quit()
-            return False
-        except Exception as e:
-            logger.error(f"❌ STEP 6: Errore generico durante invio: {type(e).__name__}: {e}")
-            server.quit()
-            return False
-        
-        # ========== STEP 7: Chiusura connessione ==========
-        logger.info("🔌 STEP 7: Chiusura connessione SMTP...")
-        
-        try:
-            server.quit()
-            logger.info("✅ STEP 7: Connessione chiusa")
-        except Exception as e:
-            logger.warning(f"⚠️  STEP 7: Errore durante chiusura: {e}")
-        
-        logger.info("=" * 80)
-        logger.info("🎉 EMAIL INVIATA CON SUCCESSO!")
-        logger.info("=" * 80)
-        
-        return True
-        
+    
     except Exception as e:
         logger.error("=" * 80)
         logger.error(f"❌ ERRORE FATALE INVIO EMAIL")
@@ -750,7 +667,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         logger.error(f"   Messaggio: {e}")
         logger.error("=" * 80)
         import traceback
-        logger.error(f"Traceback completo:\n{traceback.format_exc()}")
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
         return False
 
 # ========== ORA PUOI USARE LA FUNZIONE ==========
@@ -1139,59 +1056,39 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
 
 def send_verification_email(to_email: str, code: str, nome: str = "User") -> bool:
     """
-    Invia email di verifica con logging dettagliato.
+    Invia email di verifica usando SendGrid API (HTTP).
     
     Args:
         to_email: Email destinatario
         code: Codice verifica 6 cifre
-        nome: Nome utente (default: "User")
+        nome: Nome utente
     
     Returns:
-        bool: True se email inviata con successo, False altrimenti
+        bool: True se email inviata con successo
     """
     logger.info("=" * 80)
-    logger.info("📧 INIZIO PROCESSO INVIO EMAIL")
+    logger.info("📧 INVIO EMAIL VIA SENDGRID API")
     logger.info("=" * 80)
     
     try:
-        # ========== STEP 1: Carica configurazione SMTP ==========
-        smtp_server = os.getenv('SMTP_SERVER')
-        smtp_port = os.getenv('SMTP_PORT')
-        smtp_user = os.getenv('SMTP_USER')
-        smtp_password = os.getenv('SMTP_PASSWORD')
-        from_email = os.getenv('FROM_EMAIL', smtp_user)
+        # ========== STEP 1: Carica API Key ==========
+        api_key = os.getenv('SENDGRID_API_KEY') or os.getenv('SMTP_PASSWORD')
+        from_email = os.getenv('FROM_EMAIL', 'noreply@helpy.com')
         
-        logger.info("📋 STEP 1: Configurazione SMTP caricata")
-        logger.info(f"   ├─ SMTP_SERVER: {smtp_server}")
-        logger.info(f"   ├─ SMTP_PORT: {smtp_port}")
-        logger.info(f"   ├─ SMTP_USER: {smtp_user}")
-        logger.info(f"   ├─ SMTP_PASSWORD: {'✅ SET' if smtp_password else '❌ NOT SET'}")
+        logger.info("📋 STEP 1: Configurazione caricata")
+        logger.info(f"   ├─ API_KEY: {'✅ SET' if api_key else '❌ NOT SET'}")
         logger.info(f"   ├─ FROM_EMAIL: {from_email}")
         logger.info(f"   ├─ TO_EMAIL: {to_email}")
         logger.info(f"   └─ NOME: {nome}")
         
-        # ========== STEP 2: Validazione parametri ==========
-        if not all([smtp_server, smtp_port, smtp_user, smtp_password]):
-            missing = []
-            if not smtp_server: missing.append('SMTP_SERVER')
-            if not smtp_port: missing.append('SMTP_PORT')
-            if not smtp_user: missing.append('SMTP_USER')
-            if not smtp_password: missing.append('SMTP_PASSWORD')
-            
-            logger.error(f"❌ STEP 2: Variabili ambiente mancanti: {', '.join(missing)}")
+        if not api_key:
+            logger.error("❌ SENDGRID_API_KEY non configurata!")
             return False
         
-        logger.info("✅ STEP 2: Validazione parametri OK")
+        # ========== STEP 2: Costruisci messaggio HTML ==========
+        logger.info("📝 STEP 2: Costruzione messaggio...")
         
-        # ========== STEP 3: Costruzione messaggio email ==========
-        logger.info("📝 STEP 3: Costruzione messaggio email...")
-        
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = 'Codice di Verifica Helpy'
-        msg['From'] = from_email
-        msg['To'] = to_email
-        
-        html_body = f"""
+        html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
@@ -1219,115 +1116,50 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         </html>
         """
         
-        msg.attach(MIMEText(html_body, 'html'))
+        # ========== STEP 3: Crea messaggio SendGrid ==========
+        message = Mail(
+            from_email=from_email,
+            to_emails=to_email,
+            subject='Codice di Verifica Helpy',
+            html_content=html_content
+        )
         
-        logger.info("✅ STEP 3: Messaggio costruito")
-        logger.info(f"   ├─ Subject: {msg['Subject']}")
-        logger.info(f"   ├─ From: {msg['From']}")
-        logger.info(f"   ├─ To: {msg['To']}")
+        logger.info("✅ STEP 2: Messaggio costruito")
+        logger.info(f"   ├─ Subject: Codice di Verifica Helpy")
+        logger.info(f"   ├─ From: {from_email}")
+        logger.info(f"   ├─ To: {to_email}")
         logger.info(f"   └─ Codice: {code}")
         
-        # ========== STEP 4: Connessione al server SMTP ==========
-        logger.info(f"🔌 STEP 4: Connessione a {smtp_server}:{smtp_port}...")
+        # ========== STEP 4: Invia via API ==========
+        logger.info("📤 STEP 3: Invio via SendGrid API...")
         
         try:
-            smtp_port_int = int(smtp_port)
-        except ValueError:
-            logger.error(f"❌ STEP 4: SMTP_PORT non valido: {smtp_port}")
-            return False
-        
-        try:
-            if smtp_port_int == 587:
-                logger.info("   ├─ Modalità: STARTTLS (porta 587)")
-                server = smtplib.SMTP(smtp_server, smtp_port_int, timeout=30)
-                logger.info("   ├─ Connessione TCP stabilita")
-                server.ehlo()
-                logger.info("   ├─ EHLO inviato")
-                server.starttls()
-                logger.info("   ├─ STARTTLS attivato")
-                server.ehlo()
-                logger.info("   └─ Secondo EHLO inviato")
+            sg = SendGridAPIClient(api_key)
+            response = sg.send(message)
             
-            elif smtp_port_int == 465:
-                logger.info("   ├─ Modalità: SSL (porta 465)")
-                server = smtplib.SMTP_SSL(smtp_server, smtp_port_int, timeout=30)
-                logger.info("   └─ Connessione SSL stabilita")
+            logger.info(f"✅ STEP 3: Email inviata!")
+            logger.info(f"   ├─ Status Code: {response.status_code}")
+            logger.info(f"   ├─ Headers: {dict(response.headers)}")
+            logger.info(f"   └─ Body: {response.body}")
             
-            else:
-                logger.warning(f"   ⚠️  Porta non standard: {smtp_port_int}")
-                server = smtplib.SMTP(smtp_server, smtp_port_int, timeout=30)
-                logger.info("   └─ Connessione SMTP stabilita")
+            logger.info("=" * 80)
+            logger.info("🎉 EMAIL INVIATA CON SUCCESSO!")
+            logger.info("=" * 80)
             
-            logger.info("✅ STEP 4: Connessione stabilita")
+            return True
+        
+        except Exception as e:
+            logger.error(f"❌ STEP 3: Errore SendGrid API: {type(e).__name__}")
+            logger.error(f"   Messaggio: {str(e)}")
             
-        except ConnectionRefusedError as e:
-            logger.error(f"❌ STEP 4: Connessione rifiutata (porta bloccata?): {e}")
+            # Log dettagli errore SendGrid
+            if hasattr(e, 'body'):
+                logger.error(f"   Body: {e.body}")
+            if hasattr(e, 'to_dict'):
+                logger.error(f"   Details: {e.to_dict}")
+            
             return False
-        except TimeoutError as e:
-            logger.error(f"❌ STEP 4: Timeout connessione (firewall?): {e}")
-            return False
-        except smtplib.SMTPException as e:
-            logger.error(f"❌ STEP 4: Errore SMTP: {type(e).__name__}: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ STEP 4: Errore generico: {type(e).__name__}: {e}")
-            import traceback
-            logger.error(f"Traceback:\n{traceback.format_exc()}")
-            return False
-        
-        # ========== STEP 5: Login SMTP ==========
-        logger.info("🔐 STEP 5: Login SMTP...")
-        logger.info(f"   ├─ Username: {smtp_user}")
-        logger.info(f"   └─ Password: {'*' * min(len(smtp_password), 16)}")
-        
-        try:
-            server.login(smtp_user, smtp_password)
-            logger.info("✅ STEP 5: Login effettuato con successo")
-        except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"❌ STEP 5: Autenticazione fallita: {e}")
-            logger.error("   ⚠️  Controlla SMTP_USER e SMTP_PASSWORD (usa API Key SendGrid)")
-            server.quit()
-            return False
-        except Exception as e:
-            logger.error(f"❌ STEP 5: Errore durante login: {type(e).__name__}: {e}")
-            server.quit()
-            return False
-        
-        # ========== STEP 6: Invio email ==========
-        logger.info("📤 STEP 6: Invio email...")
-        
-        try:
-            result = server.send_message(msg)
-            logger.info("✅ STEP 6: Email inviata con successo!")
-            logger.info(f"   └─ Result: {result}")
-        except smtplib.SMTPRecipientsRefused as e:
-            logger.error(f"❌ STEP 6: Destinatario rifiutato: {e}")
-            server.quit()
-            return False
-        except smtplib.SMTPDataError as e:
-            logger.error(f"❌ STEP 6: Errore dati SMTP: {e}")
-            server.quit()
-            return False
-        except Exception as e:
-            logger.error(f"❌ STEP 6: Errore generico durante invio: {type(e).__name__}: {e}")
-            server.quit()
-            return False
-        
-        # ========== STEP 7: Chiusura connessione ==========
-        logger.info("🔌 STEP 7: Chiusura connessione SMTP...")
-        
-        try:
-            server.quit()
-            logger.info("✅ STEP 7: Connessione chiusa")
-        except Exception as e:
-            logger.warning(f"⚠️  STEP 7: Errore durante chiusura: {e}")
-        
-        logger.info("=" * 80)
-        logger.info("🎉 EMAIL INVIATA CON SUCCESSO!")
-        logger.info("=" * 80)
-        
-        return True
-        
+    
     except Exception as e:
         logger.error("=" * 80)
         logger.error(f"❌ ERRORE FATALE INVIO EMAIL")
@@ -1335,5 +1167,5 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         logger.error(f"   Messaggio: {e}")
         logger.error("=" * 80)
         import traceback
-        logger.error(f"Traceback completo:\n{traceback.format_exc()}")
+        logger.error(f"Traceback:\n{traceback.format_exc()}")
         return False
