@@ -9,6 +9,10 @@ from typing import Optional
 from app.logger_config import logger
 from app.utils.email import generate_verification_code, send_verification_email
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from loguru import logger
 import jwt
 from datetime import datetime, timedelta
 
@@ -545,4 +549,192 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
         return True
     except Exception as e:
         logger.error(f"❌ Failed to send reset email to {email}: {e}")
+        return False
+
+def send_verification_email(to_email: str, code: str) -> bool:
+    """
+    Invia email di verifica con logging dettagliato.
+    
+    Returns:
+        bool: True se email inviata con successo, False altrimenti
+    """
+    logger.info("=" * 80)
+    logger.info("📧 INIZIO PROCESSO INVIO EMAIL")
+    logger.info("=" * 80)
+    
+    try:
+        # ========== STEP 1: Carica configurazione SMTP ==========
+        smtp_server = os.getenv('SMTP_SERVER')
+        smtp_port = os.getenv('SMTP_PORT')
+        smtp_user = os.getenv('SMTP_USER')
+        smtp_password = os.getenv('SMTP_PASSWORD')
+        from_email = os.getenv('FROM_EMAIL', smtp_user)
+        
+        logger.info("📋 STEP 1: Configurazione SMTP caricata")
+        logger.info(f"   ├─ SMTP_SERVER: {smtp_server}")
+        logger.info(f"   ├─ SMTP_PORT: {smtp_port}")
+        logger.info(f"   ├─ SMTP_USER: {smtp_user}")
+        logger.info(f"   ├─ SMTP_PASSWORD: {'✅ SET' if smtp_password else '❌ NOT SET'}")
+        logger.info(f"   ├─ FROM_EMAIL: {from_email}")
+        logger.info(f"   └─ TO_EMAIL: {to_email}")
+        
+        # ========== STEP 2: Validazione parametri ==========
+        if not all([smtp_server, smtp_port, smtp_user, smtp_password]):
+            missing = []
+            if not smtp_server: missing.append('SMTP_SERVER')
+            if not smtp_port: missing.append('SMTP_PORT')
+            if not smtp_user: missing.append('SMTP_USER')
+            if not smtp_password: missing.append('SMTP_PASSWORD')
+            
+            logger.error(f"❌ STEP 2: Variabili ambiente mancanti: {', '.join(missing)}")
+            return False
+        
+        logger.info("✅ STEP 2: Validazione parametri OK")
+        
+        # ========== STEP 3: Costruzione messaggio email ==========
+        logger.info("📝 STEP 3: Costruzione messaggio email...")
+        
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Codice di Verifica Helpy'
+        msg['From'] = from_email
+        msg['To'] = to_email
+        
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }}
+                .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }}
+                h1 {{ color: #2563eb; margin-bottom: 20px; }}
+                .code {{ font-size: 32px; font-weight: bold; color: #2563eb; background: #f0f4ff; padding: 20px; border-radius: 8px; text-align: center; margin: 30px 0; letter-spacing: 4px; }}
+                p {{ color: #555; line-height: 1.6; }}
+                .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #888; font-size: 0.9rem; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🦊 Benvenuto su Helpy!</h1>
+                <p>Grazie per esserti registrato. Ecco il tuo codice di verifica:</p>
+                <div class="code">{code}</div>
+                <p>Inserisci questo codice nella pagina di registrazione per completare la verifica del tuo account.</p>
+                <p><strong>Importante:</strong> Questo codice è valido per 10 minuti.</p>
+                <div class="footer">
+                    <p>Se non hai richiesto questa email, ignorala.<br>© 2025 Helpy - Tutti i diritti riservati</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(html_body, 'html'))
+        
+        logger.info("✅ STEP 3: Messaggio costruito")
+        logger.info(f"   ├─ Subject: {msg['Subject']}")
+        logger.info(f"   ├─ From: {msg['From']}")
+        logger.info(f"   ├─ To: {msg['To']}")
+        logger.info(f"   └─ Codice: {code}")
+        
+        # ========== STEP 4: Connessione al server SMTP ==========
+        logger.info(f"🔌 STEP 4: Connessione a {smtp_server}:{smtp_port}...")
+        
+        try:
+            smtp_port_int = int(smtp_port)
+        except ValueError:
+            logger.error(f"❌ STEP 4: SMTP_PORT non valido: {smtp_port}")
+            return False
+        
+        try:
+            # Prova prima con STARTTLS (porta 587)
+            if smtp_port_int == 587:
+                logger.info("   ├─ Modalità: STARTTLS (porta 587)")
+                server = smtplib.SMTP(smtp_server, smtp_port_int, timeout=30)
+                server.ehlo()
+                logger.info("   ├─ EHLO inviato")
+                server.starttls()
+                logger.info("   ├─ STARTTLS attivato")
+                server.ehlo()
+                logger.info("   └─ Secondo EHLO inviato")
+            
+            # Oppure SSL diretto (porta 465)
+            elif smtp_port_int == 465:
+                logger.info("   ├─ Modalità: SSL (porta 465)")
+                server = smtplib.SMTP_SSL(smtp_server, smtp_port_int, timeout=30)
+                logger.info("   └─ Connessione SSL stabilita")
+            
+            # Porta non standard
+            else:
+                logger.warning(f"   ⚠️  Porta non standard: {smtp_port_int}")
+                server = smtplib.SMTP(smtp_server, smtp_port_int, timeout=30)
+                logger.info("   └─ Connessione SMTP stabilita")
+            
+            logger.info("✅ STEP 4: Connessione stabilita")
+            
+        except smtplib.SMTPException as e:
+            logger.error(f"❌ STEP 4: Errore SMTP durante connessione: {type(e).__name__}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ STEP 4: Errore generico durante connessione: {type(e).__name__}: {e}")
+            return False
+        
+        # ========== STEP 5: Login SMTP ==========
+        logger.info("🔐 STEP 5: Login SMTP...")
+        logger.info(f"   ├─ Username: {smtp_user}")
+        logger.info(f"   └─ Password: {'*' * len(smtp_password)}")
+        
+        try:
+            server.login(smtp_user, smtp_password)
+            logger.info("✅ STEP 5: Login effettuato con successo")
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"❌ STEP 5: Autenticazione fallita: {e}")
+            logger.error("   ⚠️  Controlla username/password SMTP")
+            server.quit()
+            return False
+        except Exception as e:
+            logger.error(f"❌ STEP 5: Errore durante login: {type(e).__name__}: {e}")
+            server.quit()
+            return False
+        
+        # ========== STEP 6: Invio email ==========
+        logger.info("📤 STEP 6: Invio email...")
+        
+        try:
+            server.send_message(msg)
+            logger.info("✅ STEP 6: Email inviata con successo!")
+        except smtplib.SMTPRecipientsRefused as e:
+            logger.error(f"❌ STEP 6: Destinatario rifiutato: {e}")
+            server.quit()
+            return False
+        except smtplib.SMTPDataError as e:
+            logger.error(f"❌ STEP 6: Errore dati SMTP: {e}")
+            server.quit()
+            return False
+        except Exception as e:
+            logger.error(f"❌ STEP 6: Errore generico durante invio: {type(e).__name__}: {e}")
+            server.quit()
+            return False
+        
+        # ========== STEP 7: Chiusura connessione ==========
+        logger.info("🔌 STEP 7: Chiusura connessione SMTP...")
+        
+        try:
+            server.quit()
+            logger.info("✅ STEP 7: Connessione chiusa")
+        except Exception as e:
+            logger.warning(f"⚠️  STEP 7: Errore durante chiusura: {e}")
+        
+        logger.info("=" * 80)
+        logger.info("🎉 EMAIL INVIATA CON SUCCESSO!")
+        logger.info("=" * 80)
+        
+        return True
+        
+    except Exception as e:
+        logger.error("=" * 80)
+        logger.error(f"❌ ERRORE FATALE INVIO EMAIL")
+        logger.error(f"   Tipo: {type(e).__name__}")
+        logger.error(f"   Messaggio: {e}")
+        logger.error("=" * 80)
+        import traceback
+        logger.error(f"Traceback completo:\n{traceback.format_exc()}")
         return False
