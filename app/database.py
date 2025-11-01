@@ -31,6 +31,10 @@ def create_db_and_tables():
     """Crea tutte le tabelle se non esistono"""
     logger.info("Creating database and tables")
     # Import modelli per registrarli
-    from app.models import User, Category, Consultation
+    from app.models import (
+        User, Category, Consultation, 
+        Conversation, Message,
+        CommunityQuestion  # ✅ Solo CommunityQuestion, senza CommunityAnswer
+    )
     
     SQLModel.metadata.create_all(engine)

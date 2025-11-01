@@ -209,11 +209,16 @@
                 <span class="navbar-link-text">Trova Consulenti</span>
             </a>
             
-            {% if user %}
+            <!-- Nuovo link alla Community -->
+            <a href="/community" class="navbar-link">
+                <span class="navbar-link-text">Community</span>
+            </a>
+            
+            {% if current_user %}
                 <!-- Profilo Utente -->
                 <a href="/profile" class="navbar-link">
                     <span style="font-size: 18px;">👤</span>
-                    <span class="navbar-link-text">{{ user.nome or user.email.split('@')[0] }}</span>
+                    <span class="navbar-link-text">{{ current_user.nome or current_user.email.split('@')[0] }}</span>
                 </a>
                 
                 <!-- Logout -->

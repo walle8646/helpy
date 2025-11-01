@@ -6,6 +6,7 @@ import re
 
 from app.database import get_session
 from app.models import User, Category
+from app.routes.auth import verify_token
 from loguru import logger
 
 router = APIRouter()
@@ -141,6 +142,9 @@ async def consultants_page(
     """Pagina consulenti con filtri avanzati e ricerca intelligente"""
     
     try:
+        # ✅ Verifica utente loggato
+        current_user = verify_token(request)
+        
         with get_session() as session:
             # ========== CARICA CATEGORIE ==========
             categories = session.exec(
@@ -262,6 +266,8 @@ async def consultants_page(
                 "consultants.html",
                 {
                     "request": request,
+                    "user": current_user,  # ⚠️ Mantenuto per compatibilità
+                    "current_user": current_user,  # ✅ Aggiunto per navbar
                     "consultants": enriched_consultants,
                     "categories": categories,
                     "selected_category": category,
@@ -287,6 +293,8 @@ async def consultants_page(
             "consultants.html",
             {
                 "request": request,
+                "user": None,  # ⚠️ Mantenuto per compatibilità
+                "current_user": None,  # ✅ Aggiunto per navbar
                 "consultants": [],
                 "categories": categories,
                 "selected_category": None,

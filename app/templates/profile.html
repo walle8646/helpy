@@ -100,8 +100,14 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>Descrizione</label>
-                    <textarea name="descrizione" rows="5" placeholder="Raccontaci di te, della tua esperienza e come puoi aiutare gli altri">{{ user.descrizione or '' }}</textarea>
+                    <label>Descrizione <span id="charCounter" style="float:right; font-size:0.9rem; color:#dc3545;">0/200 caratteri</span></label>
+                    <textarea 
+                        id="descrizioneTextarea"
+                        name="descrizione" 
+                        rows="5" 
+                        placeholder="Raccontaci di te, della tua esperienza e come puoi aiutare gli altri (minimo 200 caratteri)"
+                    >{{ user.descrizione or '' }}</textarea>
+                    <small id="descrizioneHint" style="color:#dc3545; display:block; margin-top:4px;">La descrizione deve essere di almeno 200 caratteri per richiedere la verifica del profilo.</small>
                 </div>
                 
                 <div class="form-group">
@@ -265,7 +271,7 @@
         console.log('Dati inviati:', Object.fromEntries(params));
         
         try {
-            const response = await fetch('/api/update-profile', {
+            const response = await fetch('/api/profile/update', {
                 method: 'POST',
                 body: params
             });
@@ -273,11 +279,18 @@
             const data = await response.json();
             
             if (response.ok) {
-                successDiv.textContent = 'Profilo aggiornato con successo!';
+                let message = 'Profilo aggiornato con successo!';
+                
+                // Check if verification was requested
+                if (data.verification_requested) {
+                    message += ' ✨ Il tuo profilo è stato inviato per la verifica. Riceverai una notifica quando sarà approvato.';
+                }
+                
+                successDiv.textContent = message;
                 successDiv.style.display = 'block';
                 setTimeout(() => {
                     window.location.reload();
-                }, 1500);
+                }, 2500);
             } else {
                 errorDiv.textContent = data.error || 'Errore durante l\'aggiornamento';
                 errorDiv.style.display = 'block';
@@ -402,5 +415,33 @@
 
     cancelCropBtn.addEventListener('click', closeCropModal);
     closeModalBtn.addEventListener('click', closeCropModal);
+
+    // Character counter for descrizione textarea
+    const descrizioneTextarea = document.getElementById('descrizioneTextarea');
+    const charCounter = document.getElementById('charCounter');
+    const descrizioneHint = document.getElementById('descrizioneHint');
+
+    function updateCharCounter() {
+        const length = descrizioneTextarea.value.length;
+        charCounter.textContent = `${length}/200 caratteri`;
+        
+        if (length >= 200) {
+            charCounter.style.color = '#28a745';
+            descrizioneHint.style.color = '#28a745';
+            descrizioneHint.textContent = '✓ La descrizione soddisfa i requisiti per la verifica del profilo.';
+        } else {
+            charCounter.style.color = '#dc3545';
+            descrizioneHint.style.color = '#dc3545';
+            descrizioneHint.textContent = `La descrizione deve essere di almeno 200 caratteri per richiedere la verifica del profilo. (ne mancano ${200 - length})`;
+        }
+    }
+
+    if (descrizioneTextarea) {
+        // Initial count on page load
+        updateCharCounter();
+        
+        // Update on input
+        descrizioneTextarea.addEventListener('input', updateCharCounter);
+    }
 </script>
 {% endblock %}

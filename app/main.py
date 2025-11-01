@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from app.database import create_db_and_tables
-from app.routes import home, auth, consultants, user_profile, messages
+from app.routes import home, auth, consultants, user_profile, messages, community, public_profile
 from app.logger_config import logger
 
 app = FastAPI(title="Helpy", version="1.0.0")
@@ -34,8 +34,10 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(home.router, tags=["home"])
 app.include_router(auth.router, tags=["auth"])
 app.include_router(user_profile.router, tags=["profile"])
+app.include_router(public_profile.router, tags=["public_profile"])
 app.include_router(consultants.router, tags=["consultants"])
 app.include_router(messages.router, tags=["messages"])  # ✅ Aggiungi questo
+app.include_router(community.router)
 
 
 # Database init

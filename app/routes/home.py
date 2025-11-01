@@ -48,9 +48,9 @@ async def home(request: Request):
                 {
                     "request": request,
                     "categories": categories,
-                    "consultants": consultants,  # ✅ Nome corretto
-                    "user": current_user,  # ✅ Rinominato da current_user a user
-                    "hero_img_url": "https://i.imgur.com/YourImage.png"  # Opzionale
+                    "consultants": consultants,
+                    "current_user": current_user,  # ✅ Cambiato da user a current_user
+                    "hero_img_url": "https://i.imgur.com/YourImage.png"
                 }
             )
         except Exception as e:
@@ -61,8 +61,8 @@ async def home(request: Request):
                 {
                     "request": request,
                     "categories": [],
-                    "consultants": [],  # ✅ Nome corretto
-                    "user": current_user,  # ✅ Rinominato
+                    "consultants": [],
+                    "current_user": current_user,  # ✅ Cambiato da user a current_user
                     "error": "Errore nel caricamento della pagina"
                 }
             )

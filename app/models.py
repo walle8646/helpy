@@ -2,6 +2,7 @@ from sqlmodel import Field, SQLModel, Relationship
 from datetime import datetime
 from typing import Optional, List
 from decimal import Decimal
+from enum import Enum
 
 class ImageLink(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
@@ -44,6 +45,8 @@ class User(SQLModel, table=True):
     # Status
     confirmed: int = Field(default=0)
     confirmation_code: Optional[str] = None
+    is_verified: bool = Field(default=False)
+    user_type_id: int = Field(default=1)  # 1=Utente, 2=Verificatore, 3=Amministratore
     
     # Timestamps
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
@@ -83,7 +86,30 @@ class Message(SQLModel, table=True):
     sender_id: int = Field(foreign_key="user.id", index=True)
     content: str = Field(max_length=2000)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    is_read: bool = Field(default=False)  # ✅ AGGIUNTO
+    is_read: bool = Field(default=False)
     
     # ✅ Relationship con Conversation
     conversation: Optional[Conversation] = Relationship(back_populates="messages")
+
+# ========== COMMUNITY Q&A MODELS ==========
+
+class QuestionStatus(str, Enum):
+    """Status delle domande nella community"""
+    OPEN = "open"
+    ANSWERED = "answered"
+    CLOSED = "closed"
+
+class CommunityQuestion(SQLModel, table=True):
+    """Domande nella community Q&A - solo domande con upvotes (like), senza risposte"""
+    __tablename__ = "community_questions"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+    title: str = Field(max_length=200)
+    description: str = Field(max_length=5000)
+    status: str = Field(default=QuestionStatus.OPEN)
+    views: int = Field(default=0)
+    upvotes: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -22,28 +22,23 @@ def public_user_profile(request: Request, user_id: int):
         if user.category_id:
             category = session.get(Category, user.category_id)
         
-        # Converti aree_interesse da stringa a lista (rimuovi macro_aree)
+        # Converti aree_interesse da stringa a lista
         aree_interesse_list = user.aree_interesse.split(',') if user.aree_interesse else []
         
-        # Ottieni l'utente loggato (se c'è)
+        # Ottieni l'utente loggato (se c'è) - USA verify_token con Request
         current_user = None
-        session_token = request.cookies.get("session_token")
-        if session_token:
-            try:
-                from app.routes.auth import verify_token
-                payload = verify_token(session_token)
-                current_user_id = payload.get("user_id")
-                if current_user_id:
-                    current_user = session.get(User, current_user_id)
-            except:
-                pass
+        try:
+            from app.routes.auth import verify_token
+            current_user = verify_token(request)
+        except:
+            pass
         
-        logger.info(f"Public profile viewed: {user.email} (ID: {user.id})")
+        logger.info(f"Public profile viewed: {user.email} (ID: {user.id}) by {current_user.email if current_user else 'anonymous'}")
         
-        return templates.TemplateResponse("public_profile.html", {
+        return templates.TemplateResponse("user_profile.html", {
             "request": request,
-            "user": user,
-            "current_user": current_user,
+            "user": user,  # Utente del profilo che stai visualizzando
+            "current_user": current_user,  # Utente loggato
             "category": category,
             "aree_interesse_list": aree_interesse_list,
             "is_own_profile": current_user and current_user.id == user.id

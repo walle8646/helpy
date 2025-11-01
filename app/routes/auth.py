@@ -31,6 +31,17 @@ def verify_token(request: Request) -> Optional[User]:
         if not token:
             logger.warning("⚠️ No access_token in session")
             logger.debug(f"Session keys: {list(request.session.keys())}")
+            
+            # Fallback: controlla se c'è user_id nella sessione (sessione senza JWT)
+            user_id = request.session.get("user_id")
+            if user_id:
+                logger.info(f"🔄 Fallback: Found user_id in session: {user_id}")
+                with get_session() as session:
+                    user = session.get(User, user_id)
+                    if user:
+                        logger.info(f"✅ User authenticated via session fallback: {user.nome} (ID: {user.id})")
+                        return user
+            
             return None
         
         # Decodifica JWT

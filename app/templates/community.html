@@ -1,0 +1,1293 @@
+{% extends "base.html" %}
+
+{% block title %}Q&A Community - Helpy{% endblock %}
+
+{% block extra_css %}
+<style>
+    .community-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px 0 20px;
+        margin-bottom: 20px;
+    }
+    
+    .community-header h1 {
+        font-size: 1.75rem;
+        margin-bottom: 6px;
+        font-weight: 700;
+    }
+    
+    .community-header p {
+        font-size: 0.95rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+    
+    .search-bar-community {
+        position: relative;
+        max-width: 100%;
+        width: 100%;
+    }
+    
+    .search-bar-community input {
+        width: 100%;
+        max-width: 100%;
+        padding: 12px 90px 12px 20px;
+        border: none;
+        border-radius: 50px;
+        font-size: 0.95rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-sizing: border-box;
+    }
+    
+    .search-bar-community button {
+        position: absolute;
+        right: 4px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 25px;
+        padding: 8px 16px;
+        height: 40px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .search-bar-community button:hover {
+        background: #5568d3;
+    }
+    
+    /* Pulsante Crea Richiesta centrato */
+    .ask-button-full-width {
+        max-width: 600px;
+        margin: 16px auto 0;
+        padding: 12px 32px;
+        background: linear-gradient(135deg, #8b9dfc 0%, #9c7bc4 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(139, 157, 252, 0.4);
+        transition: all 0.3s ease;
+        display: inline-block;
+        text-align: center;
+        text-decoration: none;
+    }
+    
+    .ask-button-full-width:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 24px rgba(139, 157, 252, 0.5);
+        background: linear-gradient(135deg, #7a8eeb 0%, #8b6ab3 100%);
+        color: white;
+    }
+    
+    .ask-button-full-width i {
+        margin-right: 8px;
+    }
+    
+    /* Pulsante Fisso in Basso */
+    .ask-button-sticky-bottom {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        padding: 16px 24px;
+        background: linear-gradient(135deg, #8b9dfc 0%, #9c7bc4 100%);
+        color: white;
+        border: none;
+        border-radius: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 -4px 20px rgba(139, 157, 252, 0.3);
+        transition: all 0.3s ease;
+        text-align: center;
+        text-decoration: none;
+        display: block;
+        z-index: 999;
+    }
+    
+    .ask-button-sticky-bottom:hover {
+        background: linear-gradient(135deg, #7a8eeb 0%, #8b6ab3 100%);
+        box-shadow: 0 -6px 24px rgba(139, 157, 252, 0.4);
+        color: white;
+    }
+    
+    .ask-button-sticky-bottom i {
+        margin-right: 8px;
+    }
+    
+    /* Padding bottom per evitare che il contenuto vada sotto il pulsante */
+    body {
+        padding-bottom: 70px;
+    }
+    
+    .stats-bar {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        padding: 15px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .stat-item {
+        flex: 1;
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 1.6rem;
+        font-weight: bold;
+        color: #667eea;
+    }
+    
+    .stat-label {
+        color: #666;
+        font-size: 0.85rem;
+    }
+    
+    .question-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 16px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .question-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    
+    .question-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    
+    .author-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .author-info {
+        flex: 1;
+    }
+    
+    .author-name {
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .question-time {
+        font-size: 0.85rem;
+        color: #888;
+    }
+    
+    .question-status {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .status-open {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .status-in_progress {
+        background: #fff3e0;
+        color: #f57c00;
+    }
+    
+    .status-closed {
+        background: #e8f5e9;
+        color: #388e3c;
+    }
+    
+    .question-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 12px;
+    }
+    
+    .question-description {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+    
+    .question-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 16px;
+        border-top: 1px solid #eee;
+    }
+    
+    .question-tags {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .tag {
+        padding: 4px 12px;
+        background: #f5f5f5;
+        border-radius: 16px;
+        font-size: 0.85rem;
+        color: #666;
+    }
+    
+    .question-meta {
+        display: flex;
+        gap: 20px;
+        color: #888;
+        font-size: 0.9rem;
+    }
+    
+    .suggested-consultants {
+        margin-top: 20px;
+        padding: 20px;
+        background: linear-gradient(135deg, #f8f9ff 0%, #fff5f8 100%);
+        border-radius: 12px;
+        border: 2px solid #667eea;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+    }
+    
+    .suggested-title {
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+    }
+    
+    .suggested-title i {
+        font-size: 1.2rem;
+    }
+    
+    .consultant-mini {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: white;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .consultant-mini:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        border-color: #667eea;
+    }
+    
+    .consultant-mini img {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #667eea;
+    }
+    
+    .consultant-mini-info {
+        flex: 1;
+    }
+    
+    .consultant-mini-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
+    
+    .consultant-mini-profession {
+        font-size: 0.875rem;
+        color: #666;
+        margin-bottom: 4px;
+    }
+    
+    .consultant-mini-rating {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.875rem;
+        color: #ffa000;
+    }
+    
+    .consultant-mini-rating i {
+        font-size: 0.75rem;
+    }
+    
+    .consultant-mini-rating span {
+        color: #888;
+        margin-left: 4px;
+    }
+    
+    .consultant-mini-price {
+        font-weight: 700;
+        color: #667eea;
+        font-size: 1.25rem;
+        padding: 8px 12px;
+        background: #f0f4ff;
+        border-radius: 8px;
+    }
+    
+    .sidebar {
+        position: sticky;
+        top: 100px;
+    }
+    
+    .sidebar-section {
+        background: white;
+        padding: 18px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 16px;
+    }
+    
+    .sidebar-title {
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #333;
+        font-size: 1rem;
+    }
+    
+    .category-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .category-item {
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .category-item:hover {
+        background: #f5f5f5;
+    }
+    
+    .category-item.active {
+        background: #667eea;
+        color: white;
+    }
+    
+    .category-icon {
+        font-size: 1.3rem;
+    }
+    
+    .ask-button {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+        transition: transform 0.2s;
+    }
+    
+    .ask-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102,126,234,0.4);
+    }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal.active {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        padding: 40px;
+        border-radius: 16px;
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+    
+    .modal-title {
+        font-size: 1.8rem;
+        font-weight: 600;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        cursor: pointer;
+        color: #999;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #333;
+    }
+    
+    .form-input,
+    .form-textarea,
+    .form-select {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.2s;
+    }
+    
+    .form-input:focus,
+    .form-textarea:focus,
+    .form-select:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    
+    .form-textarea {
+        min-height: 150px;
+        resize: vertical;
+    }
+    
+    .submit-button {
+        width: 100%;
+        padding: 16px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        cursor: pointer;
+    }
+    
+    .submit-button:hover {
+        background: #5568d3;
+    }
+    
+    /* ========== NUOVO LAYOUT: SIDEBAR + CONTENT ========== */
+    .sidebar-left {
+        position: sticky;
+        top: 100px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+    
+    /* Scroll personalizzato per sidebar */
+    .sidebar-left::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .sidebar-left::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    .sidebar-left::-webkit-scrollbar-thumb {
+        background: #667eea;
+        border-radius: 10px;
+    }
+    
+    .sidebar-left::-webkit-scrollbar-thumb:hover {
+        background: #5568d3;
+    }
+    
+    .ask-button-main {
+        width: 100%;
+        padding: 13px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 18px;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    .ask-button-main:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .ask-button-main i {
+        margin-right: 8px;
+    }
+    
+    .sidebar-stats {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 18px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .sidebar-stat-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0;
+    }
+    
+    .sidebar-stat-item:not(:last-child) {
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .sidebar-stat-item i {
+        font-size: 1.5rem;
+        color: #667eea;
+    }
+    
+    .sidebar-stat-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #333;
+        line-height: 1;
+    }
+    
+    .sidebar-stat-label {
+        font-size: 0.875rem;
+        color: #666;
+    }
+    
+    .sidebar-categories {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .sidebar-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 16px;
+    }
+    
+    .sidebar-section-title i {
+        color: #667eea;
+        margin-right: 8px;
+    }
+    
+    .category-list-vertical {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .category-item-vertical {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.95rem;
+        color: #555;
+    }
+    
+    .category-item-vertical:hover {
+        background: #f8f9ff;
+        color: #667eea;
+    }
+    
+    .category-item-vertical.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: 600;
+    }
+    
+    .category-item-vertical .category-icon {
+        font-size: 1.2rem;
+    }
+    
+    /* Rimuovi la vecchia stats-bar */
+    .stats-bar {
+        display: none;
+    }
+    
+    /* ========== CONSULENTI SUGGERITI (STILE HOME) ========== */
+    .suggested-consultants-new {
+        margin-top: 24px;
+        padding: 24px;
+        background: linear-gradient(135deg, #f8f9ff 0%, #fff5f8 100%);
+        border-radius: 16px;
+        border: 2px solid #667eea;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+    }
+    
+    .suggested-title-new {
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1.1rem;
+    }
+    
+    .suggested-title-new i {
+        font-size: 1.3rem;
+    }
+    
+    .consultants-grid-mini {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+    
+    .consultant-card-mini {
+        background: white;
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .consultant-card-mini:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+    }
+    
+    .consultant-avatar-mini {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 12px;
+        border: 3px solid #f0f0f0;
+    }
+    
+    .consultant-avatar-default-mini {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        margin-bottom: 12px;
+    }
+    
+    .consultant-card-mini h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 4px;
+    }
+    
+    .consultant-profession-mini {
+        font-size: 0.8rem;
+        color: #666;
+        margin-bottom: 8px;
+    }
+    
+    .consultant-category-mini {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+    
+    .consultant-stats-mini {
+        display: flex;
+        gap: 10px;
+        font-size: 0.75rem;
+        color: #666;
+        margin-bottom: 8px;
+    }
+    
+    .consultant-price-mini {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #667eea;
+    }
+    
+    /* ========== SIDEBAR DESTRA: TOP HELPYERS ========== */
+    .sidebar-right {
+        position: sticky;
+        top: 100px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+    
+    .top-helpyer-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        background: white;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        border: 1px solid #f0f0f0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .top-helpyer-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        border-color: #667eea;
+    }
+    
+    .top-helpyer-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #f0f0f0;
+    }
+    
+    .top-helpyer-avatar-default {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .top-helpyer-info {
+        flex: 1;
+    }
+    
+    .top-helpyer-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 0.9rem;
+        margin-bottom: 3px;
+    }
+    
+    .top-helpyer-rating {
+        font-size: 0.75rem;
+        color: #666;
+    }
+    
+    .top-helpyer-rating span {
+        margin-left: 4px;
+    }
+    
+    .how-it-works-box {
+        background: linear-gradient(135deg, #f8f9ff 0%, #fff5f8 100%);
+        padding: 16px;
+        border-radius: 12px;
+        margin-top: 18px;
+        border: 2px solid #667eea;
+    }
+    
+    /* Bottone Messaggia Verificato */
+    .btn-message-verified:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Bottone Compila Profilo */
+    .btn-complete-profile:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        background: #d97706;
+    }
+
+
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header Community -->
+<div class="community-header">
+    <div class="container">
+        <h1 style="text-align: center;">🦊 Q&A Community</h1>
+    </div>
+</div>
+
+<div class="container" style="max-width: 1400px; margin-top: 16px; margin-bottom: 40px;">
+    <div class="row" style="display: flex; gap: 0;">
+        <!-- SIDEBAR SINISTRA (25%) - Categorie -->
+        <div class="col-md-3" style="flex: 0 0 25%; max-width: 25%; padding-right: 15px;">
+            <div class="sidebar-left">
+                
+                <!-- Categorie -->
+                <div class="sidebar-categories">
+                    <h3 class="sidebar-section-title"><i class="fas fa-folder"></i> Categorie</h3>
+                    <ul class="category-list-vertical">
+                        <li class="category-item-vertical {% if not selected_category %}active{% endif %}" onclick="filterCategory(null)">
+                            <span class="category-icon">📋</span>
+                            <span>Tutte le categorie</span>
+                        </li>
+                        {% for category in categories %}
+                        <li class="category-item-vertical {% if selected_category == category.id %}active{% endif %}" onclick="filterCategory({{ category.id }})">
+                            <span class="category-icon">{{ category.icon }}</span>
+                            <span>{{ category.name }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CONTENUTO PRINCIPALE CENTRO (50%) - Domande -->
+        <div class="col-md-6" style="flex: 0 0 50%; max-width: 50%; padding: 0 15px;">
+            <!-- Search Bar sopra il titolo -->
+            <div class="search-bar-community" style="margin-bottom: 20px;">
+                <input 
+                    type="text" 
+                    placeholder="Cerca tra le domande..." 
+                    value="{{ search_query }}"
+                    id="community-search"
+                >
+                <button onclick="searchCommunity()">
+                    <i class="fas fa-search"></i> Cerca
+                </button>
+            </div>
+            
+            <h2 style="margin-bottom: 24px; font-size: 1.75rem; color: #333;">
+                {% if selected_category %}
+                    <i class="fas fa-filter" style="color: #667eea;"></i> {{ categories|selectattr('id', 'equalto', selected_category)|map(attribute='name')|first }}
+                {% elif search_query %}
+                    <i class="fas fa-search" style="color: #667eea;"></i> Risultati per "{{ search_query }}"
+                {% else %}
+                    <i class="fas fa-fire" style="color: #ff6b6b;"></i> Domande Recenti
+                {% endif %}
+            </h2>
+            
+            {% if questions %}
+                {% for item in questions %}
+                <div class="question-card">
+                    <!-- Header -->
+                    <div class="question-header">
+                        <img 
+                            src="{{ item.author.profile_picture or '/static/default-avatar.png' }}" 
+                            alt="{{ item.author.nome }}"
+                            class="author-avatar"
+                        >
+                        <div class="author-info">
+                            <div class="author-name">{{ item.author.nome }} {{ item.author.cognome }}</div>
+                            <div class="question-time">{{ item.question.created_at.strftime('%d %B %Y') }}</div>
+                        </div>
+                        <span class="question-status status-{{ item.question.status }}">
+                            {% if item.question.status == 'open' %}Aperta
+                            {% elif item.question.status == 'in_progress' %}In corso
+                            {% else %}Chiusa
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <!-- Titolo -->
+                    <h4 class="question-title">{{ item.question.title }}</h4>
+                    
+                    <!-- Descrizione -->
+                    <p class="question-description">
+                        {{ item.question.description[:200] }}{% if item.question.description|length > 200 %}...{% endif %}
+                    </p>
+                    
+                    <!-- Footer -->
+                    <div class="question-footer">
+                        <div class="question-tags">
+                            {% if item.category %}
+                            <span class="tag">{{ item.category.icon }} {{ item.category.name }}</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="question-meta">
+                            <span><i class="fas fa-eye"></i> {{ item.question.views }}</span>
+                            <span><i class="fas fa-thumbs-up"></i> {{ item.question.upvotes }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Bottone Messaggia o Compila Profilo (controlla se l'utente LOGGATO è verificato) -->
+                    {% if user and item.author.id != user.id %}
+                        {% if user.is_verified %}
+                        <!-- Utente LOGGATO verificato: può messaggiare -->
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+                            <a href="/messaggi/{{ item.author.id }}" 
+                               class="btn-message-verified"
+                               style="display: inline-flex; 
+                                      align-items: center; 
+                                      gap: 8px; 
+                                      padding: 8px 16px; 
+                                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                      color: white; 
+                                      text-decoration: none; 
+                                      border-radius: 8px; 
+                                      font-size: 0.9rem; 
+                                      font-weight: 500;
+                                      transition: all 0.2s;">
+                                <i class="fas fa-check-circle" style="color: #4ade80;"></i>
+                                💬 Messaggia
+                            </a>
+                        </div>
+                        {% else %}
+                        <!-- Utente LOGGATO non verificato: deve completare il profilo -->
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+                            <a href="/profile" 
+                               class="btn-complete-profile"
+                               style="display: inline-flex; 
+                                      align-items: center; 
+                                      gap: 8px; 
+                                      padding: 8px 16px; 
+                                      background: #f59e0b; 
+                                      color: white; 
+                                      text-decoration: none; 
+                                      border-radius: 8px; 
+                                      font-size: 0.9rem; 
+                                      font-weight: 500;
+                                      transition: all 0.2s;">
+                                <i class="fas fa-exclamation-circle"></i>
+                                📝 Compila il tuo profilo per scrivere
+                            </a>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+                    
+                    <!-- Consulenti suggeriti (solo per owner, max 2) -->
+                    {% if item.is_owner and item.suggested_consultants %}
+                    <div class="suggested-consultants-new">
+                        <div class="suggested-title-new">
+                            <i class="fas fa-lightbulb"></i>
+                            Consulenti suggeriti per te
+                        </div>
+                        
+                        <div class="consultants-grid-mini">
+                        {% for consultant in item.suggested_consultants[:2] %}
+                            <a href="/consultant/{{ consultant.id }}" class="consultant-card-mini">
+                                {% if consultant.profile_picture %}
+                                <img 
+                                    src="{{ consultant.profile_picture }}" 
+                                    alt="{{ consultant.nome }}"
+                                    class="consultant-avatar-mini"
+                                >
+                                {% else %}
+                                <div class="consultant-avatar-default-mini">
+                                    {{ consultant.professione[0] if consultant.professione else '👤' }}
+                                </div>
+                                {% endif %}
+                                
+                                <h4>{{ consultant.nome }} {{ consultant.cognome or '' }}</h4>
+                                <div class="consultant-profession-mini">{{ consultant.professione or 'Consulente' }}</div>
+                                
+                                <div class="consultant-stats-mini">
+                                    <span>⭐ {{ consultant.bollini }}</span>
+                                    <span>💼 {{ consultant.consulenze_vendute }}</span>
+                                </div>
+                                
+                                <div class="consultant-price-mini">€{{ consultant.prezzo_consulenza }}/ora</div>
+                            </a>
+                        {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                
+                <!-- Paginazione -->
+                {% if total_pages > 1 %}
+                <div style="text-align: center; margin-top: 40px;">
+                    {% for p in range(1, total_pages + 1) %}
+                    <a 
+                        href="?page={{ p }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
+                        style="padding: 8px 16px; margin: 0 4px; background: {% if p == current_page %}#667eea; color: white{% else %}#f5f5f5{% endif %}; border-radius: 8px; text-decoration: none;"
+                    >
+                        {{ p }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% else %}
+                <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
+                    <i class="fas fa-inbox" style="font-size: 4rem; color: #ddd; margin-bottom: 20px;"></i>
+                    <h3>Nessuna domanda trovata</h3>
+                    <p style="color: #666;">Sii il primo a fare una domanda!</p>
+                </div>
+            {% endif %}
+        </div>
+        <!-- FINE CONTENUTO PRINCIPALE -->
+        
+        <!-- SIDEBAR DESTRA (25%) - Top Helpyers -->
+        <div class="col-md-3" style="flex: 0 0 25%; max-width: 25%; padding-left: 15px;">
+            <div class="sidebar-right">
+                <h3 class="sidebar-section-title" style="margin-bottom: 20px;">
+                    <i class="fas fa-trophy" style="color: #ffa000;"></i> Top Helpyers
+                </h3>
+                
+                {% if top_consultants %}
+                    {% for consultant in top_consultants %}
+                    <a href="/consultant/{{ consultant.id }}" class="top-helpyer-card">
+                        {% if consultant.profile_picture %}
+                        <img 
+                            src="{{ consultant.profile_picture }}" 
+                            alt="{{ consultant.nome }}"
+                            class="top-helpyer-avatar"
+                        >
+                        {% else %}
+                        <div class="top-helpyer-avatar-default">
+                            {{ consultant.nome[0] if consultant.nome else '👤' }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="top-helpyer-info">
+                            <div class="top-helpyer-name">{{ consultant.nome }}</div>
+                            <div class="top-helpyer-rating">
+                                {% if consultant.bollini >= 5 %}
+                                    ⭐⭐⭐⭐⭐
+                                {% elif consultant.bollini == 4 %}
+                                    ⭐⭐⭐⭐
+                                {% elif consultant.bollini == 3 %}
+                                    ⭐⭐⭐
+                                {% elif consultant.bollini == 2 %}
+                                    ⭐⭐
+                                {% elif consultant.bollini == 1 %}
+                                    ⭐
+                                {% endif %}
+                                <span>{{ consultant.consulenze_vendute }} consulenze</span>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% endif %}
+                
+                <!-- Come funziona Helpy -->
+                <div class="how-it-works-box">
+                    <h4 style="font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #333;">
+                        Come funziona Helpy
+                    </h4>
+                    <ol style="padding-left: 20px; margin: 0; color: #666; font-size: 0.9rem; line-height: 1.8;">
+                        <li>Cerca un Helpyer</li>
+                        <li>Richiedi una consulenza</li>
+                        <li>Ricevi una risposta</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+                <div class="sidebar-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h3 style="color: white; margin-bottom: 12px;">Diventa anche tu un Helpyer</h3>
+                    <p style="opacity: 0.9; margin-bottom: 16px;">Aiuta gli altri e guadagna condividendo le tue competenze.</p>
+                    <a href="/become-consultant" style="display: block; background: white; color: #667eea; padding: 12px; text-align: center; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                        Scopri di più →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Fai Domanda -->
+<div class="modal" id="askModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Fai una Domanda</h2>
+            <button class="modal-close" onclick="closeAskModal()">&times;</button>
+        </div>
+        
+        <form id="askForm" onsubmit="submitQuestion(event)">
+            <div class="form-group">
+                <label class="form-label">Titolo della domanda</label>
+                <input 
+                    type="text" 
+                    class="form-input" 
+                    name="title" 
+                    placeholder="Es: Come creare un logo professionale?"
+                    required
+                    minlength="10"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Descrizione dettagliata</label>
+                <textarea 
+                    class="form-textarea" 
+                    name="description" 
+                    placeholder="Spiega in dettaglio di cosa hai bisogno..."
+                    required
+                    minlength="20"
+                ></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Categoria</label>
+                <select class="form-select" name="category_id">
+                    <option value="">Seleziona una categoria...</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.icon }} {{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Tag (separati da virgola)</label>
+                <input 
+                    type="text" 
+                    class="form-input" 
+                    name="tags" 
+                    placeholder="Es: design, logo, branding"
+                >
+            </div>
+            
+            <button type="submit" class="submit-button">
+                Pubblica Domanda
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function openAskModal() {
+    document.getElementById('askModal').classList.add('active');
+}
+
+function closeAskModal() {
+    document.getElementById('askModal').classList.remove('active');
+}
+
+function filterCategory(categoryId) {
+    const url = new URL(window.location.href);
+    
+    if (categoryId) {
+        url.searchParams.set('category', categoryId);
+    } else {
+        url.searchParams.delete('category');
+    }
+    
+    url.searchParams.delete('page'); // Reset pagina
+    window.location.href = url.toString();
+}
+
+function searchCommunity() {
+    const query = document.getElementById('community-search').value;
+    const url = new URL(window.location.href);
+    
+    if (query) {
+        url.searchParams.set('search', query);
+    } else {
+        url.searchParams.delete('search');
+    }
+    
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+}
+
+async function submitQuestion(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    
+    try {
+        const response = await fetch('/api/community/ask', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            window.location.href = data.redirect_url;
+        } else {
+            alert(data.error || 'Errore durante la pubblicazione');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore di connessione');
+    }
+}
+
+// Chiudi modal cliccando fuori
+document.getElementById('askModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeAskModal();
+    }
+});
+</script>
+
+<!-- Pulsante Fisso in Basso -->
+{% if user and can_create_question %}
+<button class="ask-button-sticky-bottom" onclick="openAskModal()">
+    <i class="fas fa-plus-circle"></i> Crea una Richiesta
+</button>
+{% elif user and not can_create_question %}
+<div class="ask-button-sticky-bottom" style="background: #ccc; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 8px;">
+    <i class="fas fa-exclamation-circle"></i>
+    <span>Hai raggiunto il limite di 2 richieste ogni 7 giorni ({{ user_questions_count }}/2)</span>
+</div>
+{% else %}
+<a href="/login" class="ask-button-sticky-bottom">
+    <i class="fas fa-sign-in-alt"></i> Accedi per Chiedere
+</a>
+{% endif %}
+
+{% endblock %}
