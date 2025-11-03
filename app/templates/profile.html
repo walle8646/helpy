@@ -42,8 +42,10 @@
 {% block content %}
 <div class="profile-container">
     <main class="main-content">
-        <!-- Cover Image -->
-        <div class="cover-image"></div>
+        <!-- Upcoming Appointments / Cover Image -->
+        <div id="upcomingAppointmentsSection">
+            <div class="cover-image" id="coverImagePlaceholder"></div>
+        </div>
         
         <!-- Profile Header -->
         <header class="profile-header card">
@@ -198,7 +200,9 @@
                 <div class="stat-value">{{ user.consulenze_vendute }}</div>
             </div>
 
-            <a href="/dashboard" class="btn btn-primary">Vai alla Dashboard</a>
+            <a href="/availability" class="btn btn-primary">
+                <i class="fas fa-calendar-alt"></i> Gestisci Disponibilità
+            </a>
         </section>
         
         <!-- Account Info -->
@@ -443,5 +447,209 @@
         // Update on input
         descrizioneTextarea.addEventListener('input', updateCharCounter);
     }
+
+    // ========== UPCOMING APPOINTMENTS ==========
+    async function loadUpcomingAppointments() {
+        try {
+            const response = await fetch('/api/booking/upcoming');
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            const bookings = data.bookings || [];
+            
+            const section = document.getElementById('upcomingAppointmentsSection');
+            const placeholder = document.getElementById('coverImagePlaceholder');
+            
+            if (bookings.length === 0) {
+                // Nessun appuntamento, mostra solo il banner
+                return;
+            }
+            
+            // Crea il banner con gli appuntamenti
+            const appointmentsHTML = `
+                <div class="upcoming-appointments">
+                    <h3><i class="fas fa-calendar-check"></i> Prossimi Appuntamenti</h3>
+                    <div class="appointments-list">
+                        ${bookings.map(booking => createAppointmentCard(booking)).join('')}
+                    </div>
+                </div>
+            `;
+            
+            section.innerHTML = appointmentsHTML;
+            
+            // Aggiungi event listeners
+            bookings.forEach(booking => {
+                setupAppointmentActions(booking);
+            });
+            
+            // Aggiorna ogni minuto
+            setTimeout(loadUpcomingAppointments, 60000);
+            
+        } catch (error) {
+            console.error('Error loading appointments:', error);
+        }
+    }
+    
+    function createAppointmentCard(booking) {
+        console.log('Booking data:', booking);
+        
+        const otherUser = booking.other_user;
+        const avatarHTML = otherUser.picture 
+            ? `<img src="${otherUser.picture}" alt="${otherUser.name}" class="appointment-avatar">`
+            : `<div class="appointment-avatar-placeholder">👤</div>`;
+        
+        // Parse date correttamente (booking.date può essere "YYYY-MM-DD" o "YYYY-MM-DD HH:MM:SS")
+        let date;
+        try {
+            // Estrai solo la parte della data (prima dello spazio se presente)
+            const datePart = booking.date.split(' ')[0];
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hours, minutes] = booking.start_time.split(':').map(Number);
+            date = new Date(year, month - 1, day, hours, minutes);
+            console.log('Parsed date:', date, 'from:', booking.date);
+        } catch (e) {
+            console.error('Error parsing date:', e, booking.date, booking.start_time);
+            date = new Date();
+        }
+        
+        const dateStr = date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+        
+        const roleLabel = booking.role === 'client' ? 'Consulenza con' : 'Consulenza richiesta da';
+        
+        // Calcola il tempo rimanente lato client (più accurato per il timezone)
+        const now = new Date();
+        const timeUntilMs = date - now;
+        const timeUntilMinutes = Math.floor(timeUntilMs / (1000 * 60));
+        
+        console.log('Time until minutes (client-side):', timeUntilMinutes, 'Server said:', booking.time_until_minutes);
+        
+        let actionsHTML = '';
+        let statusHTML = '';
+        
+        // Usa il calcolo client-side invece di quello del server
+        const minutesUntil = Math.abs(timeUntilMinutes);
+        
+        if (timeUntilMinutes > 10) {
+            // Troppo presto
+            const hours = Math.floor(minutesUntil / 60);
+            const mins = minutesUntil % 60;
+            let timeText = '';
+            if (hours > 0) {
+                timeText = `${hours}h ${mins}min`;
+            } else {
+                timeText = `${mins}min`;
+            }
+            statusHTML = `<div class="time-until"><i class="fas fa-clock"></i> Inizia tra ${timeText}</div>`;
+        } else if (timeUntilMinutes <= 10 && timeUntilMinutes >= -booking.duration) {
+            // Può joinare: da 10 minuti prima fino alla fine della consulenza
+            if (booking.can_start_call) {
+                // Entrambi hanno joinato - mostra "Inizia Call"
+                actionsHTML = `
+                    <button class="btn-start-call" onclick="startCall(${booking.id})">
+                        <i class="fas fa-video"></i> Inizia Call
+                    </button>
+                `;
+            } else if (booking.has_joined) {
+                // L'utente ha joinato, aspetta l'altro
+                statusHTML = `<div class="waiting-indicator"><i class="fas fa-hourglass-half"></i> In attesa dell'altro partecipante...</div>`;
+                actionsHTML = `<button class="btn-join" disabled><i class="fas fa-check"></i> Pronto</button>`;
+            } else {
+                // L'utente non ha ancora joinato
+                actionsHTML = `
+                    <button class="btn-join" onclick="joinAppointment(${booking.id})" id="join-btn-${booking.id}">
+                        <i class="fas fa-sign-in-alt"></i> Partecipa
+                    </button>
+                `;
+                if (booking.other_joined) {
+                    statusHTML = `<div class="waiting-indicator"><i class="fas fa-user-check"></i> ${otherUser.name} è pronto</div>`;
+                }
+            }
+        }
+        
+        return `
+            <div class="appointment-card" id="appointment-${booking.id}">
+                <div class="appointment-header">
+                    ${avatarHTML}
+                    <div class="appointment-info">
+                        <h4>${otherUser.name}</h4>
+                        <p>${roleLabel}</p>
+                    </div>
+                </div>
+                <div class="appointment-details">
+                    <div class="appointment-detail">
+                        <i class="fas fa-calendar"></i>
+                        <span>${dateStr}</span>
+                    </div>
+                </div>
+                <div class="appointment-details">
+                    <div class="appointment-detail">
+                        <i class="fas fa-clock"></i>
+                        <span>${booking.start_time}</span>
+                    </div>
+                    <div class="appointment-detail">
+                        <i class="fas fa-hourglass-half"></i>
+                        <span>${booking.duration} min</span>
+                    </div>
+                </div>
+                ${statusHTML}
+                <div class="appointment-actions">
+                    ${actionsHTML}
+                </div>
+            </div>
+        `;
+    }
+    
+    function setupAppointmentActions(booking) {
+        // Event listeners già gestiti tramite onclick inline per semplicità
+    }
+    
+    async function joinAppointment(bookingId) {
+        const btn = document.getElementById(`join-btn-${bookingId}`);
+        if (!btn) return;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connessione...';
+        
+        try {
+            const response = await fetch(`/api/booking/${bookingId}/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                if (data.can_start_call) {
+                    // Entrambi hanno joinato - mostra "Inizia Call"
+                    loadUpcomingAppointments();
+                } else {
+                    // In attesa dell'altro
+                    btn.innerHTML = '<i class="fas fa-check"></i> Pronto';
+                    const card = document.getElementById(`appointment-${bookingId}`);
+                    const actions = card.querySelector('.appointment-actions');
+                    actions.insertAdjacentHTML('beforebegin', 
+                        '<div class="waiting-indicator"><i class="fas fa-hourglass-half"></i> In attesa dell\'altro partecipante...</div>'
+                    );
+                }
+            } else {
+                alert('Errore durante la connessione');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Partecipa';
+            }
+        } catch (error) {
+            console.error('Error joining appointment:', error);
+            alert('Errore di connessione');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Partecipa';
+        }
+    }
+    
+    function startCall(bookingId) {
+        window.location.href = `/booking/call/${bookingId}`;
+    }
+    
+    // Carica gli appuntamenti all'avvio
+    loadUpcomingAppointments();
+
 </script>
 {% endblock %}

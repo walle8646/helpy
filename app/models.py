@@ -113,3 +113,56 @@ class CommunityQuestion(SQLModel, table=True):
     upvotes: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# ========== AVAILABILITY SYSTEM ==========
+
+class AvailabilityBlock(SQLModel, table=True):
+    """Blocchi di disponibilità per consulenze"""
+    __tablename__ = "availability_block"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    date: datetime = Field(index=True)  # Data del giorno
+    start_time: str  # Formato "HH:MM" es: "09:00"
+    end_time: str    # Formato "HH:MM" es: "10:30"
+    total_minutes: int  # Durata in minuti
+    booked_minutes: int = Field(default=0)  # Minuti già prenotati
+    status: str = Field(default="available")  # available, booked, unavailable
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class Booking(SQLModel, table=True):
+    """Prenotazioni di consulenze tra clienti e consulenti"""
+    __tablename__ = "booking"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    client_user_id: int = Field(foreign_key="user.id", index=True)
+    consultant_user_id: int = Field(foreign_key="user.id", index=True)
+    availability_block_id: Optional[int] = Field(default=None, foreign_key="availability_block.id")
+    
+    booking_date: datetime = Field(index=True)
+    start_time: str  # Formato "HH:MM"
+    end_time: str    # Formato "HH:MM"
+    duration_minutes: int  # 30, 60, 90, 120
+    
+    status: str = Field(default="pending")  # pending, confirmed, completed, cancelled, no_show
+    price: Optional[Decimal] = None
+    payment_status: str = Field(default="pending")  # pending, paid, refunded, failed
+    payment_method: Optional[str] = None
+    transaction_id: Optional[str] = None
+    
+    meeting_link: Optional[str] = None  # Link Zoom/Google Meet
+    client_notes: Optional[str] = None
+    consultant_notes: Optional[str] = None
+    
+    # Join tracking - quando client/consultant cliccano "Partecipa"
+    client_joined_at: Optional[datetime] = None
+    consultant_joined_at: Optional[datetime] = None
+    
+    cancellation_reason: Optional[str] = None
+    cancelled_by: Optional[int] = Field(default=None, foreign_key="user.id")
+    cancelled_at: Optional[datetime] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

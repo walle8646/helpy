@@ -143,7 +143,9 @@
                         {% endif %}
                     </a>
 
-                    <button class="btn-consult">Richiedi consulenza</button>
+                    <a href="/book/{{ item.id }}" class="btn-consult">
+                        <i class="fas fa-calendar-check"></i> Prenota Consulenza
+                    </a>
                 </div>
                 {% endfor %}
             </div>

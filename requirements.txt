@@ -14,3 +14,4 @@ python-jose[cryptography]
 passlib[bcrypt]
 Pillow
 sendgrid==6.11.0
+agora-token-builder==1.0.0

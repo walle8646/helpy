@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Consulenza in Corso - Helpy{% endblock %}
+
+{% block content %}
+<style>
+    .call-container {
+        max-width: 100%;
+        height: calc(100vh - 80px);
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        background: #1a1a2e;
+    }
+    
+    /* Video Grid */
+    .video-grid {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 10px;
+        position: relative;
+    }
+    
+    .video-grid.has-remote {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    /* Video Players */
+    .video-player {
+        position: relative;
+        background: #16213e;
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .video-player video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .video-label {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    
+    .video-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #8b92a8;
+    }
+    
+    .video-placeholder i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    /* Controls Bar */
+    .controls-bar {
+        background: #0f1419;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .control-btn {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        transition: all 0.3s;
+        color: white;
+    }
+    
+    .control-btn.mic {
+        background: #4a5568;
+    }
+    
+    .control-btn.mic.active {
+        background: #667eea;
+    }
+    
+    .control-btn.camera {
+        background: #4a5568;
+    }
+    
+    .control-btn.camera.active {
+        background: #667eea;
+    }
+    
+    .control-btn.end-call {
+        background: #ef4444;
+        width: 64px;
+        height: 64px;
+    }
+    
+    .control-btn:hover {
+        transform: scale(1.1);
+    }
+    
+    .control-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    /* Connection Status */
+    .connection-status {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.9rem;
+        z-index: 100;
+    }
+    
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #10b981;
+        animation: pulse 2s infinite;
+    }
+    
+    .status-dot.connecting {
+        background: #fbbf24;
+    }
+    
+    .status-dot.disconnected {
+        background: #ef4444;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    /* Loading Overlay */
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        z-index: 1000;
+    }
+    
+    .loading-overlay .spinner {
+        font-size: 3rem;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+<div class="call-container">
+    <!-- Connection Status -->
+    <div class="connection-status" id="connectionStatus">
+        <div class="status-dot connecting" id="statusDot"></div>
+        <span id="statusText">Connessione in corso...</span>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <i class="fas fa-spinner spinner"></i>
+        <p style="margin-top: 1rem; font-size: 1.2rem;">Inizializzazione chiamata...</p>
+    </div>
+    
+    <!-- Video Grid -->
+    <div class="video-grid" id="videoGrid">
+        <!-- Local Video -->
+        <div class="video-player" id="localPlayer">
+            <div class="video-label">Tu</div>
+            <div class="video-placeholder">
+                <i class="fas fa-user"></i>
+                <p>Video locale</p>
+            </div>
+        </div>
+        
+        <!-- Remote Video (appears when other user joins) -->
+        <div class="video-player" id="remotePlayer" style="display: none;">
+            <div class="video-label" id="remoteLabel">In attesa...</div>
+            <div class="video-placeholder">
+                <i class="fas fa-user-friends"></i>
+                <p>In attesa del partecipante...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Controls Bar -->
+    <div class="controls-bar">
+        <button class="control-btn mic active" id="micBtn" title="Microfono">
+            <i class="fas fa-microphone"></i>
+        </button>
+        
+        <button class="control-btn camera active" id="cameraBtn" title="Videocamera">
+            <i class="fas fa-video"></i>
+        </button>
+        
+        <button class="control-btn end-call" id="endCallBtn" title="Termina chiamata">
+            <i class="fas fa-phone-slash"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Agora RTC SDK -->
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
+
+<script>
+    const bookingId = {{ booking.id }};
+    let client = null;
+    let localTracks = {
+        video: null,
+        audio: null
+    };
+    let remoteUsers = {};
+    
+    // UI Elements
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const videoGrid = document.getElementById('videoGrid');
+    const localPlayer = document.getElementById('localPlayer');
+    const remotePlayer = document.getElementById('remotePlayer');
+    const remoteLabel = document.getElementById('remoteLabel');
+    const micBtn = document.getElementById('micBtn');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const endCallBtn = document.getElementById('endCallBtn');
+    
+    // Initialize Agora
+    async function initializeCall() {
+        try {
+            // Get Agora token from backend
+            const response = await fetch(`/api/booking/${bookingId}/agora-token`);
+            if (!response.ok) {
+                throw new Error('Failed to get Agora token');
+            }
+            
+            const data = await response.json();
+            console.log('Agora credentials:', data);
+            
+            // Create Agora client
+            client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+            
+            // Event listeners
+            client.on("user-published", handleUserPublished);
+            client.on("user-unpublished", handleUserUnpublished);
+            client.on("user-left", handleUserLeft);
+            
+            // Join channel
+            await client.join(data.app_id, data.channel_name, data.token, data.uid);
+            updateStatus('connected', 'Connesso');
+            
+            // Create local tracks
+            localTracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
+            localTracks.video = await AgoraRTC.createCameraVideoTrack();
+            
+            // Play local video
+            localTracks.video.play('localPlayer');
+            
+            // Publish local tracks
+            await client.publish([localTracks.audio, localTracks.video]);
+            
+            loadingOverlay.style.display = 'none';
+            
+        } catch (error) {
+            console.error('Error initializing call:', error);
+            alert('Errore durante l\'inizializzazione della chiamata: ' + error.message);
+            updateStatus('disconnected', 'Errore di connessione');
+        }
+    }
+    
+    // Handle remote user published
+    async function handleUserPublished(user, mediaType) {
+        remoteUsers[user.uid] = user;
+        await client.subscribe(user, mediaType);
+        
+        if (mediaType === 'video') {
+            remotePlayer.style.display = 'block';
+            videoGrid.classList.add('has-remote');
+            user.videoTrack.play('remotePlayer');
+            remoteLabel.textContent = 'Partecipante';
+        }
+        
+        if (mediaType === 'audio') {
+            user.audioTrack.play();
+        }
+    }
+    
+    // Handle remote user unpublished
+    function handleUserUnpublished(user, mediaType) {
+        if (mediaType === 'video' && user.videoTrack) {
+            user.videoTrack.stop();
+        }
+    }
+    
+    // Handle remote user left
+    function handleUserLeft(user) {
+        delete remoteUsers[user.uid];
+        remotePlayer.style.display = 'none';
+        videoGrid.classList.remove('has-remote');
+    }
+    
+    // Toggle microphone
+    micBtn.addEventListener('click', () => {
+        const isEnabled = localTracks.audio.enabled;
+        localTracks.audio.setEnabled(!isEnabled);
+        micBtn.classList.toggle('active');
+        micBtn.querySelector('i').className = isEnabled ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+    });
+    
+    // Toggle camera
+    cameraBtn.addEventListener('click', () => {
+        const isEnabled = localTracks.video.enabled;
+        localTracks.video.setEnabled(!isEnabled);
+        cameraBtn.classList.toggle('active');
+        cameraBtn.querySelector('i').className = isEnabled ? 'fas fa-video-slash' : 'fas fa-video';
+    });
+    
+    // End call
+    endCallBtn.addEventListener('click', async () => {
+        if (confirm('Sei sicuro di voler terminare la chiamata?')) {
+            await leaveCall();
+            window.location.href = '/profile';
+        }
+    });
+    
+    // Leave call
+    async function leaveCall() {
+        for (let trackName in localTracks) {
+            const track = localTracks[trackName];
+            if (track) {
+                track.stop();
+                track.close();
+            }
+        }
+        
+        if (client) {
+            await client.leave();
+        }
+    }
+    
+    // Update connection status
+    function updateStatus(status, text) {
+        statusDot.className = `status-dot ${status}`;
+        statusText.textContent = text;
+    }
+    
+    // Initialize on page load
+    initializeCall();
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', leaveCall);
+</script>
+{% endblock %}

@@ -34,7 +34,9 @@ def create_db_and_tables():
     from app.models import (
         User, Category, Consultation, 
         Conversation, Message,
-        CommunityQuestion  # ✅ Solo CommunityQuestion, senza CommunityAnswer
+        CommunityQuestion,  # ✅ Solo CommunityQuestion, senza CommunityAnswer
+        AvailabilityBlock,  # ✅ Gestione disponibilità
+        Booking  # ✅ Gestione prenotazioni
     )
     
     SQLModel.metadata.create_all(engine)

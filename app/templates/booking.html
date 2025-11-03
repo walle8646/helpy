@@ -1,0 +1,956 @@
+{% extends "base.html" %}
+
+{% block title %}Prenota con {{ consultant.nome }} {{ consultant.cognome }}{% endblock %}
+
+{% block content %}
+<style>
+    .booking-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    
+    .consultant-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+    
+    .consultant-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        border: 4px solid white;
+        object-fit: cover;
+    }
+    
+    .consultant-info h1 {
+        margin: 0;
+        font-size: 2rem;
+    }
+    
+    .consultant-info p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+    }
+    
+    .price-badge {
+        background: white;
+        color: #667eea;
+        padding: 0.5rem 1.5rem;
+        border-radius: 25px;
+        font-weight: bold;
+        font-size: 1.2rem;
+        margin-top: 1rem;
+        display: inline-block;
+    }
+    
+    .booking-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .top-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+    }
+    
+    .weekly-slots-section {
+        width: 100%;
+        margin: 2rem 0;
+    }
+    
+    .bottom-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+    }
+    
+    .booking-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .booking-section h3 {
+        margin-top: 0;
+        color: #333;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 0.5rem;
+    }
+    
+    /* Selettore Durata */
+    .duration-selector {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .duration-option {
+        border: 2px solid #e0e0e0;
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .duration-option:hover {
+        border-color: #667eea;
+        background: #f5f7ff;
+    }
+    
+    .duration-option.selected {
+        border-color: #667eea;
+        background: #667eea;
+        color: white;
+    }
+    
+    .duration-option input[type="radio"] {
+        display: none;
+    }
+    
+    .duration-time {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .duration-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+    
+    /* Calendario */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    
+    .calendar-day-name {
+        text-align: center;
+        font-weight: bold;
+        padding: 0.5rem;
+        font-size: 0.65em;
+        color: #666;
+    }
+    
+    .calendar-day {
+        aspect-ratio: 1;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+        background: white;
+    }
+    
+    .calendar-day:hover:not(.disabled):not(.other-month) {
+        background: #f5f7ff;
+        border-color: #667eea;
+        transform: scale(1.05);
+    }
+    
+    .calendar-day.in-selected-week {
+        background: #e8ecff;
+        border-color: #667eea;
+    }
+    
+    .calendar-day.week-start {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+        font-weight: bold;
+    }
+    
+    .calendar-day.disabled {
+        background: #f5f5f5;
+        color: #ccc;
+        cursor: not-allowed;
+    }
+    
+    .calendar-day.other-month {
+        color: #ccc;
+    }
+    
+    /* Indicatore disponibilità */
+    .availability-indicator {
+        position: absolute;
+        bottom: 4px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 8px;
+        height: 8px;
+        background: #10b981; /* Verde */
+        border-radius: 50%;
+        opacity: 0;
+        transition: opacity 0.3s;
+        box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
+    }
+    
+    .calendar-day.has-slots .availability-indicator {
+        opacity: 1;
+    }
+    
+    .calendar-day.week-start .availability-indicator {
+        background: white;
+        box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+    }
+    
+    /* Slots disponibili */
+    .slots-container {
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+    }
+    
+    .slot-item {
+        border: 2px solid #e0e0e0;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .slot-item:hover {
+        border-color: #667eea;
+        background: #f5f7ff;
+    }
+    
+    .slot-item.selected {
+        border-color: #667eea;
+        background: #667eea;
+        color: white;
+    }
+    
+    .slot-time {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    
+    .no-slots {
+        text-align: center;
+        padding: 2rem;
+        color: #999;
+    }
+    
+    .loading-spinner {
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    /* Weekly Slots Grid */
+    .weekly-slots-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .day-column {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1rem;
+        min-height: 200px;
+    }
+    
+    .day-header {
+        text-align: center;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #667eea;
+    }
+    
+    .day-date {
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .day-slots {
+        margin-top: 0.75rem;
+    }
+    
+    .day-slot {
+        background: #f5f7ff;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .day-slot:hover {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    
+    .day-slot.selected {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    
+    .no-availability {
+        color: #999;
+        font-size: 0.85rem;
+        text-align: center;
+        padding: 1rem;
+    }
+    
+    /* Form Note */
+    .notes-section textarea {
+        width: 100%;
+        min-height: 100px;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        font-family: inherit;
+        resize: vertical;
+    }
+    
+    /* Riepilogo Prenotazione */
+    .booking-summary {
+        background: #f5f7ff;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-top: 2rem;
+    }
+    
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .summary-row:last-child {
+        border-bottom: none;
+        font-weight: bold;
+        font-size: 1.2rem;
+        color: #667eea;
+    }
+    
+    .btn-book {
+        width: 100%;
+        padding: 1.25rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.2s;
+        margin-top: 1rem;
+    }
+    
+    .btn-book:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-book:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .calendar-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .calendar-nav button {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    
+    .calendar-nav h4 {
+        margin: 0;
+    }
+    
+    @media (max-width: 768px) {
+        .top-row,
+        .bottom-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .weekly-slots-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .consultant-header {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+</style>
+
+<div class="booking-container">
+    <!-- Header Consulente -->
+    <div class="consultant-header">
+        <img src="{{ consultant.profile_picture or '/static/uploads/profile_pictures/default.png' }}" 
+             alt="{{ consultant.nome }}" 
+             class="consultant-avatar">
+        <div class="consultant-info">
+            <h1>{{ consultant.nome }} {{ consultant.cognome }}</h1>
+            <p><i class="fas fa-briefcase"></i> {{ consultant.professione or 'Consulente' }}</p>
+            {% if consultant.prezzo_consulenza %}
+            <div class="price-badge">
+                <i class="fas fa-euro-sign"></i> {{ consultant.prezzo_consulenza }}/ora
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Top Row: Durata e Calendario -->
+    <div class="top-row">
+        <!-- Selettore Durata -->
+        <div class="booking-section">
+            <h3><i class="fas fa-clock"></i> Durata Consulenza</h3>
+            <div class="duration-selector">
+                <label class="duration-option selected" data-duration="30">
+                    <input type="radio" name="duration" value="30" checked>
+                    <div class="duration-time">30'</div>
+                    <div class="duration-label">mezz'ora</div>
+                </label>
+                <label class="duration-option" data-duration="60">
+                    <input type="radio" name="duration" value="60">
+                    <div class="duration-time">60'</div>
+                    <div class="duration-label">un'ora</div>
+                </label>
+                <label class="duration-option" data-duration="90">
+                    <input type="radio" name="duration" value="90">
+                    <div class="duration-time">90'</div>
+                    <div class="duration-label">un'ora e mezza</div>
+                </label>
+                <label class="duration-option" data-duration="120">
+                    <input type="radio" name="duration" value="120">
+                    <div class="duration-time">120'</div>
+                    <div class="duration-label">due ore</div>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Calendario -->
+        <div class="booking-section">
+            <h3><i class="fas fa-calendar-alt"></i> Seleziona Settimana</h3>
+            <p style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">Clicca su un giorno per vedere la settimana</p>
+            <div class="calendar-nav">
+                <button id="prevMonth"><i class="fas fa-chevron-left"></i></button>
+                <h4 id="currentMonthYear"></h4>
+                <button id="nextMonth"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+    </div>
+    
+    <!-- Weekly Slots Section -->
+    <div class="weekly-slots-section">
+        <div class="booking-section">
+            <h3><i class="fas fa-calendar-week"></i> Orari Disponibili - Prossimi 7 Giorni</h3>
+            <div class="weekly-slots-grid" id="weeklySlots">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p>Caricamento...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bottom Row: Slot selezionato e Note -->
+    <div class="bottom-row">
+        <!-- Slot Selezionato -->
+        <div class="booking-section">
+            <h3><i class="fas fa-check-circle"></i> Orario Selezionato</h3>
+            <div id="selectedSlotDisplay" style="padding: 2rem; text-align: center; color: #999;">
+                <i class="fas fa-hand-pointer fa-3x" style="margin-bottom: 1rem;"></i>
+                <p>Seleziona una fascia oraria dai 7 giorni qui sopra</p>
+            </div>
+        </div>
+        
+        <!-- Note -->
+        <div class="booking-section notes-section">
+            <h3><i class="fas fa-sticky-note"></i> Note (opzionale)</h3>
+            <textarea id="clientNotes" placeholder="Scrivi qui eventuali note o richieste per il consulente..."></textarea>
+        </div>
+    </div>
+    
+    <!-- Riepilogo e Conferma -->
+    <div class="booking-summary" id="bookingSummary" style="display: none;">
+        <h3><i class="fas fa-check-circle"></i> Riepilogo Prenotazione</h3>
+        <div class="summary-row">
+            <span>Consulente:</span>
+            <span>{{ consultant.nome }} {{ consultant.cognome }}</span>
+        </div>
+        <div class="summary-row">
+            <span>Data:</span>
+            <span id="summaryDate">-</span>
+        </div>
+        <div class="summary-row">
+            <span>Orario:</span>
+            <span id="summaryTime">-</span>
+        </div>
+        <div class="summary-row">
+            <span>Durata:</span>
+            <span id="summaryDuration">-</span>
+        </div>
+        <div class="summary-row">
+            <span>Totale:</span>
+            <span id="summaryPrice">€ -</span>
+        </div>
+        <button class="btn-book" id="confirmBookingBtn" disabled>
+            <i class="fas fa-calendar-check"></i> Conferma Prenotazione
+        </button>
+    </div>
+</div>
+
+<script>
+    const consultantId = {{ consultant.id }};
+    const pricePerHour = {{ consultant.prezzo_consulenza or 0 }};
+    
+    let currentDate = new Date();
+    let selectedWeekStart = null;
+    let selectedDuration = 30;
+    let selectedSlot = null;
+    let selectedDate = null;
+    let availabilityCache = {}; // Cache per disponibilità
+    
+    // Inizializzazione
+    document.addEventListener('DOMContentLoaded', function() {
+        renderCalendar();
+        setupDurationSelector();
+        setupNavigation();
+        
+        // Carica la settimana corrente all'avvio
+        const today = new Date();
+        selectWeek(getWeekStart(today));
+    });
+    
+    // Ottieni il lunedì della settimana di una data
+    function getWeekStart(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Lunedì
+        return new Date(d.setDate(diff));
+    }
+    
+    // Ottieni tutti i giorni della settimana
+    function getWeekDays(weekStart) {
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(weekStart);
+            day.setDate(weekStart.getDate() + i);
+            days.push(day);
+        }
+        return days;
+    }
+    
+    // Selettore Durata
+    function setupDurationSelector() {
+        document.querySelectorAll('.duration-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.duration-option').forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                selectedDuration = parseInt(this.dataset.duration);
+                
+                // Pulisci cache quando cambia durata
+                availabilityCache = {};
+                
+                // Aggiorna indicatori di disponibilità
+                updateAvailabilityIndicators();
+                
+                // Ricarica 7 giorni
+                loadWeeklySlots();
+            });
+        });
+    }
+    
+    // Navigazione Calendario
+    function setupNavigation() {
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+            updateAvailabilityIndicators(); // Aggiorna indicatori dopo cambio mese
+        });
+        
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+            updateAvailabilityIndicators(); // Aggiorna indicatori dopo cambio mese
+        });
+    }
+    
+    // Verifica disponibilità per un giorno specifico
+    async function checkDayAvailability(date) {
+        const dateStr = formatDate(date);
+        const cacheKey = `${dateStr}-${selectedDuration}`;
+        
+        // Controlla cache
+        if (availabilityCache[cacheKey] !== undefined) {
+            return availabilityCache[cacheKey];
+        }
+        
+        try {
+            const url = `/api/booking/available-slots/${consultantId}?date=${dateStr}&duration=${selectedDuration}`;
+            const response = await fetch(url);
+            if (response.ok) {
+                const data = await response.json();
+                const hasSlots = data.slots && data.slots.length > 0;
+                availabilityCache[cacheKey] = hasSlots;
+                if (hasSlots) {
+                    console.log(`Day ${dateStr} has ${data.slots.length} slots`);
+                }
+                return hasSlots;
+            } else {
+                console.error(`Error fetching slots for ${dateStr}:`, response.status);
+            }
+        } catch (error) {
+            console.error('Error checking availability:', error);
+        }
+        return false;
+    }
+    
+    // Aggiorna indicatori di disponibilità nel calendario
+    async function updateAvailabilityIndicators() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Ottieni tutti i giorni del mese nel futuro
+        const daysToCheck = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayDate = new Date(year, month, day);
+            dayDate.setHours(0, 0, 0, 0);
+            if (dayDate >= today) {
+                daysToCheck.push(dayDate);
+            }
+        }
+        
+        // Controlla disponibilità per ogni giorno (in parallelo per velocità)
+        const availabilityPromises = daysToCheck.map(async (date) => {
+            const hasSlots = await checkDayAvailability(date);
+            return { date, hasSlots };
+        });
+        
+        const availabilityResults = await Promise.all(availabilityPromises);
+        
+        console.log('Availability results:', availabilityResults.filter(r => r.hasSlots));
+        
+        // Aggiorna il DOM con gli indicatori
+        const calendarDays = document.querySelectorAll('.calendar-day:not(.disabled)');
+        availabilityResults.forEach(result => {
+            if (result.hasSlots) {
+                const day = result.date.getDate();
+                calendarDays.forEach(dayElement => {
+                    const dayText = dayElement.textContent.trim();
+                    if (parseInt(dayText) === day && !dayElement.classList.contains('disabled')) {
+                        dayElement.classList.add('has-slots');
+                        console.log('Added indicator to day:', day);
+                    }
+                });
+            }
+        });
+    }
+    
+    // Render Calendario
+    function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        
+        document.getElementById('currentMonthYear').textContent = 
+            new Date(year, month, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const grid = document.getElementById('calendarGrid');
+        grid.innerHTML = '';
+        
+        // Giorni della settimana
+        ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].forEach(day => {
+            const dayName = document.createElement('div');
+            dayName.className = 'calendar-day-name';
+            dayName.textContent = day;
+            grid.appendChild(dayName);
+        });
+        
+        // Spazi vuoti prima del primo giorno
+        const startDay = firstDay === 0 ? 6 : firstDay - 1;
+        for (let i = 0; i < startDay; i++) {
+            const emptyDay = document.createElement('div');
+            emptyDay.className = 'calendar-day other-month';
+            grid.appendChild(emptyDay);
+        }
+        
+        // Giorni del mese
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day';
+            dayElement.textContent = day;
+            
+            // Aggiungi indicatore disponibilità
+            const indicator = document.createElement('div');
+            indicator.className = 'availability-indicator';
+            dayElement.appendChild(indicator);
+            
+            const dayDate = new Date(year, month, day);
+            dayDate.setHours(0, 0, 0, 0);
+            
+            // Disabilita giorni passati
+            if (dayDate < today) {
+                dayElement.classList.add('disabled');
+            } else {
+                dayElement.addEventListener('click', () => {
+                    const weekStart = getWeekStart(dayDate);
+                    selectWeek(weekStart);
+                });
+                
+                // Evidenzia settimana selezionata
+                if (selectedWeekStart) {
+                    const weekDays = getWeekDays(selectedWeekStart);
+                    const isInSelectedWeek = weekDays.some(d => 
+                        d.getDate() === dayDate.getDate() && 
+                        d.getMonth() === dayDate.getMonth() && 
+                        d.getFullYear() === dayDate.getFullYear()
+                    );
+                    
+                    if (isInSelectedWeek) {
+                        dayElement.classList.add('in-selected-week');
+                        
+                        // Evidenzia il lunedì (inizio settimana)
+                        if (dayDate.getTime() === selectedWeekStart.getTime()) {
+                            dayElement.classList.add('week-start');
+                        }
+                    }
+                }
+            }
+            
+            grid.appendChild(dayElement);
+        }
+    }
+    
+    // Seleziona Settimana
+    function selectWeek(weekStart) {
+        selectedWeekStart = new Date(weekStart);
+        selectedWeekStart.setHours(0, 0, 0, 0);
+        renderCalendar();
+        updateAvailabilityIndicators(); // Aggiorna indicatori dopo render
+        loadWeeklySlots();
+    }
+    
+    // Carica slot per la settimana selezionata (7 giorni)
+    async function loadWeeklySlots() {
+        const container = document.getElementById('weeklySlots');
+        container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Caricamento...</p></div>';
+        
+        if (!selectedWeekStart) {
+            container.innerHTML = '<div class="no-slots"><p>Seleziona una settimana dal calendario</p></div>';
+            return;
+        }
+        
+        const daysData = [];
+        const weekDays = getWeekDays(selectedWeekStart);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        for (const date of weekDays) {
+            // Salta giorni passati
+            if (date < today) {
+                continue;
+            }
+            
+            const dateStr = formatDate(date);
+            
+            try {
+                const response = await fetch(`/api/booking/available-slots/${consultantId}?date=${dateStr}&duration=${selectedDuration}`);
+                const data = await response.json();
+                
+                daysData.push({
+                    date: date,
+                    dateStr: dateStr,
+                    slots: data.slots || []
+                });
+            } catch (error) {
+                console.error(`Errore caricamento slot per ${dateStr}:`, error);
+                daysData.push({
+                    date: date,
+                    dateStr: dateStr,
+                    slots: []
+                });
+            }
+        }
+        
+        // Render griglia 7 giorni
+        container.innerHTML = '';
+        
+        if (daysData.length === 0) {
+            container.innerHTML = '<div class="no-slots"><p>Nessun giorno disponibile in questa settimana</p></div>';
+            return;
+        }
+        
+        daysData.forEach(dayData => {
+            const dayColumn = document.createElement('div');
+            dayColumn.className = 'day-column';
+            
+            const dayHeader = document.createElement('div');
+            dayHeader.className = 'day-header';
+            dayHeader.innerHTML = `
+                <div>${dayData.date.toLocaleDateString('it-IT', { weekday: 'short' })}</div>
+                <div class="day-date">${dayData.date.getDate()} ${dayData.date.toLocaleDateString('it-IT', { month: 'short' })}</div>
+            `;
+            dayColumn.appendChild(dayHeader);
+            
+            const daySlotsContainer = document.createElement('div');
+            daySlotsContainer.className = 'day-slots';
+            
+            if (dayData.slots.length === 0) {
+                daySlotsContainer.innerHTML = '<div class="no-availability">Nessuna disponibilità</div>';
+            } else {
+                dayData.slots.forEach(slot => {
+                    const slotElement = document.createElement('div');
+                    slotElement.className = 'day-slot';
+                    slotElement.textContent = `${slot.start_time} - ${slot.end_time}`;
+                    slotElement.addEventListener('click', () => selectSlotFromWeekly(slot, dayData.dateStr, dayData.date));
+                    daySlotsContainer.appendChild(slotElement);
+                });
+            }
+            
+            dayColumn.appendChild(daySlotsContainer);
+            container.appendChild(dayColumn);
+        });
+    }
+    
+    // Seleziona slot dalla griglia settimanale
+    function selectSlotFromWeekly(slot, dateStr, date) {
+        selectedSlot = slot;
+        selectedDate = date;
+        
+        // Evidenzia slot selezionato
+        document.querySelectorAll('.day-slot').forEach(item => item.classList.remove('selected'));
+        event.currentTarget.classList.add('selected');
+        
+        // Mostra nella sezione "Orario Selezionato"
+        const display = document.getElementById('selectedSlotDisplay');
+        display.innerHTML = `
+            <div style="text-align: left;">
+                <p style="margin: 0.5rem 0;"><strong>Data:</strong> ${date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                <p style="margin: 0.5rem 0;"><strong>Orario:</strong> ${slot.start_time} - ${slot.end_time}</p>
+                <p style="margin: 0.5rem 0;"><strong>Durata:</strong> ${selectedDuration} minuti</p>
+                <hr style="margin: 1rem 0;">
+                <p style="margin: 0.5rem 0; font-size: 1.2rem;"><strong>Totale:</strong> <span style="color: #667eea;">€ ${((pricePerHour / 60) * selectedDuration).toFixed(2)}</span></p>
+            </div>
+        `;
+        
+        // Mostra riepilogo
+        updateBookingSummary(dateStr, slot, selectedDuration);
+    }
+    
+    // Carica Slot Disponibili (non più usata ma manteniamo per compatibilità)
+    async function loadAvailableSlots(dateStr, duration) {
+        // Questa funzione ora è sostituita da loadWeeklySlots
+        return;
+    }
+    
+    // Aggiorna Riepilogo
+    function updateBookingSummary(dateStr, slot, duration) {
+        const summary = document.getElementById('bookingSummary');
+        summary.style.display = 'block';
+        
+        document.getElementById('summaryDate').textContent = 
+            new Date(dateStr).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        document.getElementById('summaryTime').textContent = `${slot.start_time} - ${slot.end_time}`;
+        document.getElementById('summaryDuration').textContent = `${duration} minuti`;
+        
+        const totalPrice = (pricePerHour / 60) * duration;
+        document.getElementById('summaryPrice').textContent = `€ ${totalPrice.toFixed(2)}`;
+        
+        document.getElementById('confirmBookingBtn').disabled = false;
+    }
+    
+    // Conferma Prenotazione
+    document.getElementById('confirmBookingBtn').addEventListener('click', async function() {
+        if (!selectedSlot || !selectedDate) return;
+        
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Prenotazione in corso...';
+        
+        const bookingData = {
+            consultant_user_id: consultantId,
+            booking_date: formatDate(selectedDate),
+            start_time: selectedSlot.start_time,
+            end_time: selectedSlot.end_time,
+            duration_minutes: selectedDuration,
+            availability_block_id: selectedSlot.availability_block_id,
+            client_notes: document.getElementById('clientNotes').value
+        };
+        
+        try {
+            const response = await fetch('/api/booking/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bookingData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert('✅ Prenotazione confermata! Riceverai una email di conferma.');
+                window.location.href = '/profile';
+            } else {
+                alert('❌ Errore: ' + (data.detail || 'Impossibile completare la prenotazione'));
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-calendar-check"></i> Conferma Prenotazione';
+            }
+        } catch (error) {
+            console.error('Errore:', error);
+            alert('❌ Errore di rete. Riprova.');
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-calendar-check"></i> Conferma Prenotazione';
+        }
+    });
+    
+    // Utility
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+</script>
+{% endblock %}

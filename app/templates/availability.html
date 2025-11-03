@@ -1,0 +1,1150 @@
+{% extends "base.html" %}
+
+{% block title %}Gestisci Disponibilità - Helpy{% endblock %}
+
+{% block extra_css %}
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+    }
+
+    .availability-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        background: white;
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+        text-align: center;
+    }
+
+    .page-header h1 {
+        color: #667eea;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+    }
+
+    .page-header p {
+        color: #666;
+        font-size: 1.1em;
+    }
+
+    .content-grid {
+        display: grid;
+        grid-template-columns: 400px 1fr;
+        gap: 30px;
+        align-items: start;
+    }
+
+    .calendar-section {
+        background: white;
+        padding: 25px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        position: sticky;
+        top: 20px;
+    }
+
+    .calendar-section h2 {
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 1.5em;
+    }
+
+    .calendar {
+        width: 100%;
+    }
+
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .calendar-nav {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1.2em;
+        transition: all 0.3s;
+    }
+
+    .calendar-nav:hover {
+        background: #5568d3;
+        transform: scale(1.1);
+    }
+
+    .calendar-month {
+        font-size: 1.3em;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+    }
+
+    .calendar-day-name {
+        text-align: center;
+        font-weight: bold;
+        color: #667eea;
+        padding: 10px;
+        font-size: 0.65em;
+    }
+
+    .calendar-day {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: #f8f9fa;
+        color: #333;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .calendar-day:hover {
+        background: #e9ecef;
+        transform: scale(1.05);
+    }
+
+    .calendar-day.empty {
+        background: transparent;
+        cursor: default;
+    }
+
+    .calendar-day.empty:hover {
+        transform: none;
+    }
+
+    .calendar-day.today {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        font-weight: bold;
+    }
+
+    .calendar-day.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: bold;
+    }
+
+    .calendar-day.has-availability::after {
+        content: '';
+        position: absolute;
+        bottom: 4px;
+        width: 6px;
+        height: 6px;
+        background: #28a745;
+        border-radius: 50%;
+    }
+
+    .calendar-day.past {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .calendar-day.past:hover {
+        background: #f8f9fa;
+        transform: none;
+    }
+
+    .schedule-section {
+        background: white;
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        min-height: 500px;
+    }
+
+    .schedule-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .schedule-header h2 {
+        color: #333;
+        font-size: 1.8em;
+    }
+
+    .selected-date {
+        color: #667eea;
+        font-size: 1.1em;
+        font-weight: 600;
+    }
+
+    .time-blocks {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .time-block {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        transition: all 0.3s;
+    }
+
+    .time-block:hover {
+        background: #e9ecef;
+    }
+
+    .time-input {
+        flex: 1;
+        padding: 12px;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        font-size: 1em;
+        transition: all 0.3s;
+    }
+
+    .time-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+        font-size: 1em;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+        padding: 8px 16px;
+    }
+
+    .btn-danger:hover {
+        background: #c82333;
+    }
+
+    .btn-success {
+        background: #28a745;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #218838;
+    }
+
+    .actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 25px;
+        padding-top: 25px;
+        border-top: 2px solid #e9ecef;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+
+    .empty-state i {
+        font-size: 4em;
+        margin-bottom: 20px;
+        color: #dee2e6;
+    }
+
+    .empty-state h3 {
+        color: #666;
+        margin-bottom: 10px;
+    }
+
+    .copy-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .copy-modal.active {
+        display: flex;
+    }
+
+    .copy-modal-content {
+        background: white;
+        padding: 40px;
+        border-radius: 16px;
+        max-width: 700px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    .copy-modal h3 {
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 1.8em;
+    }
+
+    .copy-instructions {
+        background: #fff3cd;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        color: #856404;
+    }
+
+    .copy-calendar {
+        margin: 20px 0;
+    }
+
+    .copy-calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+        margin-top: 15px;
+    }
+
+    .copy-day {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: white;
+        font-weight: 500;
+        position: relative;
+    }
+
+    .copy-day:hover:not(.disabled) {
+        border-color: #667eea;
+        transform: scale(1.05);
+    }
+
+    .copy-day.disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        background: #f8f9fa;
+    }
+
+    .copy-day.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+        font-weight: bold;
+    }
+
+    .copy-day.source {
+        background: #ffc107;
+        color: #000;
+        font-weight: bold;
+        border-color: #ffc107;
+    }
+
+    .date-selection {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 10px;
+        margin-bottom: 25px;
+    }
+
+    .date-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .date-checkbox:hover {
+        background: #e9ecef;
+    }
+
+    .date-checkbox.selected {
+        background: #d4edda;
+        border: 2px solid #28a745;
+    }
+
+    .date-checkbox input {
+        cursor: pointer;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 15px;
+        justify-content: flex-end;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .schedule-section {
+        animation: fadeIn 0.5s ease;
+    }
+
+    .success-message {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 20px 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 2000;
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+        }
+        to {
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes successPulse {
+        0% {
+            background: #d4edda;
+            transform: scale(1);
+        }
+        50% {
+            background: #28a745;
+            transform: scale(1.02);
+        }
+        100% {
+            background: #d4edda;
+            transform: scale(1);
+        }
+    }
+
+    .time-block.saved {
+        animation: successPulse 1.5s ease-in-out;
+        background: #d4edda !important;
+    }
+
+    /* Riepilogo Settimanale */
+    .weekly-summary {
+        background: white;
+        padding: 30px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        margin-top: 30px;
+    }
+
+    .weekly-summary h2 {
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 1.8em;
+        text-align: center;
+    }
+
+    .week-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 15px;
+    }
+
+    .day-column {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 10px;
+        min-height: 200px;
+    }
+
+    .day-column.has-slots {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        border: 2px solid #667eea;
+    }
+
+    .day-header {
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 10px;
+        text-align: center;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .day-date {
+        font-size: 0.9em;
+        color: #999;
+        display: block;
+    }
+
+    .time-slot {
+        background: white;
+        padding: 8px;
+        margin-top: 8px;
+        border-radius: 6px;
+        font-size: 0.85em;
+        text-align: center;
+        border: 1px solid #dee2e6;
+    }
+
+    .no-slots {
+        color: #999;
+        font-style: italic;
+        text-align: center;
+        margin-top: 20px;
+        font-size: 0.9em;
+    }
+
+    @media (max-width: 1200px) {
+        .week-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .week-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="availability-container">
+    <!-- Header -->
+    <div class="page-header">
+        <h1>📅 Gestisci la tua Disponibilità</h1>
+        <p>Imposta gli orari in cui sei disponibile per consulenze</p>
+    </div>
+
+    <div class="content-grid">
+        <!-- Calendario -->
+        <div class="calendar-section">
+            <h2>Seleziona un Giorno</h2>
+            <div class="calendar">
+                <div class="calendar-header">
+                    <button class="calendar-nav" id="prevMonth">◀</button>
+                    <span class="calendar-month" id="currentMonth"></span>
+                    <button class="calendar-nav" id="nextMonth">▶</button>
+                </div>
+                <div class="calendar-grid" id="calendarGrid">
+                    <div class="calendar-day-name">Lun</div>
+                    <div class="calendar-day-name">Mar</div>
+                    <div class="calendar-day-name">Mer</div>
+                    <div class="calendar-day-name">Gio</div>
+                    <div class="calendar-day-name">Ven</div>
+                    <div class="calendar-day-name">Sab</div>
+                    <div class="calendar-day-name">Dom</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gestione Orari -->
+        <div class="schedule-section">
+            <div class="schedule-header">
+                <h2>Orari di Disponibilità</h2>
+                <span class="selected-date" id="selectedDate">Seleziona un giorno</span>
+            </div>
+
+            <div id="scheduleContent">
+                <div class="empty-state">
+                    <i class="fas fa-calendar-plus"></i>
+                    <h3>Seleziona un giorno dal calendario</h3>
+                    <p>Clicca su una data per gestire i tuoi orari disponibili</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riepilogo Settimanale -->
+    <div class="weekly-summary">
+        <h2>📆 Riepilogo Prossimi 7 Giorni</h2>
+        <div class="week-grid" id="weekSummary"></div>
+    </div>
+</div>
+
+<!-- Modal per copiare disponibilità -->
+<div class="copy-modal" id="copyModal">
+    <div class="copy-modal-content">
+        <h3>📋 Copia Disponibilità</h3>
+        <div class="copy-instructions">
+            <strong>ℹ️ Clicca sui giorni</strong> in cui vuoi copiare gli orari del <span id="sourceDate"></span>
+        </div>
+        <div class="copy-calendar">
+            <div class="calendar-header">
+                <button class="calendar-nav" id="copyPrevMonth">◀</button>
+                <span class="calendar-month" id="copyMonthName"></span>
+                <button class="calendar-nav" id="copyNextMonth">▶</button>
+            </div>
+            <div class="copy-calendar-grid" id="copyCalendarGrid">
+                <div class="calendar-day-name">Lun</div>
+                <div class="calendar-day-name">Mar</div>
+                <div class="calendar-day-name">Mer</div>
+                <div class="calendar-day-name">Gio</div>
+                <div class="calendar-day-name">Ven</div>
+                <div class="calendar-day-name">Sab</div>
+                <div class="calendar-day-name">Dom</div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeCopyModal()">Annulla</button>
+            <button class="btn btn-primary" onclick="confirmCopy()">Copia Disponibilità</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentDate = new Date();
+let selectedDate = null;
+let timeBlocks = [];
+let availabilityData = {};
+let copyCalendarDate = new Date();
+let selectedCopyDates = [];
+
+// Inizializza
+document.addEventListener('DOMContentLoaded', () => {
+    loadAllAvailability(); // ✅ Carica tutte le disponibilità per i pallini verdi
+    renderCalendar();
+    renderWeeklySummary(); // ✅ Mostra riepilogo settimanale
+    
+    document.getElementById('prevMonth').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+    });
+    
+    document.getElementById('nextMonth').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+    });
+});
+
+// Carica tutte le disponibilità del mese corrente per mostrare i pallini
+async function loadAllAvailability() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    
+    // Carica disponibilità per ogni giorno del mese
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day);
+        const dateStr = formatDate(date);
+        
+        try {
+            const response = await fetch(`/api/availability/${dateStr}`);
+            const data = await response.json();
+            if (data.success && data.blocks.length > 0) {
+                availabilityData[dateStr] = data.blocks;
+            }
+        } catch (error) {
+            // Ignora errori per ottimizzare
+        }
+    }
+    
+    renderCalendar(); // Aggiorna con i pallini
+}
+
+function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    // Header
+    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                       'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    document.getElementById('currentMonth').textContent = `${monthNames[month]} ${year}`;
+    
+    // Giorni
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; // Lun = 0
+    
+    const gridContainer = document.getElementById('calendarGrid');
+    
+    // Rimuovi solo i giorni, non i nomi dei giorni della settimana
+    const existingDays = gridContainer.querySelectorAll('.calendar-day');
+    existingDays.forEach(day => day.remove());
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Giorni vuoti
+    for (let i = 0; i < startDay; i++) {
+        const emptyDay = document.createElement('div');
+        emptyDay.className = 'calendar-day empty';
+        gridContainer.appendChild(emptyDay);
+    }
+    
+    // Giorni del mese
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const dayElement = document.createElement('div');
+        dayElement.className = 'calendar-day';
+        dayElement.textContent = day;
+        
+        const date = new Date(year, month, day);
+        const dateStr = formatDate(date);
+        
+        // Evidenzia oggi
+        if (date.getTime() === today.getTime()) {
+            dayElement.classList.add('today');
+        }
+        
+        // Disabilita date passate
+        if (date < today) {
+            dayElement.classList.add('past');
+        } else {
+            dayElement.addEventListener('click', () => selectDate(date));
+        }
+        
+        // Segna se ha disponibilità
+        if (availabilityData[dateStr]) {
+            dayElement.classList.add('has-availability');
+        }
+        
+        gridContainer.appendChild(dayElement);
+    }
+}
+
+function selectDate(date) {
+    selectedDate = date;
+    const dateStr = formatDate(date);
+    
+    // Evidenzia giorno selezionato
+    document.querySelectorAll('.calendar-day').forEach(el => {
+        el.classList.remove('selected');
+    });
+    event.target.classList.add('selected');
+    
+    // Aggiorna header
+    const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+    document.getElementById('selectedDate').textContent = date.toLocaleDateString('it-IT', options);
+    
+    // Carica disponibilità per questa data
+    loadAvailability(dateStr);
+}
+
+async function loadAvailability(dateStr) {
+    try {
+        const response = await fetch(`/api/availability/${dateStr}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            timeBlocks = data.blocks;
+            availabilityData[dateStr] = data.blocks;
+            renderSchedule();
+            renderCalendar(); // ✅ Riaggiorna calendario per mostrare pallini verdi
+        }
+    } catch (error) {
+        console.error('Errore caricamento disponibilità:', error);
+        timeBlocks = [];
+        renderSchedule();
+    }
+}
+
+function renderSchedule() {
+    const content = document.getElementById('scheduleContent');
+    
+    if (!selectedDate) {
+        content.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-calendar-plus"></i>
+                <h3>Seleziona un giorno dal calendario</h3>
+                <p>Clicca su una data per gestire i tuoi orari disponibili</p>
+            </div>
+        `;
+        return;
+    }
+    
+    content.innerHTML = `
+        <div class="time-blocks" id="timeBlocks"></div>
+        <button class="btn btn-success" onclick="addTimeBlock()">
+            <i class="fas fa-plus"></i> Aggiungi Fascia Oraria
+        </button>
+        <div class="actions">
+            <button class="btn btn-primary" onclick="saveAvailability()">
+                <i class="fas fa-save"></i> Salva Disponibilità
+            </button>
+            <button class="btn btn-secondary" onclick="openCopyModal()">
+                <i class="fas fa-copy"></i> Copia in Altri Giorni
+            </button>
+        </div>
+    `;
+    
+    renderTimeBlocks();
+}
+
+function renderTimeBlocks() {
+    const container = document.getElementById('timeBlocks');
+    if (!container) return;
+    
+    if (timeBlocks.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 40px 20px;">
+                <i class="fas fa-clock"></i>
+                <h3>Nessuna fascia oraria</h3>
+                <p>Aggiungi le fasce orarie in cui sei disponibile</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = timeBlocks.map((block, index) => `
+        <div class="time-block">
+            <input type="time" class="time-input" value="${block.start_time}" 
+                   onchange="updateBlock(${index}, 'start_time', this.value)" />
+            <span style="font-size: 1.2em; color: #999;">→</span>
+            <input type="time" class="time-input" value="${block.end_time}"
+                   onchange="updateBlock(${index}, 'end_time', this.value)" />
+            <button class="btn btn-danger" onclick="removeBlock(${index})">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+function addTimeBlock() {
+    const lastBlock = timeBlocks[timeBlocks.length - 1];
+    const newStart = lastBlock ? lastBlock.end_time : '09:00';
+    const newEnd = calculateEndTime(newStart, 60);
+    
+    timeBlocks.push({
+        start_time: newStart,
+        end_time: newEnd,
+        status: 'available'
+    });
+    
+    renderTimeBlocks();
+}
+
+function calculateEndTime(startTime, minutes) {
+    const [hours, mins] = startTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + mins + minutes;
+    const endHours = Math.floor(totalMinutes / 60);
+    const endMins = totalMinutes % 60;
+    return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+}
+
+function updateBlock(index, field, value) {
+    timeBlocks[index][field] = value;
+}
+
+function removeBlock(index) {
+    timeBlocks.splice(index, 1);
+    renderTimeBlocks();
+}
+
+async function saveAvailability() {
+    if (!selectedDate || timeBlocks.length === 0) {
+        alert('Aggiungi almeno una fascia oraria prima di salvare');
+        return;
+    }
+    
+    const dateStr = formatDate(selectedDate);
+    const formData = new FormData();
+    formData.append('date', dateStr);
+    formData.append('blocks', JSON.stringify(timeBlocks));
+    
+    try {
+        const response = await fetch('/api/availability/save', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // ✅ Aggiungi classe saved per animazione
+            const allBlocks = document.querySelectorAll('.time-block');
+            allBlocks.forEach(block => {
+                block.classList.add('saved');
+            });
+            
+            // Rimuovi classe dopo l'animazione
+            setTimeout(() => {
+                allBlocks.forEach(block => {
+                    block.classList.remove('saved');
+                });
+            }, 1500);
+            
+            showSuccess('✅ Disponibilità salvata con successo!');
+            availabilityData[dateStr] = timeBlocks;
+            renderCalendar(); // Aggiorna calendario con bollino verde
+            renderWeeklySummary(); // ✅ Aggiorna riepilogo settimanale
+        } else {
+            alert('Errore nel salvataggio');
+        }
+    } catch (error) {
+        console.error('Errore:', error);
+        alert('Errore di connessione');
+    }
+}
+
+function openCopyModal() {
+    if (!selectedDate || timeBlocks.length === 0) {
+        alert('Salva prima la disponibilità per questo giorno');
+        return;
+    }
+    
+    selectedCopyDates = [];
+    copyCalendarDate = new Date();
+    document.getElementById('sourceDate').textContent = selectedDate.toLocaleDateString('it-IT');
+    
+    renderCopyCalendar();
+    
+    // Aggiungi event listeners per navigazione
+    document.getElementById('copyPrevMonth').onclick = () => {
+        copyCalendarDate.setMonth(copyCalendarDate.getMonth() - 1);
+        renderCopyCalendar();
+    };
+    
+    document.getElementById('copyNextMonth').onclick = () => {
+        copyCalendarDate.setMonth(copyCalendarDate.getMonth() + 1);
+        renderCopyCalendar();
+    };
+    
+    document.getElementById('copyModal').classList.add('active');
+}
+
+function renderCopyCalendar() {
+    const year = copyCalendarDate.getFullYear();
+    const month = copyCalendarDate.getMonth();
+    
+    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                       'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    document.getElementById('copyMonthName').textContent = `${monthNames[month]} ${year}`;
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    
+    const gridContainer = document.getElementById('copyCalendarGrid');
+    const existingDays = gridContainer.querySelectorAll('.copy-day');
+    existingDays.forEach(day => day.remove());
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const sourceDateStr = formatDate(selectedDate);
+    
+    // Giorni vuoti
+    for (let i = 0; i < startDay; i++) {
+        const emptyDay = document.createElement('div');
+        emptyDay.className = 'copy-day disabled';
+        gridContainer.appendChild(emptyDay);
+    }
+    
+    // Giorni del mese
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const dayElement = document.createElement('div');
+        dayElement.className = 'copy-day';
+        dayElement.textContent = day;
+        
+        const date = new Date(year, month, day);
+        const dateStr = formatDate(date);
+        
+        // Disabilita date passate e data sorgente
+        if (date < today || dateStr === sourceDateStr) {
+            dayElement.classList.add('disabled');
+            if (dateStr === sourceDateStr) {
+                dayElement.classList.add('source');
+                dayElement.title = 'Data sorgente';
+            }
+        } else {
+            // Verifica se già selezionato
+            if (selectedCopyDates.includes(dateStr)) {
+                dayElement.classList.add('selected');
+            }
+            
+            dayElement.addEventListener('click', () => {
+                const index = selectedCopyDates.indexOf(dateStr);
+                if (index > -1) {
+                    selectedCopyDates.splice(index, 1);
+                    dayElement.classList.remove('selected');
+                } else {
+                    selectedCopyDates.push(dateStr);
+                    dayElement.classList.add('selected');
+                }
+            });
+        }
+        
+        gridContainer.appendChild(dayElement);
+    }
+}
+
+function closeCopyModal() {
+    document.getElementById('copyModal').classList.remove('active');
+    selectedCopyDates = [];
+}
+
+async function confirmCopy() {
+    if (selectedCopyDates.length === 0) {
+        alert('Seleziona almeno un giorno di destinazione');
+        return;
+    }
+    
+    const dateStr = formatDate(selectedDate);
+    const formData = new FormData();
+    formData.append('source_date', dateStr);
+    formData.append('target_dates', JSON.stringify(selectedCopyDates));
+    
+    try {
+        const response = await fetch('/api/availability/copy', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showSuccess(`✅ ${data.message}`);
+            closeCopyModal();
+            
+            // Aggiorna cache
+            selectedCopyDates.forEach(date => {
+                availabilityData[date] = [...timeBlocks];
+            });
+            
+            // ✅ Ricarica la pagina per mostrare tutte le modifiche
+            setTimeout(() => {
+                location.reload();
+            }, 1500); // Aspetta 1.5 secondi per far vedere il messaggio di successo
+        } else {
+            alert(data.message || 'Errore nella copia');
+        }
+    } catch (error) {
+        console.error('Errore:', error);
+        alert('Errore di connessione');
+    }
+}
+
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function showSuccess(message) {
+    const toast = document.createElement('div');
+    toast.className = 'success-message';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// ✅ Riepilogo Settimanale
+async function renderWeeklySummary() {
+    const container = document.getElementById('weekSummary');
+    const today = new Date();
+    const dayNames = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+    
+    let html = '';
+    
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        const dateStr = formatDate(date);
+        const dayName = dayNames[date.getDay()];
+        
+        // Carica disponibilità se non già in cache
+        if (!availabilityData[dateStr]) {
+            try {
+                const response = await fetch(`/api/availability/${dateStr}`);
+                const data = await response.json();
+                if (data.success && data.blocks.length > 0) {
+                    availabilityData[dateStr] = data.blocks;
+                }
+            } catch (error) {
+                // Ignora
+            }
+        }
+        
+        const blocks = availabilityData[dateStr] || [];
+        const hasSlots = blocks.length > 0;
+        
+        html += `
+            <div class="day-column ${hasSlots ? 'has-slots' : ''}">
+                <div class="day-header">
+                    ${dayName}
+                    <span class="day-date">${date.getDate()}/${date.getMonth() + 1}</span>
+                </div>
+                ${hasSlots ? blocks.map(block => `
+                    <div class="time-slot">${block.start_time} - ${block.end_time}</div>
+                `).join('') : '<div class="no-slots">Nessuna fascia</div>'}
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+</script>
+{% endblock %}
