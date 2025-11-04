@@ -161,6 +161,50 @@
         background: #ef4444;
     }
     
+    /* Call Timer */
+    .call-timer {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        min-width: 200px;
+        text-align: center;
+    }
+    
+    .call-timer.warning {
+        background: rgba(239, 68, 68, 0.9);
+        animation: timerPulse 1s ease-in-out infinite;
+    }
+    
+    .call-timer-label {
+        font-size: 0.75rem;
+        opacity: 0.8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .call-timer-time {
+        font-size: 1.5rem;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+    }
+    
+    @keyframes timerPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
     @keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
@@ -194,6 +238,12 @@
 </style>
 
 <div class="call-container">
+    <!-- Call Timer -->
+    <div class="call-timer" id="callTimer">
+        <div class="call-timer-label">Tempo rimanente</div>
+        <div class="call-timer-time" id="timerDisplay">--:--</div>
+    </div>
+    
     <!-- Connection Status -->
     <div class="connection-status" id="connectionStatus">
         <div class="status-dot connecting" id="statusDot"></div>
@@ -248,12 +298,17 @@
 
 <script>
     const bookingId = {{ booking.id }};
+    const bookingDuration = {{ booking.duration_minutes }};
+    const maxCallDuration = bookingDuration + 10; // Durata + 10 minuti extra
+    
     let client = null;
     let localTracks = {
         video: null,
         audio: null
     };
     let remoteUsers = {};
+    let callStartTime = null;
+    let timerInterval = null;
     
     // UI Elements
     const loadingOverlay = document.getElementById('loadingOverlay');
@@ -266,6 +321,87 @@
     const micBtn = document.getElementById('micBtn');
     const cameraBtn = document.getElementById('cameraBtn');
     const endCallBtn = document.getElementById('endCallBtn');
+    const callTimer = document.getElementById('callTimer');
+    const timerDisplay = document.getElementById('timerDisplay');
+    
+    // Start/Stop Recording functions
+    async function startRecording() {
+        try {
+            const response = await fetch(`/api/booking/${bookingId}/recording/start`, {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📹 Recording avviato:', data.recording_sid);
+            } else {
+                console.error('❌ Errore avvio recording');
+            }
+        } catch (error) {
+            console.error('❌ Errore start recording:', error);
+        }
+    }
+    
+    async function stopRecording() {
+        try {
+            const response = await fetch(`/api/booking/${bookingId}/recording/stop`, {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Recording completato:', data.recording_url);
+            } else {
+                console.error('❌ Errore stop recording');
+            }
+        } catch (error) {
+            console.error('❌ Errore stop recording:', error);
+        }
+    }
+    
+    // Start call timer
+    function startCallTimer() {
+        callStartTime = Date.now();
+        
+        timerInterval = setInterval(() => {
+            const elapsedSeconds = Math.floor((Date.now() - callStartTime) / 1000);
+            const remainingSeconds = (maxCallDuration * 60) - elapsedSeconds;
+            
+            if (remainingSeconds <= 0) {
+                // Tempo scaduto - termina call automaticamente
+                clearInterval(timerInterval);
+                alert('Il tempo della consulenza è terminato. La chiamata verrà chiusa.');
+                leaveCall().then(() => {
+                    window.location.href = '/profile';
+                });
+                return;
+            }
+            
+            // Calcola minuti e secondi rimanenti
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            
+            // Aggiorna display
+            timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Avviso quando mancano 5 minuti
+            if (remainingSeconds === 300) {
+                alert('⏰ Attenzione: mancano 5 minuti alla fine della consulenza');
+            }
+            
+            // Avviso quando manca 1 minuto
+            if (remainingSeconds === 60) {
+                alert('⏰ Attenzione: manca 1 minuto alla fine della consulenza');
+            }
+            
+            // Cambia colore quando mancano 3 minuti (rosso lampeggiante)
+            if (remainingSeconds <= 180) {
+                callTimer.classList.add('warning');
+            } else {
+                callTimer.classList.remove('warning');
+            }
+        }, 1000); // Aggiorna ogni secondo
+    }
     
     // Initialize Agora
     async function initializeCall() {
@@ -300,6 +436,12 @@
             
             // Publish local tracks
             await client.publish([localTracks.audio, localTracks.video]);
+            
+            // Start call timer
+            startCallTimer();
+            
+            // Avvia registrazione automaticamente
+            await startRecording();
             
             loadingOverlay.style.display = 'none';
             
@@ -367,6 +509,14 @@
     
     // Leave call
     async function leaveCall() {
+        // Stop recording
+        await stopRecording();
+        
+        // Stop timer
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+        
         for (let trackName in localTracks) {
             const track = localTracks[trackName];
             if (track) {

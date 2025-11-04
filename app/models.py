@@ -160,6 +160,16 @@ class Booking(SQLModel, table=True):
     client_joined_at: Optional[datetime] = None
     consultant_joined_at: Optional[datetime] = None
     
+    # Recording tracking - registrazione video call
+    recording_sid: Optional[str] = None  # Agora Cloud Recording SID
+    recording_resource_id: Optional[str] = None  # Agora resource ID
+    recording_status: str = Field(default="not_started")  # not_started, recording, processing, completed, failed
+    recording_url: Optional[str] = None  # S3 URL del video
+    recording_duration: Optional[int] = None  # Durata in secondi
+    recording_file_size: Optional[int] = None  # Dimensione file in bytes
+    recording_started_at: Optional[datetime] = None
+    recording_completed_at: Optional[datetime] = None
+    
     cancellation_reason: Optional[str] = None
     cancelled_by: Optional[int] = Field(default=None, foreign_key="user.id")
     cancelled_at: Optional[datetime] = None

@@ -540,8 +540,8 @@
                 timeText = `${mins}min`;
             }
             statusHTML = `<div class="time-until"><i class="fas fa-clock"></i> Inizia tra ${timeText}</div>`;
-        } else if (timeUntilMinutes <= 10 && timeUntilMinutes >= -booking.duration) {
-            // Può joinare: da 10 minuti prima fino alla fine della consulenza
+        } else if (timeUntilMinutes <= 10 && timeUntilMinutes >= -10) {
+            // Può joinare: da 10 minuti prima fino a 10 minuti dopo l'inizio
             if (booking.can_start_call) {
                 // Entrambi hanno joinato - mostra "Inizia Call"
                 actionsHTML = `
@@ -563,6 +563,34 @@
                 if (booking.other_joined) {
                     statusHTML = `<div class="waiting-indicator"><i class="fas fa-user-check"></i> ${otherUser.name} è pronto</div>`;
                 }
+            }
+        } else if (timeUntilMinutes < -10) {
+            // Sono passati più di 10 minuti dall'inizio
+            if (booking.has_joined && !booking.other_joined) {
+                // L'utente ha partecipato ma l'altro no - mostra messaggio di assenza
+                const whoMissed = booking.role === 'client' ? 'il consulente' : 'il cliente';
+                statusHTML = `
+                    <div class="appointment-missed">
+                        <i class="fas fa-times-circle"></i>
+                        <p>Siamo spiacenti ma ${whoMissed} non ha partecipato alla call programmata.</p>
+                    </div>
+                `;
+            } else if (!booking.has_joined && booking.other_joined) {
+                // L'utente non ha partecipato ma l'altro sì
+                statusHTML = `
+                    <div class="appointment-missed">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>Non hai partecipato a questa consulenza.</p>
+                    </div>
+                `;
+            } else if (!booking.has_joined && !booking.other_joined) {
+                // Nessuno dei due ha partecipato
+                statusHTML = `
+                    <div class="appointment-missed">
+                        <i class="fas fa-ban"></i>
+                        <p>Questa consulenza non si è svolta.</p>
+                    </div>
+                `;
             }
         }
         

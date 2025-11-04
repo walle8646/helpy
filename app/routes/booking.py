@@ -7,6 +7,7 @@ from typing import Optional, List, Dict, Union
 from app.database import engine
 from app.models import Booking, User, AvailabilityBlock
 from app.routes.auth import get_current_user
+from app.utils.agora_recording import start_recording, stop_recording, get_recording_url
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -596,4 +597,143 @@ async def cancel_booking(
         return {
             "success": True,
             "message": "Prenotazione cancellata"
+        }
+
+# ========== CLOUD RECORDING ENDPOINTS ==========
+
+@router.post("/api/booking/{booking_id}/recording/start")
+async def start_booking_recording(booking_id: int, request: Request):
+    """Avvia la registrazione cloud per una prenotazione"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Solo client e consultant possono avviare recording
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Verifica che entrambi abbiano joinato
+        if not booking.client_joined_at or not booking.consultant_joined_at:
+            raise HTTPException(status_code=400, detail="Entrambi gli utenti devono essere presenti")
+        
+        # Non avviare se già in recording
+        if booking.recording_status == "recording":
+            raise HTTPException(status_code=400, detail="Recording già avviato")
+        
+        # Genera token per il bot recorder (UID speciale)
+        from app.utils.agora_token import generate_agora_token
+        from agora_token import RtcTokenBuilder, Role_Publisher
+        
+        recorder_uid = 999999  # UID fisso per il bot recorder
+        channel_name = f"booking_{booking_id}"
+        recorder_token = generate_agora_token(channel_name, recorder_uid, Role_Publisher, 7200)
+        
+        # Avvia recording
+        result = start_recording(channel_name, recorder_uid, recorder_token)
+        
+        if not result:
+            raise HTTPException(status_code=500, detail="Errore avvio registrazione")
+        
+        # Aggiorna booking
+        booking.recording_sid = result["sid"]
+        booking.recording_resource_id = result["resource_id"]
+        booking.recording_status = "recording"
+        booking.recording_started_at = datetime.utcnow()
+        booking.updated_at = datetime.utcnow()
+        
+        session.add(booking)
+        session.commit()
+        
+        return {
+            "success": True,
+            "recording_sid": result["sid"],
+            "message": "Registrazione avviata"
+        }
+
+@router.post("/api/booking/{booking_id}/recording/stop")
+async def stop_booking_recording(booking_id: int, request: Request):
+    """Ferma la registrazione cloud"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Solo client e consultant possono fermare recording
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Verifica che ci sia un recording attivo
+        if booking.recording_status != "recording":
+            raise HTTPException(status_code=400, detail="Nessun recording attivo")
+        
+        if not booking.recording_sid or not booking.recording_resource_id:
+            raise HTTPException(status_code=400, detail="Dati recording mancanti")
+        
+        # Ferma recording
+        recorder_uid = 999999
+        channel_name = f"booking_{booking_id}"
+        
+        result = stop_recording(
+            booking.recording_resource_id,
+            booking.recording_sid,
+            channel_name,
+            recorder_uid
+        )
+        
+        if not result:
+            booking.recording_status = "failed"
+        else:
+            # Genera URL per accedere al video
+            file_name = result["file_name"]
+            recording_url = get_recording_url(file_name)
+            
+            booking.recording_url = recording_url
+            booking.recording_duration = result.get("mix_duration", 0)
+            booking.recording_status = "completed"
+            booking.recording_completed_at = datetime.utcnow()
+        
+        booking.updated_at = datetime.utcnow()
+        session.add(booking)
+        session.commit()
+        
+        return {
+            "success": True,
+            "recording_url": booking.recording_url,
+            "duration": booking.recording_duration,
+            "message": "Registrazione completata"
+        }
+
+@router.get("/api/booking/{booking_id}/recording")
+async def get_booking_recording(booking_id: int, request: Request):
+    """Ottiene info sulla registrazione"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Solo client e consultant possono vedere recording
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        return {
+            "booking_id": booking.id,
+            "recording_status": booking.recording_status,
+            "recording_url": booking.recording_url,
+            "recording_duration": booking.recording_duration,
+            "recording_file_size": booking.recording_file_size,
+            "recording_started_at": booking.recording_started_at.isoformat() if booking.recording_started_at else None,
+            "recording_completed_at": booking.recording_completed_at.isoformat() if booking.recording_completed_at else None
         }
