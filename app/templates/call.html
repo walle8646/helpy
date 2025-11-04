@@ -334,11 +334,20 @@
             if (response.ok) {
                 const data = await response.json();
                 console.log('📹 Recording avviato:', data.recording_sid);
+                return true;
             } else {
-                console.error('❌ Errore avvio recording');
+                const error = await response.json();
+                // Se il recording è già attivo, non è un errore (l'altro utente l'ha già avviato)
+                if (error.detail === "Recording già avviato") {
+                    console.log('ℹ️ Recording già attivo (avviato dall\'altro utente)');
+                    return true;
+                }
+                console.error('❌ Errore avvio recording:', error.detail);
+                return false;
             }
         } catch (error) {
             console.error('❌ Errore start recording:', error);
+            return false;
         }
     }
     
@@ -351,11 +360,20 @@
             if (response.ok) {
                 const data = await response.json();
                 console.log('✅ Recording completato:', data.recording_url);
+                return true;
             } else {
-                console.error('❌ Errore stop recording');
+                const error = await response.json();
+                // Se il recording non era attivo, l'altro utente l'ha già fermato
+                if (error.detail === "Nessun recording attivo") {
+                    console.log('ℹ️ Recording già fermato (dall\'altro utente)');
+                    return true;
+                }
+                console.error('❌ Errore stop recording:', error.detail);
+                return false;
             }
         } catch (error) {
             console.error('❌ Errore stop recording:', error);
+            return false;
         }
     }
     

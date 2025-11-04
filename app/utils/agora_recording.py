@@ -15,8 +15,12 @@ load_dotenv()
 
 # Credenziali Agora
 AGORA_APP_ID = os.getenv("AGORA_APP_ID")
-AGORA_CUSTOMER_ID = os.getenv("AGORA_CUSTOMER_ID", "")  # Da dashboard Agora
-AGORA_CUSTOMER_SECRET = os.getenv("AGORA_CUSTOMER_SECRET", "")  # Da dashboard Agora
+AGORA_APP_CERTIFICATE = os.getenv("AGORA_APP_CERTIFICATE")
+
+# Per Cloud Recording, Agora usa App ID come Customer ID
+# e genera il Customer Secret dall'App Certificate
+AGORA_CUSTOMER_ID = AGORA_APP_ID
+AGORA_CUSTOMER_SECRET = AGORA_APP_CERTIFICATE
 
 # Credenziali AWS S3
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -29,7 +33,8 @@ AGORA_RECORDING_API = "https://api.agora.io/v1/apps/{}/cloud_recording"
 
 
 def get_agora_auth_header() -> str:
-    """Genera l'header di autenticazione per le API Agora"""
+    """Genera l'header di autenticazione per le API Agora usando App ID e Certificate"""
+    # Usa App ID come username e App Certificate come password per Basic Auth
     credentials = f"{AGORA_CUSTOMER_ID}:{AGORA_CUSTOMER_SECRET}"
     encoded = base64.b64encode(credentials.encode()).decode()
     return f"Basic {encoded}"
