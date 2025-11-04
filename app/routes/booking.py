@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict
+from datetime import datetime, timedelta, time
+from typing import Optional, List, Dict, Union
 from app.database import engine
 from app.models import Booking, User, AvailabilityBlock
 from app.routes.auth import get_current_user
@@ -13,9 +13,13 @@ templates = Jinja2Templates(directory="app/templates")
 
 # ========== UTILITÀ ==========
 
-def parse_time_to_minutes(time_str: str) -> int:
-    """Converte una stringa HH:MM in minuti dalla mezzanotte"""
-    hours, minutes = map(int, time_str.split(':'))
+def parse_time_to_minutes(time_input: Union[str, time]) -> int:
+    """Converte una stringa HH:MM o un oggetto time in minuti dalla mezzanotte"""
+    if isinstance(time_input, time):
+        # Se è già un oggetto time, usa hour e minute
+        return time_input.hour * 60 + time_input.minute
+    # Se è una stringa, fai il parsing
+    hours, minutes = map(int, time_input.split(':'))
     return hours * 60 + minutes
 
 def minutes_to_time(minutes: int) -> str:
