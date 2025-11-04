@@ -61,8 +61,8 @@ async def get_availability_by_date(request: Request, date_str: str):
             "blocks": [
                 {
                     "id": block.id,
-                    "start_time": block.start_time,
-                    "end_time": block.end_time,
+                    "start_time": block.start_time.strftime("%H:%M") if block.start_time else None,
+                    "end_time": block.end_time.strftime("%H:%M") if block.end_time else None,
                     "status": block.status
                 }
                 for block in blocks
