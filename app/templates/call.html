@@ -452,6 +452,12 @@
             // Play local video
             localTracks.video.play('localPlayer');
             
+            // Hide local placeholder
+            const localPlaceholder = localPlayer.querySelector('.video-placeholder');
+            if (localPlaceholder) {
+                localPlaceholder.style.display = 'none';
+            }
+            
             // Publish local tracks
             await client.publish([localTracks.audio, localTracks.video]);
             
@@ -480,6 +486,12 @@
             videoGrid.classList.add('has-remote');
             user.videoTrack.play('remotePlayer');
             remoteLabel.textContent = 'Partecipante';
+            
+            // Hide remote placeholder
+            const remotePlaceholder = remotePlayer.querySelector('.video-placeholder');
+            if (remotePlaceholder) {
+                remotePlaceholder.style.display = 'none';
+            }
         }
         
         if (mediaType === 'audio') {
