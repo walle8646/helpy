@@ -120,6 +120,14 @@
         height: 64px;
     }
     
+    .control-btn.screen-share {
+        background: #4a5568;
+    }
+    
+    .control-btn.screen-share.active {
+        background: #8e44ad;
+    }
+    
     .control-btn:hover {
         transform: scale(1.1);
     }
@@ -287,6 +295,10 @@
             <i class="fas fa-video"></i>
         </button>
         
+        <button class="control-btn screen-share" id="screenShareBtn" title="Condividi schermo">
+            <i class="fas fa-desktop"></i>
+        </button>
+        
         <button class="control-btn end-call" id="endCallBtn" title="Termina chiamata">
             <i class="fas fa-phone-slash"></i>
         </button>
@@ -306,6 +318,8 @@
         video: null,
         audio: null
     };
+    let screenTrack = null;
+    let isScreenSharing = false;
     let remoteUsers = {};
     let callStartTime = null;
     let timerInterval = null;
@@ -320,6 +334,7 @@
     const remoteLabel = document.getElementById('remoteLabel');
     const micBtn = document.getElementById('micBtn');
     const cameraBtn = document.getElementById('cameraBtn');
+    const screenShareBtn = document.getElementById('screenShareBtn');
     const endCallBtn = document.getElementById('endCallBtn');
     const callTimer = document.getElementById('callTimer');
     const timerDisplay = document.getElementById('timerDisplay');
@@ -529,6 +544,77 @@
         cameraBtn.querySelector('i').className = isEnabled ? 'fas fa-video-slash' : 'fas fa-video';
     });
     
+    // Toggle screen share
+    screenShareBtn.addEventListener('click', async () => {
+        if (isScreenSharing) {
+            // Stop screen sharing, tornare alla webcam
+            await stopScreenShare();
+        } else {
+            // Start screen sharing
+            await startScreenShare();
+        }
+    });
+    
+    async function startScreenShare() {
+        try {
+            // Crea screen track
+            screenTrack = await AgoraRTC.createScreenVideoTrack({
+                encoderConfig: "1080p_1",
+                optimizationMode: "detail"
+            });
+            
+            // Unpublish e ferma il video corrente
+            if (localTracks.video) {
+                await client.unpublish(localTracks.video);
+                localTracks.video.stop();
+                localTracks.video.close();
+            }
+            
+            // Pubblica screen track
+            await client.publish(screenTrack);
+            
+            // Mostra schermo nel video locale
+            screenTrack.play('localPlayer');
+            
+            isScreenSharing = true;
+            screenShareBtn.classList.add('active');
+            screenShareBtn.querySelector('i').className = 'fas fa-desktop';
+            
+            // Quando l'utente ferma la condivisione dal browser
+            screenTrack.on("track-ended", async () => {
+                await stopScreenShare();
+            });
+            
+        } catch (error) {
+            console.error('Errore avvio screen share:', error);
+            alert('Impossibile condividere lo schermo. Assicurati di dare i permessi necessari.');
+        }
+    }
+    
+    async function stopScreenShare() {
+        try {
+            if (screenTrack) {
+                // Unpublish e ferma screen track
+                await client.unpublish(screenTrack);
+                screenTrack.stop();
+                screenTrack.close();
+                screenTrack = null;
+            }
+            
+            // Ricrea e pubblica il video della webcam
+            localTracks.video = await AgoraRTC.createCameraVideoTrack();
+            await client.publish(localTracks.video);
+            localTracks.video.play('localPlayer');
+            
+            isScreenSharing = false;
+            screenShareBtn.classList.remove('active');
+            screenShareBtn.querySelector('i').className = 'fas fa-desktop';
+            
+        } catch (error) {
+            console.error('Errore stop screen share:', error);
+        }
+    }
+    
     // End call
     endCallBtn.addEventListener('click', async () => {
         if (confirm('Sei sicuro di voler terminare la chiamata?')) {
@@ -545,6 +631,13 @@
         // Stop timer
         if (timerInterval) {
             clearInterval(timerInterval);
+        }
+        
+        // Stop screen share if active
+        if (screenTrack) {
+            screenTrack.stop();
+            screenTrack.close();
+            screenTrack = null;
         }
         
         for (let trackName in localTracks) {
@@ -569,7 +662,58 @@
     // Initialize on page load
     initializeCall();
     
-    // Cleanup on page unload
-    window.addEventListener('beforeunload', leaveCall);
+    // Cleanup on page unload (chiusura browser, tab, refresh)
+    window.addEventListener('beforeunload', (e) => {
+        // Stop recording usando sendBeacon (funziona anche se la pagina si chiude)
+        // sendBeacon è garantito essere eseguito anche durante la chiusura
+        const stopUrl = `/api/booking/${bookingId}/recording/stop`;
+        const blob = new Blob(['{}'], { type: 'application/json' });
+        navigator.sendBeacon(stopUrl, blob);
+        
+        // Cleanup Agora resources (sincrono)
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+        
+        // Stop screen share if active
+        if (screenTrack) {
+            try {
+                screenTrack.stop();
+                screenTrack.close();
+            } catch (err) {
+                console.error('Error stopping screen track:', err);
+            }
+        }
+        
+        for (let trackName in localTracks) {
+            const track = localTracks[trackName];
+            if (track) {
+                try {
+                    track.stop();
+                    track.close();
+                } catch (err) {
+                    console.error('Error stopping track:', err);
+                }
+            }
+        }
+        
+        if (client) {
+            try {
+                client.leave();
+            } catch (err) {
+                console.error('Error leaving channel:', err);
+            }
+        }
+    });
+    
+    // Cleanup anche su visibilitychange (quando cambi tab)
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            // Utente ha cambiato tab, potrebbe non tornare
+            const stopUrl = `/api/booking/${bookingId}/recording/stop`;
+            const blob = new Blob(['{}'], { type: 'application/json' });
+            navigator.sendBeacon(stopUrl, blob);
+        }
+    });
 </script>
 {% endblock %}

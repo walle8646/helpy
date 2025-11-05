@@ -173,6 +173,12 @@ async def get_available_slots(
             .where(AvailabilityBlock.status == "available")
         ).all()
         
+        # DEBUG: Log dei blocchi trovati
+        print(f"🔍 DEBUG - Date: {date}, Consultant: {consultant_id}")
+        print(f"📅 Blocchi trovati: {len(availability_blocks)}")
+        for block in availability_blocks:
+            print(f"   Block ID {block.id}: {block.start_time} - {block.end_time} (status: {block.status}, active: {block.is_active})")
+        
         if not availability_blocks:
             return {"slots": [], "message": "Il consulente non è disponibile in questa data"}
         
@@ -664,7 +670,41 @@ async def stop_booking_recording(booking_id: int, request: Request):
     """Ferma la registrazione cloud"""
     current_user = get_current_user(request)
     if not current_user:
-        raise HTTPException(status_code=401, detail="Non autenticato")
+        # Se chiamato da sendBeacon, potrebbe non avere la sessione
+        # Tentiamo comunque di fermare la registrazione
+        with Session(engine) as session:
+            booking = session.get(Booking, booking_id)
+            if booking and booking.recording_status == "recording":
+                # Ferma senza autenticazione (emergenza)
+                recorder_uid = 999999
+                channel_name = f"booking_{booking_id}"
+                
+                try:
+                    result = stop_recording(
+                        booking.recording_resource_id,
+                        booking.recording_sid,
+                        channel_name,
+                        recorder_uid
+                    )
+                    
+                    if result:
+                        file_name = result["file_name"]
+                        recording_url = get_recording_url(file_name)
+                        booking.recording_url = recording_url
+                        booking.recording_duration = result.get("mix_duration", 0)
+                        booking.recording_status = "completed"
+                    else:
+                        booking.recording_status = "failed"
+                    
+                    booking.recording_completed_at = datetime.utcnow()
+                    booking.updated_at = datetime.utcnow()
+                    session.add(booking)
+                    session.commit()
+                except Exception as e:
+                    print(f"Errore stop recording (no auth): {e}")
+                    pass
+        
+        return {"success": True, "message": "Recording stop tentato"}
     
     with Session(engine) as session:
         booking = session.get(Booking, booking_id)
@@ -675,9 +715,14 @@ async def stop_booking_recording(booking_id: int, request: Request):
         if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
             raise HTTPException(status_code=403, detail="Non autorizzato")
         
-        # Verifica che ci sia un recording attivo
+        # Se già fermato, non è un errore (potrebbe essere stato fermato dall'altro utente)
         if booking.recording_status != "recording":
-            raise HTTPException(status_code=400, detail="Nessun recording attivo")
+            return {
+                "success": True,
+                "message": "Recording già fermato",
+                "recording_url": booking.recording_url,
+                "duration": booking.recording_duration
+            }
         
         if not booking.recording_sid or not booking.recording_resource_id:
             raise HTTPException(status_code=400, detail="Dati recording mancanti")
