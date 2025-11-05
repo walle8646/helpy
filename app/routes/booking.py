@@ -363,23 +363,19 @@ async def get_my_bookings(
 
 @router.get("/api/booking/upcoming")
 async def get_upcoming_bookings(request: Request):
-    """Ottiene i prossimi appuntamenti dell'utente (entro le prossime 24 ore)"""
+    """Ottiene i prossimi 3 appuntamenti futuri dell'utente"""
     current_user = get_current_user(request)
     if not current_user:
         raise HTTPException(status_code=401, detail="Non autenticato")
     
     with Session(engine) as session:
-        # Usa datetime.now() invece di utcnow() per l'ora locale
+        # Usa datetime.now() per l'ora locale
         now = datetime.now()
-        today = now.date()
-        tomorrow = (now + timedelta(days=1)).date()
         
-        # Query per prenotazioni confermate nelle prossime 24 ore
+        # Query per prenotazioni confermate FUTURE (dopo adesso)
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
-            Booking.status.in_(['confirmed', 'pending']),
-            func.date(Booking.booking_date) >= str(today),
-            func.date(Booking.booking_date) <= str(tomorrow)
+            Booking.status.in_(['confirmed', 'pending'])
         ).order_by(Booking.booking_date, Booking.start_time)
         
         bookings = session.exec(statement).all()
@@ -403,6 +399,10 @@ async def get_upcoming_bookings(request: Request):
             # Calcola i minuti fino all'inizio
             time_until = (booking_datetime - now).total_seconds() / 60
             
+            # FILTRO: Salta appuntamenti passati (prima di ora)
+            if time_until < -booking.duration_minutes:
+                continue
+            
             print(f"DEBUG: booking_date={booking_date}, booking_datetime={booking_datetime}, now={now}, time_until={time_until}")
             
             # Determina il ruolo dell'utente corrente
@@ -414,7 +414,7 @@ async def get_upcoming_bookings(request: Request):
             other_user = session.get(User, other_user_id)
             
             # Determina lo stato per l'UI
-            can_join = time_until <= 10 and time_until >= -booking.duration_minutes  # 10 minuti prima fino alla fine
+            can_join = time_until <= 10 and time_until >= -10  # Da 10 min prima a 10 min dopo inizio
             has_joined = booking.client_joined_at is not None if is_client else booking.consultant_joined_at is not None
             other_joined = booking.consultant_joined_at is not None if is_client else booking.client_joined_at is not None
             can_start_call = has_joined and other_joined
@@ -437,6 +437,10 @@ async def get_upcoming_bookings(request: Request):
                 "other_joined": other_joined,
                 "can_start_call": can_start_call
             })
+            
+            # LIMITE: Mostra massimo 3 appuntamenti
+            if len(upcoming) >= 3:
+                break
         
         return {"bookings": upcoming}
 
