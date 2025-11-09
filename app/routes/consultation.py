@@ -257,9 +257,10 @@ async def confirm_booking(
     offer_id: int,
     user: User = Depends(get_current_user)
 ):
-    """Confirm booking of a consultation offer"""
-    from app.models import Booking
+    """Create Stripe Checkout Session for consultation booking"""
+    from app.utils.stripe_config import create_checkout_session
     import json
+    import os
     
     # Get slot data from request body
     body = await request.json()
@@ -290,36 +291,38 @@ async def confirm_booking(
             session.commit()
             raise HTTPException(status_code=400, detail="Questa offerta è scaduta")
         
-        # Parse date and time
-        booking_datetime = datetime.strptime(f"{selected_date} {start_time}", "%Y-%m-%d %H:%M")
+        # Get APP_URL from environment
+        app_url = os.getenv("BASE_URL", "http://localhost:8080")
         
-        # Create booking
-        new_booking = Booking(
-            client_user_id=offer.client_user_id,
-            consultant_user_id=offer.consultant_user_id,
-            booking_date=booking_datetime,
-            start_time=start_time,
-            end_time=end_time,
-            duration_minutes=offer.duration_minutes,
-            price=offer.price,
-            status="confirmed",
-            payment_status="pending",
-            client_notes=f"Prenotazione da offerta consulenza #{offer.id}"
-        )
-        session.add(new_booking)
-        session.commit()
-        session.refresh(new_booking)
-        
-        # Update offer status
-        offer.status = "accepted"
-        offer.booking_id = new_booking.id
-        offer.updated_at = datetime.utcnow()
-        session.add(offer)
-        session.commit()
-        
-        return JSONResponse({
-            "success": True,
-            "booking_id": new_booking.id,
-            "message": "Prenotazione confermata con successo"
-        })
+        # Create Stripe Checkout Session
+        try:
+            # Convert price to cents (Stripe uses smallest currency unit)
+            amount_cents = int(float(offer.price) * 100)
+            
+            checkout_session = create_checkout_session(
+                amount=amount_cents,
+                currency='eur',
+                success_url=f"{app_url}/booking/success?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{app_url}/consulenza/prenota/{offer_id}?cancelled=true",
+                metadata={
+                    'offer_id': str(offer.id),
+                    'client_user_id': str(offer.client_user_id),
+                    'consultant_user_id': str(offer.consultant_user_id),
+                    'selected_date': selected_date,
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'duration_minutes': str(offer.duration_minutes)
+                }
+            )
+            
+            return JSONResponse({
+                "success": True,
+                "checkout_url": checkout_session.url,
+                "session_id": checkout_session.id
+            })
+            
+        except Exception as e:
+            logger.error(f"Error creating Stripe checkout session: {e}")
+            raise HTTPException(status_code=500, detail=f"Errore nella creazione del pagamento: {str(e)}")
+
 

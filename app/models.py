@@ -156,6 +156,10 @@ class Booking(SQLModel, table=True):
     payment_method: Optional[str] = None
     transaction_id: Optional[str] = None
     
+    # Stripe payment fields
+    stripe_checkout_session_id: Optional[str] = None  # Stripe Checkout Session ID
+    stripe_payment_intent_id: Optional[str] = None  # Stripe Payment Intent ID
+    
     meeting_link: Optional[str] = None  # Link Zoom/Google Meet
     client_notes: Optional[str] = None
     consultant_notes: Optional[str] = None

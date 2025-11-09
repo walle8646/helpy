@@ -929,9 +929,9 @@
             
             const data = await response.json();
             
-            if (response.ok) {
-                alert('✅ Prenotazione confermata! Riceverai una email di conferma.');
-                window.location.href = '/profile';
+            if (response.ok && data.success) {
+                // Redirect to Stripe Checkout
+                window.location.href = data.checkout_url;
             } else {
                 alert('❌ Errore: ' + (data.detail || 'Impossibile completare la prenotazione'));
                 this.disabled = false;

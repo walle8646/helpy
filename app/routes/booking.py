@@ -8,6 +8,8 @@ from app.database import engine
 from app.models import Booking, User, AvailabilityBlock
 from app.routes.auth import get_current_user
 from app.utils.agora_recording import start_recording, stop_recording, get_recording_url
+from app.logger_config import logger
+from app.utils.stripe_config import create_checkout_session
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -216,7 +218,7 @@ async def create_booking(
     booking_data: dict
 ):
     """
-    Crea una nuova prenotazione.
+    Crea Stripe Checkout Session per prenotazione.
     
     Body:
         consultant_user_id: int
@@ -227,6 +229,8 @@ async def create_booking(
         availability_block_id: int (optional)
         client_notes: str (optional)
     """
+    import os
+    
     # Verifica autenticazione
     current_user = get_current_user(request)
     if not current_user:
@@ -279,39 +283,44 @@ async def create_booking(
         # Calcola il prezzo
         price = consultant.prezzo_consulenza if consultant.prezzo_consulenza else 0
         
-        # Crea la prenotazione
-        new_booking = Booking(
-            client_user_id=current_user.id,
-            consultant_user_id=consultant_id,
-            availability_block_id=availability_block_id,
-            booking_date=booking_date,
-            start_time=start_time,
-            end_time=end_time,
-            duration_minutes=duration_minutes,
-            status='pending',
-            price=price,
-            payment_status='pending',
-            client_notes=client_notes
-        )
+        if not price or price <= 0:
+            raise HTTPException(status_code=400, detail="Il consulente non ha impostato un prezzo")
         
-        session.add(new_booking)
-        session.commit()
-        session.refresh(new_booking)
+        # Get APP_URL from environment
+        app_url = os.getenv("BASE_URL", "http://localhost:8080")
         
-        return {
-            "success": True,
-            "booking_id": new_booking.id,
-            "message": "Prenotazione creata con successo",
-            "booking": {
-                "id": new_booking.id,
-                "date": booking_date_str,
-                "start_time": start_time,
-                "end_time": end_time,
-                "consultant_name": f"{consultant.nome} {consultant.cognome}",
-                "price": float(price) if price else 0,
-                "status": new_booking.status
+        # Create Stripe Checkout Session
+        try:
+            # Convert price to cents (Stripe uses smallest currency unit)
+            amount_cents = int(float(price) * 100)
+            
+            checkout_session = create_checkout_session(
+                amount=amount_cents,
+                currency='eur',
+                success_url=f"{app_url}/booking/success?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{app_url}/book/{consultant_id}?cancelled=true",
+                metadata={
+                    'booking_type': 'direct',  # differenzia da consultation offer
+                    'client_user_id': str(current_user.id),
+                    'consultant_user_id': str(consultant_id),
+                    'booking_date': booking_date_str,
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'duration_minutes': str(duration_minutes),
+                    'availability_block_id': str(availability_block_id) if availability_block_id else '',
+                    'client_notes': client_notes
+                }
+            )
+            
+            return {
+                "success": True,
+                "checkout_url": checkout_session.url,
+                "session_id": checkout_session.id
             }
-        }
+            
+        except Exception as e:
+            logger.error(f"Error creating Stripe checkout session: {e}")
+            raise HTTPException(status_code=500, detail=f"Errore nella creazione del pagamento: {str(e)}")
 
 @router.get("/api/booking/my-bookings")
 async def get_my_bookings(
@@ -323,17 +332,19 @@ async def get_my_bookings(
         raise HTTPException(status_code=401, detail="Non autenticato")
     
     with Session(engine) as session:
-        # Prenotazioni come cliente
+        # Prenotazioni come cliente (solo quelle pagate)
         bookings_as_client = session.exec(
             select(Booking)
             .where(Booking.client_user_id == current_user.id)
+            .where(Booking.payment_status == 'paid')
             .order_by(Booking.booking_date.desc())
         ).all()
         
-        # Prenotazioni come consulente
+        # Prenotazioni come consulente (solo quelle pagate)
         bookings_as_consultant = session.exec(
             select(Booking)
             .where(Booking.consultant_user_id == current_user.id)
+            .where(Booking.payment_status == 'paid')
             .order_by(Booking.booking_date.desc())
         ).all()
         
@@ -378,10 +389,11 @@ async def get_upcoming_bookings(request: Request):
         # Usa datetime.now() per l'ora locale
         now = datetime.now()
         
-        # Query per prenotazioni confermate FUTURE (dopo adesso)
+        # Query per prenotazioni confermate FUTURE (dopo adesso) e pagate
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
-            Booking.status.in_(['confirmed', 'pending'])
+            Booking.status.in_(['confirmed', 'pending']),
+            Booking.payment_status == 'paid'
         ).order_by(Booking.booking_date, Booking.start_time)
         
         bookings = session.exec(statement).all()
@@ -786,3 +798,26 @@ async def get_booking_recording(booking_id: int, request: Request):
             "recording_started_at": booking.recording_started_at.isoformat() if booking.recording_started_at else None,
             "recording_completed_at": booking.recording_completed_at.isoformat() if booking.recording_completed_at else None
         }
+
+@router.get("/booking/success", response_class=HTMLResponse)
+async def booking_success(request: Request):
+    """Payment success page"""
+    current_user = get_current_user(request)
+    return templates.TemplateResponse("booking_success.html", {
+        "request": request,
+        "user": current_user,
+        "current_user": current_user
+    })
+
+@router.get("/booking/cancel", response_class=HTMLResponse)
+async def booking_cancel(request: Request, offer_id: Optional[int] = None):
+    """Payment cancelled page"""
+    current_user = get_current_user(request)
+    back_url = f"/consulenza/prenota/{offer_id}" if offer_id else "/profile"
+    return templates.TemplateResponse("booking_cancel.html", {
+        "request": request,
+        "user": current_user,
+        "current_user": current_user,
+        "back_url": back_url
+    })
+

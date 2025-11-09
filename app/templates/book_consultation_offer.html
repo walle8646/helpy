@@ -678,12 +678,14 @@ confirmBtn.addEventListener('click', async function() {
             body: JSON.stringify(selectedSlot)
         });
         
-        if (response.ok) {
-            alert('✅ Prenotazione confermata! Verrai reindirizzato alla pagina di pagamento.');
-            window.location.href = '/prenotazioni';
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            // Redirect to Stripe Checkout
+            window.location.href = data.checkout_url;
         } else {
-            const error = await response.json();
-            alert('❌ Errore: ' + (error.detail || 'Impossibile completare la prenotazione'));
+            const error = data.detail || 'Impossibile completare la prenotazione';
+            alert('❌ Errore: ' + error);
             confirmBtn.disabled = false;
             confirmBtn.innerHTML = '<i class="fas fa-calendar-check"></i> Conferma Prenotazione';
         }
