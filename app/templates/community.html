@@ -974,7 +974,7 @@
                         {% if user.is_verified %}
                         <!-- Utente LOGGATO verificato: può messaggiare -->
                         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
-                            <a href="/messaggi/{{ item.author.id }}" 
+                            <button onclick="openChat({{ item.author.id }}, '{{ item.author.nome }} {{ item.author.cognome }}', '{{ item.author.profile_picture_url }}')"
                                class="btn-message-verified"
                                style="display: inline-flex; 
                                       align-items: center; 
@@ -982,14 +982,15 @@
                                       padding: 8px 16px; 
                                       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                                       color: white; 
-                                      text-decoration: none; 
+                                      border: none;
+                                      cursor: pointer;
                                       border-radius: 8px; 
                                       font-size: 0.9rem; 
                                       font-weight: 500;
                                       transition: all 0.2s;">
                                 <i class="fas fa-check-circle" style="color: #4ade80;"></i>
                                 💬 Messaggia
-                            </a>
+                            </button>
                         </div>
                         {% else %}
                         <!-- Utente LOGGATO non verificato: deve completare il profilo -->

@@ -143,7 +143,7 @@
             <p style="text-align: center; color: #555; font-size: 0.95em; margin: 0 0 16px 0;">
                 Invia un messaggio per domande veloci.
             </p>
-            <a href="/messaggi/{{ user.id }}" 
+            <button onclick="openChat({{ user.id }}, '{{ user.nome }} {{ user.cognome }}', '{{ user.profile_picture_url }}')" 
                class="btn btn-secondary" 
                style="display: block; 
                       width: 100%; 
@@ -153,11 +153,13 @@
                       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                       color: white; 
                       border-radius: 12px; 
-                      text-decoration: none; 
+                      border: none;
+                      cursor: pointer;
                       font-weight: 600; 
                       transition: transform 0.2s, box-shadow 0.2s;
                       box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
                 💬 Invia Messaggio
+            </button>
             </a>
         </section>
         {% endif %}

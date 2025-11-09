@@ -301,6 +301,11 @@
         </div>
     </footer>
 
+    <!-- Chat Widget (incluso globalmente) -->
+    {% if user %}
+        {% include "chat_widget.html" %}
+    {% endif %}
+
     <!-- JavaScript Globale -->
     <script src="/static/script.js"></script>
     

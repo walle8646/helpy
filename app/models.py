@@ -88,6 +88,10 @@ class Message(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_read: bool = Field(default=False)
     
+    # System messages and consultation offers
+    is_system_message: bool = Field(default=False)
+    consultation_offer_id: Optional[int] = Field(default=None, foreign_key="consultation_offers.id")
+    
     # ✅ Relationship con Conversation
     conversation: Optional[Conversation] = Relationship(back_populates="messages")
 
@@ -173,6 +177,26 @@ class Booking(SQLModel, table=True):
     cancellation_reason: Optional[str] = None
     cancelled_by: Optional[int] = Field(default=None, foreign_key="user.id")
     cancelled_at: Optional[datetime] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ConsultationOffer(SQLModel, table=True):
+    __tablename__ = "consultation_offers"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    consultant_user_id: int = Field(foreign_key="user.id")
+    client_user_id: int = Field(foreign_key="user.id")
+    
+    price: float = Field(gt=0)
+    duration_minutes: int = Field(gt=0)
+    
+    status: str = Field(default="pending")  # pending, accepted, rejected, expired, completed
+    booking_id: Optional[int] = Field(default=None, foreign_key="booking.id")
+    
+    message: Optional[str] = None
+    expires_at: datetime
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -36,7 +36,8 @@ def create_db_and_tables():
         Conversation, Message,
         CommunityQuestion,  # ✅ Solo CommunityQuestion, senza CommunityAnswer
         AvailabilityBlock,  # ✅ Gestione disponibilità
-        Booking  # ✅ Gestione prenotazioni
+        Booking,  # ✅ Gestione prenotazioni
+        ConsultationOffer  # ✅ Gestione offerte consulenze
     )
     
     SQLModel.metadata.create_all(engine)

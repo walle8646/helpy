@@ -1,0 +1,698 @@
+{% extends "base.html" %}
+
+{% block title %}Prenota Consulenza{% endblock %}
+
+{% block extra_css %}
+<style>
+    .booking-consultation-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 30px;
+    }
+    
+    .offer-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+    
+    .offer-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 28px;
+    }
+    
+    .offer-header p {
+        margin: 5px 0;
+        opacity: 0.95;
+        font-size: 16px;
+    }
+    
+    .consultant-card {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 25px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .consultant-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 32px;
+        font-weight: 600;
+    }
+    
+    .consultant-avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .consultant-info h3 {
+        margin: 0 0 5px 0;
+        font-size: 22px;
+        color: #333;
+    }
+    
+    .consultant-info p {
+        margin: 0;
+        color: #666;
+        font-size: 14px;
+    }
+    
+    .offer-details {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .offer-details h3 {
+        margin: 0 0 20px 0;
+        font-size: 20px;
+        color: #333;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 10px;
+    }
+    
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 15px 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+    
+    .detail-label {
+        color: #666;
+        font-weight: 500;
+    }
+    
+    .detail-value {
+        color: #333;
+        font-weight: 600;
+        font-size: 18px;
+    }
+    
+    .price-highlight {
+        color: #667eea;
+        font-size: 24px;
+    }
+    
+    .locked-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        background: #e3f2fd;
+        color: #1565c0;
+        border-radius: 12px;
+        font-size: 12px;
+        margin-left: 10px;
+    }
+    
+    .custom-message {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+        border-left: 4px solid #667eea;
+    }
+    
+    .custom-message p {
+        margin: 0;
+        color: #555;
+        font-style: italic;
+    }
+    
+    .calendar-section {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .calendar-section h3 {
+        margin: 0 0 20px 0;
+        font-size: 20px;
+        color: #333;
+    }
+    
+    .calendar-placeholder {
+        padding: 60px;
+        text-align: center;
+        background: #f8f9fa;
+        border-radius: 8px;
+        color: #666;
+    }
+    
+    .calendar-placeholder i {
+        font-size: 48px;
+        color: #667eea;
+        margin-bottom: 15px;
+    }
+    
+    .expires-warning {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        color: #856404;
+        text-align: center;
+    }
+    
+    .btn-book {
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .btn-book:hover {
+        transform: translateY(-2px);
+    }
+    
+    .btn-book:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    /* Time slots styling */
+    .time-slot {
+        padding: 12px 16px;
+        background: white;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+    }
+    
+    .time-slot:hover {
+        border-color: #667eea;
+        background: #f0f4ff;
+        transform: translateY(-2px);
+    }
+    
+    .time-slot.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #667eea;
+        color: white;
+    }
+    
+    .time-slot.selected:hover {
+        transform: translateY(-2px);
+    }
+    
+    /* Weekly calendar styling */
+    .day-card {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 15px 10px;
+        transition: all 0.3s;
+        min-height: 200px;
+    }
+    
+    .day-card.has-slots {
+        border-color: #667eea;
+    }
+    
+    .day-card.today {
+        background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
+        border-color: #667eea;
+        border-width: 3px;
+    }
+    
+    .day-header {
+        text-align: center;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .day-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #667eea;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .day-date {
+        font-size: 12px;
+        color: #888;
+        margin-top: 3px;
+    }
+    
+    .day-slots {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .no-availability {
+        text-align: center;
+        color: #aaa;
+        font-style: italic;
+        font-size: 13px;
+        padding: 20px 5px;
+    }
+    
+    .slot-button {
+        padding: 10px 8px;
+        background: white;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .slot-button:hover {
+        border-color: #667eea;
+        background: #f0f4ff;
+        transform: scale(1.05);
+    }
+    
+    .slot-button.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #667eea;
+        color: white;
+    }
+    
+    #prevWeekBtn:hover, #nextWeekBtn:hover {
+        background: #667eea;
+        color: white;
+        transform: translateX(0);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="booking-consultation-container">
+    <div class="offer-header">
+        <h1>🎯 Offerta di Consulenza</h1>
+        <p>Prenota la tua consulenza con il consulente</p>
+    </div>
+    
+    <div class="consultant-card">
+        <div class="consultant-avatar">
+            {% if consultant.profile_picture %}
+                <img src="{{ consultant.profile_picture }}" alt="{{ consultant.nome }}">
+            {% else %}
+                {{ consultant.nome[0] }}{{ consultant.cognome[0] if consultant.cognome else '' }}
+            {% endif %}
+        </div>
+        <div class="consultant-info">
+            <h3>{{ consultant.nome }} {{ consultant.cognome }}</h3>
+            <p>{{ consultant.professione or 'Consulente' }}</p>
+            {% if consultant.descrizione %}
+            <p style="margin-top: 10px; color: #888;">{{ consultant.descrizione[:100] }}...</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="offer-details">
+        <h3>📋 Dettagli Offerta</h3>
+        
+        <div class="detail-row">
+            <span class="detail-label">Durata</span>
+            <span class="detail-value">
+                {{ offer.duration_minutes }} minuti
+                <span class="locked-badge">
+                    <i class="fas fa-lock"></i>
+                    Bloccato
+                </span>
+            </span>
+        </div>
+        
+        <div class="detail-row">
+            <span class="detail-label">Prezzo</span>
+            <span class="detail-value price-highlight">
+                €{{ "%.2f"|format(offer.price) }}
+                <span class="locked-badge">
+                    <i class="fas fa-lock"></i>
+                    Bloccato
+                </span>
+            </span>
+        </div>
+        
+        <div class="detail-row">
+            <span class="detail-label">Creata il</span>
+            <span class="detail-value">{{ offer.created_at.strftime('%d/%m/%Y alle %H:%M') }}</span>
+        </div>
+        
+        {% if offer.message %}
+        <div class="custom-message">
+            <p><strong>Messaggio del consulente:</strong></p>
+            <p>{{ offer.message }}</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="expires-warning">
+        <i class="fas fa-clock"></i>
+        Questa offerta scade il <strong>{{ offer.expires_at.strftime('%d/%m/%Y alle %H:%M') }}</strong>
+    </div>
+    
+    <div class="calendar-section">
+        <h3>📅 Seleziona Data e Ora</h3>
+        
+        <!-- Week navigation -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            <button id="prevWeekBtn" style="padding: 10px 20px; background: white; border: 2px solid #667eea; color: #667eea; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                <i class="fas fa-chevron-left"></i> Settimana Precedente
+            </button>
+            <div id="weekRangeDisplay" style="font-weight: 600; font-size: 16px; color: #333;">
+                <!-- Verrà popolato dinamicamente -->
+            </div>
+            <button id="nextWeekBtn" style="padding: 10px 20px; background: white; border: 2px solid #667eea; color: #667eea; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                Settimana Successiva <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        
+        <!-- Calendar picker (optional - per scegliere una settimana specifica) -->
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                � Oppure salta a una data specifica:
+            </label>
+            <input type="date" id="dateJumpSelector" 
+                   style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;">
+        </div>
+        
+        <!-- Loading state -->
+        <div id="loadingWeek" style="display: none; text-align: center; padding: 60px; color: #666;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 15px;"></i>
+            <p style="font-size: 16px; font-weight: 600;">Caricamento disponibilità settimanali...</p>
+        </div>
+        
+        <!-- Weekly calendar view -->
+        <div id="weeklyCalendar" style="display: none;">
+            <div id="daysContainer" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; margin-top: 20px;">
+                <!-- I giorni verranno inseriti qui dinamicamente -->
+            </div>
+        </div>
+        
+        <!-- Empty state -->
+        <div id="noAvailability" style="display: none; text-align: center; padding: 60px; color: #888;">
+            <i class="fas fa-calendar-times" style="font-size: 48px; margin-bottom: 20px; color: #ddd;"></i>
+            <p style="font-size: 18px; font-weight: 600;">Nessuna disponibilità in questa settimana</p>
+            <p style="font-size: 14px; margin-top: 10px; color: #aaa;">Prova a navigare verso un'altra settimana</p>
+        </div>
+    </div>
+    
+    <button class="btn-book" id="confirmBookingBtn" disabled>
+        <i class="fas fa-calendar-check"></i>
+        Conferma Prenotazione
+    </button>
+    
+    <div style="margin-top: 30px; padding: 20px; background: #e3f2fd; border-radius: 8px; text-align: center; font-size: 14px; color: #1565c0;">
+        <i class="fas fa-info-circle"></i>
+        <strong>Come funziona:</strong><br>
+        Seleziona un orario disponibile del consulente, conferma la prenotazione e procedi al pagamento.
+        Il prezzo e la durata sono già stati concordati e non possono essere modificati.
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const consultantId = {{ consultant.id }};
+const offerId = {{ offer.id }};
+const durationMinutes = {{ offer.duration_minutes }};
+let selectedSlot = null;
+let currentWeekStart = new Date();
+
+const prevWeekBtn = document.getElementById('prevWeekBtn');
+const nextWeekBtn = document.getElementById('nextWeekBtn');
+const dateJumpSelector = document.getElementById('dateJumpSelector');
+const weekRangeDisplay = document.getElementById('weekRangeDisplay');
+const weeklyCalendar = document.getElementById('weeklyCalendar');
+const daysContainer = document.getElementById('daysContainer');
+const loadingWeek = document.getElementById('loadingWeek');
+const noAvailability = document.getElementById('noAvailability');
+const confirmBtn = document.getElementById('confirmBookingBtn');
+
+// Italian day names
+const dayNames = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+const monthNames = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+
+// Set current week to Monday
+currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + (currentWeekStart.getDay() === 0 ? -6 : 1));
+currentWeekStart.setHours(0, 0, 0, 0);
+
+// Load initial week
+window.addEventListener('DOMContentLoaded', () => {
+    loadWeeklyAvailability();
+});
+
+// Navigation buttons
+prevWeekBtn.addEventListener('click', () => {
+    currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+    loadWeeklyAvailability();
+});
+
+nextWeekBtn.addEventListener('click', () => {
+    currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+    loadWeeklyAvailability();
+});
+
+// Date jump
+dateJumpSelector.addEventListener('change', function() {
+    const selectedDate = new Date(this.value + 'T00:00:00');
+    // Set to Monday of that week
+    currentWeekStart = new Date(selectedDate);
+    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + (currentWeekStart.getDay() === 0 ? -6 : 1));
+    loadWeeklyAvailability();
+});
+
+async function loadWeeklyAvailability() {
+    // Show loading
+    weeklyCalendar.style.display = 'none';
+    noAvailability.style.display = 'none';
+    loadingWeek.style.display = 'block';
+    selectedSlot = null;
+    confirmBtn.disabled = true;
+    
+    // Update week range display
+    const weekEnd = new Date(currentWeekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekRangeDisplay.innerHTML = `📅 Riepilogo Prossimi 7 Giorni<br><small style="font-size: 13px; color: #888;">${formatDate(currentWeekStart)} - ${formatDate(weekEnd)}</small>`;
+    
+    // Generate 7 days
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(currentWeekStart);
+        date.setDate(date.getDate() + i);
+        days.push(date);
+    }
+    
+    try {
+        // Load availability for all 7 days
+        const availabilityPromises = days.map(date => 
+            loadDayAvailability(date.toISOString().split('T')[0])
+        );
+        
+        const availabilities = await Promise.all(availabilityPromises);
+        
+        loadingWeek.style.display = 'none';
+        
+        // Check if any day has availability
+        const hasAnyAvailability = availabilities.some(avail => avail.slots && avail.slots.length > 0);
+        
+        if (!hasAnyAvailability) {
+            noAvailability.style.display = 'block';
+            return;
+        }
+        
+        // Render weekly calendar
+        renderWeeklyCalendar(days, availabilities);
+        weeklyCalendar.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading weekly availability:', error);
+        loadingWeek.style.display = 'none';
+        noAvailability.style.display = 'block';
+    }
+}
+
+async function loadDayAvailability(dateStr) {
+    try {
+        const response = await fetch(`/api/availability/${dateStr}?user_id=${consultantId}`);
+        if (!response.ok) return { date: dateStr, blocks: [], slots: [] };
+        
+        const data = await response.json();
+        const slots = generateTimeSlots(data.blocks || [], durationMinutes);
+        
+        return {
+            date: dateStr,
+            blocks: data.blocks || [],
+            slots: slots
+        };
+    } catch (error) {
+        console.error(`Error loading availability for ${dateStr}:`, error);
+        return { date: dateStr, blocks: [], slots: [] };
+    }
+}
+
+function renderWeeklyCalendar(days, availabilities) {
+    daysContainer.innerHTML = '';
+    const today = new Date().toISOString().split('T')[0];
+    
+    days.forEach((date, index) => {
+        const dateStr = date.toISOString().split('T')[0];
+        const dayAvailability = availabilities[index];
+        const isToday = dateStr === today;
+        const hasSlots = dayAvailability.slots.length > 0;
+        
+        const dayCard = document.createElement('div');
+        dayCard.className = `day-card ${hasSlots ? 'has-slots' : ''} ${isToday ? 'today' : ''}`;
+        
+        dayCard.innerHTML = `
+            <div class="day-header">
+                <div class="day-name">${dayNames[date.getDay()]}</div>
+                <div class="day-date">${date.getDate()}/${date.getMonth() + 1}</div>
+            </div>
+            <div class="day-slots" id="day-slots-${index}">
+                ${hasSlots ? '' : '<div class="no-availability">Nessuna fascia</div>'}
+            </div>
+        `;
+        
+        daysContainer.appendChild(dayCard);
+        
+        // Add slot buttons
+        if (hasSlots) {
+            const slotsContainer = dayCard.querySelector(`#day-slots-${index}`);
+            dayAvailability.slots.forEach(slot => {
+                const slotBtn = document.createElement('button');
+                slotBtn.className = 'slot-button';
+                slotBtn.textContent = slot.start_time;
+                slotBtn.onclick = () => selectWeeklySlot(slot, dateStr, slotBtn);
+                slotsContainer.appendChild(slotBtn);
+            });
+        }
+    });
+}
+
+function generateTimeSlots(blocks, duration) {
+    const slots = [];
+    
+    blocks.forEach(block => {
+        if (block.status !== 'available') return;
+        
+        const [startHour, startMin] = block.start_time.split(':').map(Number);
+        const [endHour, endMin] = block.end_time.split(':').map(Number);
+        
+        let currentMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+        
+        while (currentMinutes + duration <= endMinutes) {
+            const slotStartHour = Math.floor(currentMinutes / 60);
+            const slotStartMin = currentMinutes % 60;
+            const slotEndMinutes = currentMinutes + duration;
+            const slotEndHour = Math.floor(slotEndMinutes / 60);
+            const slotEndMin = slotEndMinutes % 60;
+            
+            slots.push({
+                start_time: `${String(slotStartHour).padStart(2, '0')}:${String(slotStartMin).padStart(2, '0')}`,
+                end_time: `${String(slotEndHour).padStart(2, '0')}:${String(slotEndMin).padStart(2, '0')}`,
+                block_id: block.id
+            });
+            
+            currentMinutes += 30; // Increment by 30 minutes
+        }
+    });
+    
+    return slots;
+}
+
+function selectWeeklySlot(slot, dateStr, btnElement) {
+    // Remove previous selection
+    document.querySelectorAll('.slot-button').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    // Mark as selected
+    btnElement.classList.add('selected');
+    selectedSlot = {
+        ...slot,
+        date: dateStr
+    };
+    
+    confirmBtn.disabled = false;
+    console.log('Selected slot:', selectedSlot);
+}
+
+function formatDate(date) {
+    return `${date.getDate()} ${monthNames[date.getMonth()]}`;
+}
+
+confirmBtn.addEventListener('click', async function() {
+    if (!selectedSlot) return;
+    
+    const dateObj = new Date(selectedSlot.date + 'T00:00:00');
+    const formattedDate = `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}`;
+    
+    if (!confirm(`Confermi la prenotazione per il ${formattedDate} alle ${selectedSlot.start_time}?`)) {
+        return;
+    }
+    
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Prenotazione in corso...';
+    
+    try {
+        const response = await fetch(`/consulenza/prenota/${offerId}/confirm`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(selectedSlot)
+        });
+        
+        if (response.ok) {
+            alert('✅ Prenotazione confermata! Verrai reindirizzato alla pagina di pagamento.');
+            window.location.href = '/prenotazioni';
+        } else {
+            const error = await response.json();
+            alert('❌ Errore: ' + (error.detail || 'Impossibile completare la prenotazione'));
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-calendar-check"></i> Conferma Prenotazione';
+        }
+    } catch (error) {
+        console.error('Error confirming booking:', error);
+        alert('❌ Errore di connessione');
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-calendar-check"></i> Conferma Prenotazione';
+    }
+});
+</script>
+{% endblock %}

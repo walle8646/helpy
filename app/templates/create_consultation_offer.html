@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}Crea Offerta Consulenza{% endblock %}
+
+{% block extra_css %}
+<style>
+    .consultation-form-container {
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 30px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .client-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 30px;
+    }
+    
+    .client-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-size: 24px;
+        font-weight: 600;
+    }
+    
+    .client-avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .client-details h3 {
+        margin: 0 0 5px 0;
+        font-size: 20px;
+        color: #333;
+    }
+    
+    .client-details p {
+        margin: 0;
+        color: #666;
+        font-size: 14px;
+    }
+    
+    .form-group {
+        margin-bottom: 25px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+        font-size: 14px;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    
+    .form-group textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .price-input-wrapper {
+        position: relative;
+    }
+    
+    .price-input-wrapper .currency-symbol {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #666;
+        font-weight: 600;
+    }
+    
+    .price-input-wrapper input {
+        padding-left: 28px;
+    }
+    
+    .help-text {
+        font-size: 13px;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .duration-options {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .duration-option {
+        position: relative;
+    }
+    
+    .duration-option input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    
+    .duration-option label {
+        display: block;
+        padding: 15px;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+    }
+    
+    .duration-option input[type="radio"]:checked + label {
+        background: #667eea;
+        border-color: #667eea;
+        color: white;
+    }
+    
+    .duration-option label:hover {
+        border-color: #667eea;
+    }
+    
+    .existing-offer-warning {
+        padding: 15px;
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        color: #856404;
+    }
+    
+    .existing-offer-warning strong {
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .btn-submit {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .btn-submit:hover {
+        transform: translateY(-2px);
+    }
+    
+    .btn-cancel {
+        width: 100%;
+        padding: 14px;
+        background: #f8f9fa;
+        color: #666;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 10px;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+        transition: background 0.2s;
+    }
+    
+    .btn-cancel:hover {
+        background: #e9ecef;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="consultation-form-container">
+    <h2 style="margin-top: 0;">🎯 Crea Offerta di Consulenza</h2>
+    
+    <div class="client-info">
+        <div class="client-avatar">
+            {% if client.profile_picture %}
+                <img src="{{ client.profile_picture }}" alt="{{ client.nome }}">
+            {% else %}
+                {{ client.nome[0] }}{{ client.cognome[0] if client.cognome else '' }}
+            {% endif %}
+        </div>
+        <div class="client-details">
+            <h3>{{ client.nome }} {{ client.cognome }}</h3>
+            <p>{{ client.email }}</p>
+        </div>
+    </div>
+    
+    {% if existing_offer %}
+    <div class="existing-offer-warning">
+        <strong>⚠️ Attenzione</strong>
+        Hai già un'offerta attiva per questo cliente (€{{ existing_offer.price }}, {{ existing_offer.duration_minutes }} min).
+        Creando una nuova offerta, quella precedente verrà annullata.
+    </div>
+    {% endif %}
+    
+    <form method="POST" action="/consulenza/crea/{{ client.id }}" id="consultationForm">
+        <div class="form-group">
+            <label for="price">Prezzo (€)</label>
+            <div class="price-input-wrapper">
+                <span class="currency-symbol">€</span>
+                <input 
+                    type="number" 
+                    id="price" 
+                    name="price" 
+                    min="1" 
+                    step="0.01"
+                    value="{{ default_price }}" 
+                    required
+                >
+            </div>
+            <div class="help-text">Il prezzo che il cliente dovrà pagare per questa consulenza</div>
+        </div>
+        
+        <div class="form-group">
+            <label>Durata</label>
+            <div class="duration-options">
+                {% for duration in duration_options %}
+                <div class="duration-option">
+                    <input 
+                        type="radio" 
+                        id="duration_{{ duration }}" 
+                        name="duration_minutes" 
+                        value="{{ duration }}"
+                        {% if duration == 60 %}checked{% endif %}
+                        required
+                    >
+                    <label for="duration_{{ duration }}">{{ duration }} min</label>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="help-text">La durata della consulenza che verrà prenotata</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="custom_message">Messaggio personalizzato (opzionale)</label>
+            <textarea 
+                id="custom_message" 
+                name="custom_message"
+                placeholder="Aggiungi un messaggio personalizzato all'offerta..."
+                maxlength="500"
+            ></textarea>
+            <div class="help-text">Un messaggio che verrà mostrato insieme all'offerta</div>
+        </div>
+        
+        <button type="submit" class="btn-submit">
+            ✅ Crea Offerta e Invia
+        </button>
+        
+        <a href="/messages" class="btn-cancel">
+            ❌ Annulla
+        </a>
+    </form>
+    
+    <div style="margin-top: 30px; padding: 15px; background: #e3f2fd; border-radius: 6px; font-size: 14px; color: #1565c0;">
+        <strong>ℹ️ Come funziona:</strong>
+        <ul style="margin: 10px 0 0 20px; padding: 0;">
+            <li>Crei l'offerta con prezzo e durata</li>
+            <li>Il cliente riceve un messaggio automatico nella chat</li>
+            <li>Il cliente può prenotare un orario dalla tua disponibilità</li>
+            <li>Il prezzo e la durata non possono essere modificati dal cliente</li>
+            <li>L'offerta scade automaticamente dopo 7 giorni</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+document.getElementById('consultationForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    // Disable button and show loading
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Invio in corso...';
+    
+    // Get form data
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            // Show success message
+            alert('✅ ' + data.message);
+            
+            // Redirect to profile page
+            window.location.href = '/profile';
+        } else {
+            // Show error message
+            alert('❌ Errore: ' + (data.detail || data.message || 'Impossibile creare l\'offerta'));
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    } catch (error) {
+        console.error('Error creating consultation offer:', error);
+        alert('❌ Errore di connessione. Riprova più tardi.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+});
+</script>
+{% endblock %}

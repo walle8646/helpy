@@ -3,7 +3,7 @@ from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 from typing import List, Optional
 import logging
 
@@ -13,6 +13,25 @@ from app.routes.auth import verify_token
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+logger = logging.getLogger(__name__)
+
+
+def format_time_field(time_value) -> str:
+    """
+    Formatta un campo time che può essere str (SQLite) o time object (PostgreSQL)
+    Returns: stringa in formato HH:MM
+    """
+    if time_value is None:
+        return None
+    if isinstance(time_value, str):
+        # SQLite restituisce già una stringa "HH:MM:SS" o "HH:MM"
+        return time_value[:5]  # Prendi solo HH:MM
+    elif isinstance(time_value, time):
+        # PostgreSQL restituisce un oggetto time
+        return time_value.strftime("%H:%M")
+    else:
+        # Fallback: converti a stringa
+        return str(time_value)[:5]
 logger = logging.getLogger(__name__)
 
 @router.get("/availability", response_class=HTMLResponse)
@@ -32,11 +51,19 @@ async def availability_page(request: Request):
     })
 
 @router.get("/api/availability/{date_str}")
-async def get_availability_by_date(request: Request, date_str: str):
+async def get_availability_by_date(
+    request: Request, 
+    date_str: str,
+    user_id: Optional[int] = None
+):
     """Ottieni disponibilità per una specifica data (formato: YYYY-MM-DD)"""
-    user = verify_token(request)
-    if not user:
+    current_user = verify_token(request)
+    if not current_user:
         raise HTTPException(status_code=401, detail="Non autorizzato")
+    
+    # Se user_id è specificato, carica le disponibilità di quell'utente
+    # Altrimenti carica le disponibilità dell'utente corrente
+    target_user_id = user_id if user_id else current_user.id
     
     try:
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -46,14 +73,14 @@ async def get_availability_by_date(request: Request, date_str: str):
     with Session(engine) as session:
         # Usa confronto con cast a DATE per SQLite compatibility
         statement = select(AvailabilityBlock).where(
-            AvailabilityBlock.user_id == user.id,
+            AvailabilityBlock.user_id == target_user_id,
             func.date(AvailabilityBlock.date) == date_str,
             AvailabilityBlock.is_active == True
         ).order_by(AvailabilityBlock.start_time)
         
         blocks = session.exec(statement).all()
         
-        logger.info(f"📅 Loading availability for {date_str}: found {len(blocks)} blocks")
+        logger.info(f"📅 Loading availability for user {target_user_id} on {date_str}: found {len(blocks)} blocks")
         
         return JSONResponse({
             "success": True,
@@ -61,8 +88,8 @@ async def get_availability_by_date(request: Request, date_str: str):
             "blocks": [
                 {
                     "id": block.id,
-                    "start_time": block.start_time.strftime("%H:%M") if block.start_time else None,
-                    "end_time": block.end_time.strftime("%H:%M") if block.end_time else None,
+                    "start_time": format_time_field(block.start_time),
+                    "end_time": format_time_field(block.end_time),
                     "status": block.status
                 }
                 for block in blocks

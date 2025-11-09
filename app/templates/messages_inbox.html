@@ -151,7 +151,7 @@
                         const preview = lastMsg.length > 50 ? lastMsg.substring(0, 50) + '...' : lastMsg;
 
                         return `
-                            <a href="/messaggi/${conv.other_user.id}" class="conversation-item">
+                            <div class="conversation-item" onclick="openChat(${conv.other_user.id}, '${conv.other_user.nome} ${conv.other_user.cognome || ''}', '${conv.other_user.profile_picture || '/static/uploads/profile_pictures/default.jpg'}')" style="cursor: pointer;">
                                 <div class="conversation-avatar">
                                     <img src="${conv.other_user.profile_picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(conv.other_user.nome) + '&background=667eea&color=fff'}" 
                                          alt="${conv.other_user.nome}"
@@ -167,7 +167,7 @@
                                     <div class="conversation-time">${time}</div>
                                     ${conv.unread_count > 0 ? `<span class="unread-badge">${conv.unread_count}</span>` : ''}
                                 </div>
-                            </a>
+                            </div>
                         `;
                     }).join('');
                 }

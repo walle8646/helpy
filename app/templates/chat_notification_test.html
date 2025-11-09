@@ -1,0 +1,66 @@
+<!-- 
+TEST NOTIFICHE CHAT WIDGET
+
+Per testare il sistema di notifiche:
+
+1. Apri due browser (o modalità incognito)
+2. Login con due utenti diversi
+3. Utente A invia messaggio a Utente B
+4. Utente B vedrà:
+   - Toast notification in basso a destra
+   - Suono di notifica
+   - Badge con numero messaggi non letti
+   - Animazione pulse sul bottone chat
+5. Click sulla notifica apre la chat
+
+FUNZIONALITÀ IMPLEMENTATE:
+✅ Toast notification animata (slideIn da destra)
+✅ Avatar + nome + timestamp + anteprima messaggio
+✅ Auto-hide dopo 5 secondi
+✅ Click su notifica apre chat
+✅ Bottone X per chiudere manualmente
+✅ Suono discreto (se browser permette autoplay)
+✅ Polling ogni 5 secondi per nuovi messaggi
+✅ Badge aggiornato in real-time
+✅ Animazione pulse sul bottone quando ci sono notifiche
+✅ No notifiche se chat già aperta con mittente
+
+POLLING STRATEGY:
+- Notifiche globali: 5 secondi
+- Messaggi chat aperta: 3 secondi  
+- Badge non letti: 30 secondi
+
+COME TESTARE MANUALMENTE:
+1. Browser A: Login come utente1
+2. Browser B: Login come utente2
+3. Browser A: Vai su profilo di utente2, click "Invia Messaggio"
+4. Browser A: Scrivi "Ciao!" e invia
+5. Browser B: Dopo max 5 secondi vedrai la notifica toast
+6. Browser B: Click sulla notifica per aprire la chat
+
+DEBUG:
+- Apri console browser (F12)
+- Controlla log: "Error polling new messages" se ci sono problemi
+- Verifica che `/api/conversations` ritorni dati corretti
+- lastKnownMessageId dovrebbe aggiornarsi ad ogni nuovo messaggio
+
+STRUTTURA NOTIFICA:
+{
+  userId: 11,
+  userName: "Mario Rossi",
+  userAvatar: "/static/uploads/profile_pictures/mario.jpg",
+  message: "Ciao! Come stai?",
+  timestamp: "2025-11-08T15:30:00"
+}
+
+CSS CLASSES:
+.chat-notification         - Container toast
+.chat-notification.show    - Visible state
+.chat-button.has-notification - Pulse animation
+
+ANIMATIONS:
+- slideInRight: Toast entra da destra
+- pulse: Bottone pulsa quando ci sono notifiche
+- slideUp: Chat window si apre dal basso
+
+-->

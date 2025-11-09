@@ -13,8 +13,26 @@ from app.routes.auth import verify_token, get_current_user
 router = APIRouter()
 
 # ========== CONFIGURAZIONE LIMITI ==========
-MAX_MESSAGES_PER_CONVERSATION = 15
+MAX_MESSAGES_PER_CONVERSATION = 80  # ✅ Modificato da 1000 a 80
 MAX_MESSAGE_LENGTH = 1000
+
+# ========== API ENDPOINTS ==========
+
+@router.get("/api/current-user")
+async def api_get_current_user(request: Request):
+    """API endpoint to get current logged-in user info"""
+    user = verify_token(request)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    
+    return JSONResponse({
+        "id": user.id,
+        "email": user.email,
+        "nome": user.nome,
+        "cognome": user.cognome,
+        "is_verified": user.is_verified,
+        "category_id": user.category_id
+    })
 
 # ========== HELPER FUNCTIONS ==========
 
@@ -157,16 +175,18 @@ async def get_conversations(request: Request):
                         "professione": other_user.professione or ""
                     },
                     "last_message": {
+                        "id": last_message.id if last_message else None,  # ✅ Aggiunto ID
                         "content": last_message.content if last_message else None,
                         "created_at": last_message.created_at.isoformat() if last_message else None,
-                        "is_mine": last_message.sender_id == user_id if last_message else False
+                        "is_mine": last_message.sender_id == user_id if last_message else False,
+                        "is_sender": last_message.sender_id == user_id if last_message else False  # ✅ Aggiunto is_sender
                     } if last_message else None,
                     "unread_count": unread_count,
                     "updated_at": conv.updated_at.isoformat()
                 })
             
             logger.info(f"✅ Loaded {len(result)} conversations for user {user_id}")
-            return JSONResponse(result, status_code=200)
+            return JSONResponse({"conversations": result}, status_code=200)
     
     except Exception as e:
         logger.error(f"Error getting conversations: {e}", exc_info=True)
@@ -193,12 +213,12 @@ async def get_messages(
             
             conversation = get_or_create_conversation(session, user_id, other_user_id)
             
-            # ✅ Ottieni solo gli ultimi 15 messaggi
+            # ✅ Ottieni gli ultimi 100 messaggi (modificato da 15)
             messages = session.exec(
                 select(Message)
                 .where(Message.conversation_id == conversation.id)
                 .order_by(Message.created_at.desc())
-                .limit(MAX_MESSAGES_PER_CONVERSATION)  # ✅ LIMITE 15 MESSAGGI
+                .limit(100)  # ✅ Carica ultimi 100 messaggi
             ).all()
             
             # Conta messaggi totali
@@ -233,7 +253,9 @@ async def get_messages(
                     "id": msg.id,
                     "content": msg.content,
                     "sender_id": msg.sender_id,
-                    "is_mine": msg.sender_id == user_id,
+                    "is_sender": msg.sender_id == user_id,  # ✅ Rinominato da is_mine a is_sender per il frontend
+                    "is_mine": msg.sender_id == user_id,  # ✅ Mantenuto per backward compatibility
+                    "is_system_message": msg.is_system_message if hasattr(msg, 'is_system_message') else False,  # ✅ Aggiunto per messaggi di sistema
                     "created_at": msg.created_at.isoformat(),
                     "is_read": msg.is_read
                 }
@@ -246,7 +268,7 @@ async def get_messages(
                 "messages": result,
                 "total": total_messages,
                 "showing": len(result),
-                "limit_reached": total_messages >= MAX_MESSAGES_PER_CONVERSATION
+                "has_more": total_messages > 100  # ✅ Indica se ci sono più di 100 messaggi
             }, status_code=200)
     
     except Exception as e:

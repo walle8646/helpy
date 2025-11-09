@@ -1,0 +1,1705 @@
+<!-- Chat Widget - Messaggistica dinamica in basso a destra -->
+<style>
+    /* Chat Widget Container */
+    .chat-widget {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    /* Chat Button (minimized state) */
+    .chat-button {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transition: all 0.3s;
+        position: relative;
+    }
+    
+    .chat-button:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .chat-button.has-notification {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+    }
+    
+    .chat-button i {
+        color: white;
+        font-size: 24px;
+    }
+    
+    .chat-button .unread-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #ef4444;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+        border: 2px solid white;
+    }
+    
+    /* Chat Window (expanded state) */
+    .chat-window {
+        width: 380px;
+        height: 550px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 5px 40px rgba(0, 0, 0, 0.16);
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        animation: slideUp 0.3s ease-out;
+    }
+    
+    .chat-window.open {
+        display: flex;
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Chat Header */
+    .chat-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .chat-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .chat-header-avatar-wrapper {
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+    }
+    
+    .chat-header-avatar-wrapper .chat-message-avatar-initials {
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .chat-header-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .chat-header-name {
+        font-weight: 600;
+        font-size: 15px;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .chat-header-status {
+        font-size: 12px;
+        opacity: 0.9;
+        margin-bottom: 4px;
+    }
+    
+    .create-consultation-link {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 11px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+        margin-top: 4px;
+    }
+    
+    .create-consultation-link:hover {
+        background: rgba(255, 255, 255, 0.25);
+        transform: translateY(-1px);
+    }
+    
+    .create-consultation-link i {
+        font-size: 12px;
+    }
+    
+    .chat-header-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .chat-header-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+    
+    .chat-header-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    /* Conversations List View */
+    .chat-conversations-list {
+        flex: 1;
+        overflow-y: auto;
+        background: white;
+        display: flex;
+        flex-direction: column; /* ✅ Aggiunto: conversazioni una sotto l'altra */
+    }
+    
+    .chat-conversations-list::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .chat-conversations-list::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    
+    .chat-conversations-list::-webkit-scrollbar-thumb {
+        background: #cbd5e0;
+        border-radius: 3px;
+    }
+    
+    .conversation-item {
+        padding: 16px;
+        border-bottom: 1px solid #e2e8f0;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .conversation-item:hover {
+        background: #f7fafc;
+    }
+    
+    .conversation-item-avatar {
+        flex-shrink: 0;
+    }
+    
+    .conversation-item-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .conversation-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 4px;
+    }
+    
+    .conversation-item-name {
+        font-weight: 600;
+        font-size: 15px;
+        color: #2d3748;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .conversation-item-time {
+        font-size: 12px;
+        color: #a0aec0;
+        margin-left: 8px;
+    }
+    
+    .conversation-item-message {
+        font-size: 14px;
+        color: #718096;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .conversation-item-unread {
+        background: #667eea;
+        color: white;
+        border-radius: 10px;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 600;
+        min-width: 20px;
+        text-align: center;
+    }
+    
+    .conversations-loading {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #a0aec0;
+        gap: 12px;
+        padding: 40px 20px;
+    }
+    
+    .conversations-loading i {
+        font-size: 32px;
+    }
+    
+    /* Chat Messages Area */
+    .chat-messages {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background: #f7fafc;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .chat-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    
+    .chat-messages::-webkit-scrollbar-thumb {
+        background: #cbd5e0;
+        border-radius: 3px;
+    }
+    
+    .chat-message {
+        display: flex;
+        gap: 8px;
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .chat-message.sent {
+        flex-direction: row-reverse;
+    }
+    
+    .chat-message-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        position: relative;
+    }
+    
+    .chat-message-avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .chat-message-avatar-initials {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        cursor: help;
+    }
+    
+    .chat-message-content {
+        max-width: 70%;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .chat-message.sent .chat-message-content {
+        align-items: flex-end;
+    }
+    
+    .chat-message-bubble {
+        padding: 10px 14px;
+        border-radius: 18px;
+        word-wrap: break-word;
+        line-height: 1.4;
+    }
+    
+    .chat-message.received .chat-message-bubble {
+        background: white;
+        color: #2d3748;
+        border-bottom-left-radius: 4px;
+    }
+    
+    .chat-message.sent .chat-message-bubble {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+    
+    /* System message styles */
+    .chat-message.system-message {
+        justify-content: center;
+        padding: 20px 0;
+    }
+    
+    .chat-message.system-message .chat-message-bubble {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        max-width: 80%;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(240, 147, 251, 0.3);
+    }
+    
+    .chat-message.system-message .system-message-link {
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+        padding: 8px 16px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0;
+        transition: all 0.3s;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .chat-message.system-message .system-message-link:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    .chat-message.system-message .bullet {
+        margin-right: 4px;
+    }
+    
+    .chat-message-time {
+        font-size: 11px;
+        color: #a0aec0;
+        padding: 0 6px;
+    }
+    
+    .chat-empty {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #a0aec0;
+        text-align: center;
+        padding: 40px 20px;
+    }
+    
+    .chat-empty i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+    
+    /* Chat Input Area */
+    .chat-input-area {
+        padding: 16px;
+        background: white;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+    }
+    
+    .chat-input {
+        flex: 1;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        padding: 10px 16px;
+        font-size: 14px;
+        resize: none;
+        max-height: 100px;
+        font-family: inherit;
+        transition: border-color 0.2s;
+    }
+    
+    .chat-input:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    
+    .chat-send-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s;
+        flex-shrink: 0;
+    }
+    
+    .chat-send-btn:hover:not(:disabled) {
+        transform: scale(1.1);
+    }
+    
+    .chat-send-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    /* Loading State */
+    .chat-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    
+    .chat-loading i {
+        font-size: 24px;
+        color: #667eea;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 480px) {
+        .chat-window {
+            width: calc(100vw - 40px);
+            height: calc(100vh - 100px);
+            max-height: 600px;
+        }
+    }
+    
+    /* Notification Toast */
+    .chat-notification {
+        position: fixed;
+        bottom: 100px;
+        right: 20px;
+        width: 320px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        padding: 16px;
+        display: none;
+        z-index: 9998;
+        animation: slideInRight 0.3s ease-out;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .chat-notification:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+    }
+    
+    .chat-notification.show {
+        display: block;
+    }
+    
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(100px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    .chat-notification-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+    
+    .chat-notification-avatar-wrapper {
+        width: 48px;
+        height: 48px;
+        flex-shrink: 0;
+    }
+    
+    .chat-notification-avatar-wrapper .chat-message-avatar-initials {
+        width: 48px;
+        height: 48px;
+        font-size: 18px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chat-notification-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .chat-notification-name {
+        font-weight: 600;
+        font-size: 15px;
+        color: #2d3748;
+        margin: 0 0 2px 0;
+    }
+    
+    .chat-notification-time {
+        font-size: 12px;
+        color: #a0aec0;
+    }
+    
+    .chat-notification-message {
+        color: #4a5568;
+        font-size: 14px;
+        line-height: 1.4;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    
+    .chat-notification-close {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: transparent;
+        border: none;
+        color: #a0aec0;
+        cursor: pointer;
+        font-size: 18px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background 0.2s;
+    }
+    
+    .chat-notification-close:hover {
+        background: #f7fafc;
+        color: #4a5568;
+    }
+    
+    @media (max-width: 480px) {
+        .chat-notification {
+            width: calc(100vw - 40px);
+            right: 20px;
+        }
+    }
+</style>
+
+<!-- Notification Toast -->
+<div class="chat-notification" id="chatNotification">
+    <button class="chat-notification-close" onclick="hideNotification(event)">
+        <i class="fas fa-times"></i>
+    </button>
+    <div class="chat-notification-header">
+        <div class="chat-notification-avatar-wrapper">
+            <div class="chat-message-avatar-initials" style="width: 40px; height: 40px; font-size: 16px;" id="notificationAvatarInitials">??</div>
+        </div>
+        <div class="chat-notification-info">
+            <h4 class="chat-notification-name" id="notificationName">Nome Utente</h4>
+            <p class="chat-notification-time" id="notificationTime">Ora</p>
+        </div>
+    </div>
+    <p class="chat-notification-message" id="notificationMessage">Messaggio...</p>
+</div>
+
+<!-- Chat Widget HTML -->
+<div class="chat-widget" id="chatWidget" style="display: none;">
+    <!-- Minimized Button -->
+    <button class="chat-button" id="chatButton" style="display: block;">
+        <i class="fas fa-comment-dots"></i>
+        <span class="unread-badge" id="unreadBadge" style="display: none;">0</span>
+    </button>
+    
+    <!-- Chat Window (initially hidden) -->
+    <div class="chat-window" id="chatWindow">
+        <!-- Header -->
+        <div class="chat-header">
+            <div class="chat-header-left">
+                <button class="chat-header-btn" id="backBtn" title="Torna alla lista" style="display: none; margin-right: 8px;">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="chat-header-avatar-wrapper">
+                    <div class="chat-message-avatar-initials" style="width: 40px; height: 40px; font-size: 16px;" id="chatAvatarInitials">?</div>
+                </div>
+                <div class="chat-header-info">
+                    <h4 class="chat-header-name" id="chatUserName">Messaggi</h4>
+                    <p class="chat-header-status" id="chatUserStatus">Online</p>
+                    <button class="create-consultation-link" id="createConsultationBtn" style="display: none;">
+                        <i class="fas fa-calendar-plus"></i> Crea una consulenza
+                    </button>
+                </div>
+            </div>
+            <div class="chat-header-actions">
+                <button class="chat-header-btn" id="minimizeBtn" title="Minimizza">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button class="chat-header-btn" id="closeBtn" title="Chiudi">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Conversations List View -->
+        <div class="chat-conversations-list" id="conversationsList" style="display: none;">
+            <div class="conversations-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Caricamento conversazioni...</p>
+            </div>
+        </div>
+        
+        <!-- Messages Area (Single Chat View) -->
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-empty">
+                <i class="fas fa-comments"></i>
+                <p>Nessun messaggio ancora<br>Inizia una conversazione!</p>
+            </div>
+        </div>
+        
+        <!-- Input Area -->
+        <div class="chat-input-area" id="chatInputArea">
+            <textarea 
+                class="chat-input" 
+                id="chatInput" 
+                placeholder="Scrivi un messaggio..."
+                rows="1"></textarea>
+            <button class="chat-send-btn" id="sendBtn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Chat Widget State
+    let chatWidget = {
+        isOpen: false,
+        currentView: 'list', // ✅ 'list' o 'chat'
+        currentUserId: null,
+        currentUserName: null,
+        currentUserAvatar: null,
+        pollInterval: null,
+        notificationPollInterval: null,
+        lastMessageId: 0,
+        lastKnownMessageId: parseInt(localStorage.getItem('chatWidget_lastKnownMessageId') || '0'), // ✅ Recupera da localStorage
+        notificationQueue: [],
+        userClosedWidget: localStorage.getItem('chatWidget_userClosed') === 'true' // ✅ Recupera da localStorage
+    };
+    
+    // DOM Elements
+    const chatButton = document.getElementById('chatButton');
+    const chatWindow = document.getElementById('chatWindow');
+    const conversationsList = document.getElementById('conversationsList');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInputArea = document.getElementById('chatInputArea');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const backBtn = document.getElementById('backBtn');
+    const minimizeBtn = document.getElementById('minimizeBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const createConsultationBtn = document.getElementById('createConsultationBtn');
+    const unreadBadge = document.getElementById('unreadBadge');
+    const chatUserName = document.getElementById('chatUserName');
+    const chatUserStatus = document.getElementById('chatUserStatus');
+    const chatNotification = document.getElementById('chatNotification');
+    const notificationName = document.getElementById('notificationName');
+    const notificationTime = document.getElementById('notificationTime');
+    const notificationMessage = document.getElementById('notificationMessage');
+    
+    // User info for consultation button logic - will be fetched from API
+    let currentUserIsVerified = false;
+    let currentUserId = 0;
+    
+    // Fetch current logged-in user info
+    async function fetchCurrentUser() {
+        try {
+            const response = await fetch('/api/current-user');
+            if (response.ok) {
+                const userData = await response.json();
+                currentUserIsVerified = userData.is_verified || false;
+                currentUserId = userData.id || 0;
+                console.log('👤 Current user fetched from API:', {
+                    id: currentUserId,
+                    is_verified: currentUserIsVerified,
+                    nome: userData.nome
+                });
+                // Update consultation button after fetching user
+                if (chatWidget.isOpen && chatWidget.currentView === 'chat') {
+                    updateConsultationButton();
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error fetching current user:', error);
+        }
+    }
+    
+    // ========== HELPER FUNCTIONS ==========
+    
+    // Get user initials from name
+    function getUserInitials(userName) {
+        if (!userName) return '??';
+        
+        const parts = userName.trim().split(' ');
+        if (parts.length === 1) {
+            // Solo nome: prendi prime 2 lettere
+            return parts[0].substring(0, 2).toUpperCase();
+        } else {
+            // Nome e cognome: prendi prima lettera di ciascuno
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+    }
+    
+    // Create avatar HTML (image or initials)
+    function createAvatarHTML(avatarUrl, userName, isSender) {
+        const fullName = isSender ? 'Tu' : userName;
+        
+        // Usa iniziali se: nessun avatar, avatar vuoto, o avatar è un path di default
+        const hasValidAvatar = avatarUrl && 
+                              avatarUrl !== '' && 
+                              avatarUrl !== '/static/uploads/profile_pictures/default.jpg' &&
+                              avatarUrl !== '/static/default-avatar.png' &&
+                              !avatarUrl.includes('default.jpg') &&
+                              !avatarUrl.includes('default-avatar') &&
+                              avatarUrl !== 'null' &&
+                              avatarUrl !== 'None';
+        
+        if (hasValidAvatar) {
+            // Ha un'immagine profilo valida
+            return `<div class="chat-message-avatar" title="${fullName}">
+                        <img src="${avatarUrl}" alt="${fullName}" onerror="this.parentElement.innerHTML='<div class=\\'chat-message-avatar-initials\\'>${getUserInitials(userName)}</div>'">
+                    </div>`;
+        } else {
+            // Usa iniziali
+            const initials = getUserInitials(userName);
+            return `<div class="chat-message-avatar" title="${fullName}">
+                        <div class="chat-message-avatar-initials">${initials}</div>
+                    </div>`;
+        }
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Format system message content with clickable links
+    function formatSystemMessage(content) {
+        // Replace markdown-style links [text](url) with HTML links
+        let formatted = escapeHtml(content);
+        
+        // Convert [text](url) to clickable links
+        formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="system-message-link">$1</a>');
+        
+        // Convert line breaks to <br>
+        formatted = formatted.replace(/\n/g, '<br>');
+        
+        // Bold text between **
+        formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        
+        // Italic text between _
+        formatted = formatted.replace(/_([^_]+)_/g, '<em>$1</em>');
+        
+        // Bullet points
+        formatted = formatted.replace(/•/g, '<span class="bullet">•</span>');
+        
+        return formatted;
+    }
+    
+    // Format timestamp
+    function formatTime(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    }
+    
+    // Update consultation button visibility
+    function updateConsultationButton() {
+        if (!createConsultationBtn) return;
+        
+        // Show consultation button only if:
+        // 1. Current user is verified consultant (is_verified = 1)
+        // 2. We're in chat view (not list view)
+        // 3. Not chatting with self
+        const shouldShow = currentUserIsVerified && 
+                         chatWidget.currentView === 'chat' && 
+                         chatWidget.currentUserId && 
+                         chatWidget.currentUserId !== currentUserId;
+        
+        createConsultationBtn.style.display = shouldShow ? 'block' : 'none';
+        console.log(`🎯 Pulsante consulenza: ${shouldShow ? 'VISIBILE' : 'NASCOSTO'}`, {
+            isVerifiedConsultant: currentUserIsVerified,
+            inChatView: chatWidget.currentView === 'chat',
+            chattingWithOther: chatWidget.currentUserId !== currentUserId,
+            currentUserId: chatWidget.currentUserId
+        });
+    }
+    
+    // ========== MAIN FUNCTIONS ==========
+    
+    // Switch to conversations list view
+    function showConversationsList() {
+        console.log(`📋 Mostro lista conversazioni`);
+        chatWidget.currentView = 'list';
+        
+        // Nascondi chat, mostra lista
+        chatMessages.style.display = 'none';
+        chatInputArea.style.display = 'none';
+        conversationsList.style.display = 'flex';
+        
+        // Nascondi bottone back e consultation button
+        backBtn.style.display = 'none';
+        updateConsultationButton();
+        
+        // Aggiorna header
+        chatUserName.textContent = 'Messaggi';
+        const chatAvatarInitials = document.getElementById('chatAvatarInitials');
+        if (chatAvatarInitials) {
+            chatAvatarInitials.textContent = '💬';
+        }
+        
+        // Carica lista conversazioni
+        loadConversationsList();
+    }
+    
+    // Switch to single chat view
+    function showChatView() {
+        console.log(`💬 Mostro vista chat singola`);
+        chatWidget.currentView = 'chat';
+        
+        // Mostra chat, nascondi lista
+        conversationsList.style.display = 'none';
+        chatMessages.style.display = 'flex';
+        chatInputArea.style.display = 'flex';
+        
+        // Mostra bottone back e aggiorna consultation button
+        backBtn.style.display = 'flex';
+        updateConsultationButton();
+    }
+    
+    // Load conversations list
+    async function loadConversationsList() {
+        try {
+            conversationsList.innerHTML = '<div class="conversations-loading"><i class="fas fa-spinner fa-spin"></i><p>Caricamento conversazioni...</p></div>';
+            
+            const response = await fetch('/api/conversations');
+            if (!response.ok) throw new Error('Failed to load conversations');
+            
+            const data = await response.json();
+            
+            if (!data || !data.conversations || data.conversations.length === 0) {
+                conversationsList.innerHTML = '<div class="chat-empty"><i class="fas fa-comments"></i><p>Nessuna conversazione ancora</p></div>';
+                return;
+            }
+            
+            // Renderizza lista conversazioni
+            conversationsList.innerHTML = '';
+            data.conversations.forEach(conv => {
+                const convItem = document.createElement('div');
+                convItem.className = 'conversation-item';
+                convItem.onclick = () => {
+                    openChat(
+                        conv.other_user.id,
+                        `${conv.other_user.nome} ${conv.other_user.cognome || ''}`.trim(),
+                        conv.other_user.profile_picture
+                    );
+                };
+                
+                const initials = getUserInitials(`${conv.other_user.nome} ${conv.other_user.cognome || ''}`);
+                const lastMessage = conv.last_message?.content || 'Nessun messaggio';
+                const lastTime = conv.last_message?.created_at ? formatTime(conv.last_message.created_at) : '';
+                
+                convItem.innerHTML = `
+                    <div class="conversation-item-avatar">
+                        <div class="chat-message-avatar-initials" style="width: 48px; height: 48px; font-size: 18px;" title="${conv.other_user.nome}">
+                            ${initials}
+                        </div>
+                    </div>
+                    <div class="conversation-item-content">
+                        <div class="conversation-item-header">
+                            <span class="conversation-item-name">${conv.other_user.nome} ${conv.other_user.cognome || ''}</span>
+                            <span class="conversation-item-time">${lastTime}</span>
+                        </div>
+                        <div class="conversation-item-message">${escapeHtml(lastMessage)}</div>
+                    </div>
+                    ${conv.unread_count > 0 ? `<span class="conversation-item-unread">${conv.unread_count}</span>` : ''}
+                `;
+                
+                conversationsList.appendChild(convItem);
+            });
+            
+        } catch (error) {
+            console.error('❌ Error loading conversations list:', error);
+            conversationsList.innerHTML = '<div class="chat-empty"><i class="fas fa-exclamation-circle"></i><p>Errore nel caricamento</p></div>';
+        }
+    }
+    
+    // Open chat with specific user
+    window.openChat = function(userId, userName, userAvatar = null) {
+        console.log(`💬 openChat chiamata:`, { userId, userName, userAvatar });
+        
+        // Mostra il widget se era nascosto
+        const chatWidgetContainer = document.getElementById('chatWidget');
+        chatWidgetContainer.style.display = 'block';
+        
+        chatWidget.currentUserId = userId;
+        chatWidget.currentUserName = userName;
+        chatWidget.currentUserAvatar = userAvatar; // ✅ Non impostare default qui
+        
+        // Switch to chat view
+        showChatView();
+        
+        // Update header con iniziali
+        chatUserName.textContent = userName;
+        const chatAvatarInitials = document.getElementById('chatAvatarInitials');
+        if (chatAvatarInitials) {
+            chatAvatarInitials.textContent = getUserInitials(userName);
+            chatAvatarInitials.title = userName;
+        }
+        
+        // Show/hide consultation button
+        updateConsultationButton();
+        
+        // Open window
+        chatButton.style.display = 'none';
+        chatWindow.classList.add('open');
+        chatWidget.isOpen = true;
+        
+        // Remove pulse animation when opening chat
+        chatButton.classList.remove('has-notification');
+        
+        // Load messages
+        loadMessages();
+        
+        // Start polling for new messages
+        startPolling();
+        
+        // Focus input
+        chatInput.focus();
+    };
+    
+    // Close chat
+    function closeChat() {
+        console.log(`❌ Chiusura completa chat widget`);
+        
+        // Chiudi finestra
+        chatWindow.classList.remove('open');
+        
+        // Nascondi completamente il widget (sia finestra che bottone)
+        const chatWidgetContainer = document.getElementById('chatWidget');
+        chatWidgetContainer.style.display = 'none';
+        
+        // Segna che l'utente ha chiuso manualmente
+        chatWidget.userClosedWidget = true;
+        localStorage.setItem('chatWidget_userClosed', 'true'); // ✅ Salva in localStorage
+        console.log(`🚫 Widget chiuso manualmente dall'utente (salvato in localStorage)`);
+        
+        // Reset stato
+        chatWidget.isOpen = false;
+        chatWidget.currentUserId = null;
+        chatWidget.currentUserName = null;
+        chatWidget.currentUserAvatar = null;
+        
+        // Stop polling
+        stopPolling();
+        
+        // Pulisci messaggi
+        chatMessages.innerHTML = '<div class="chat-empty"><i class="fas fa-comments"></i><p>Nessun messaggio ancora<br>Inizia una conversazione!</p></div>';
+    }
+    
+    // Minimize chat
+    function minimizeChat() {
+        console.log(`➖ Minimizzazione chat widget`);
+        
+        // Chiudi finestra ma mantieni bottone visibile
+        chatWindow.classList.remove('open');
+        chatButton.style.display = 'block';
+        chatWidget.isOpen = false;
+        
+        // NON segnare come chiuso manualmente, solo minimizzato
+        
+        // Stop polling ma mantieni i dati utente per riaprire
+        stopPolling();
+    }
+    
+    // Maximize chat
+    function maximizeChat() {
+        chatButton.style.display = 'none';
+        chatWindow.classList.add('open');
+        chatWidget.isOpen = true;
+        if (chatWidget.currentUserId) {
+            loadMessages();
+            startPolling();
+        }
+    }
+    
+    // Load messages
+    async function loadMessages(incremental = false) {
+        if (!chatWidget.currentUserId) {
+            console.error('❌ loadMessages: currentUserId è null!');
+            return;
+        }
+        
+        console.log(`📥 loadMessages(incremental=${incremental}) per user ${chatWidget.currentUserId}`);
+        
+        try {
+            const url = `/api/messaggi/${chatWidget.currentUserId}`;
+            console.log(`🌐 Fetch: ${url}`);
+            
+            const response = await fetch(url);
+            
+            console.log(`📡 Response status: ${response.status} ${response.statusText}`);
+            
+            if (!response.ok) {
+                console.error(`❌ Response not OK: ${response.status}`);
+                throw new Error(`Failed to load messages: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log(`📦 Response data:`, data);
+            
+            const messages = data.messages || [];
+            console.log(`💬 Messaggi ricevuti: ${messages.length}`);
+            
+            if (messages.length > 0) {
+                console.log(`📝 Primo messaggio:`, messages[0]);
+            }
+            
+            if (incremental && messages.length > 0) {
+                // Incremental update: aggiungi solo nuovi messaggi
+                const newMessages = messages.filter(m => m.id > chatWidget.lastMessageId);
+                
+                if (newMessages.length > 0) {
+                    console.log(`➕ Aggiungo ${newMessages.length} nuovi messaggi`);
+                    appendMessages(newMessages);
+                    
+                    // Update last message ID
+                    chatWidget.lastMessageId = Math.max(...messages.map(m => m.id));
+                }
+            } else {
+                // Full reload: carica tutto (primo caricamento o refresh forzato)
+                console.log(`🔄 Full reload con ${messages.length} messaggi`);
+                renderMessages(messages);
+                
+                // Update last message ID
+                if (messages.length > 0) {
+                    chatWidget.lastMessageId = Math.max(...messages.map(m => m.id));
+                    console.log(`✅ lastMessageId aggiornato a: ${chatWidget.lastMessageId}`);
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ Error loading messages:', error);
+            chatMessages.innerHTML = '<div class="chat-empty"><i class="fas fa-exclamation-circle"></i><p>Errore nel caricamento dei messaggi</p></div>';
+        }
+    }
+    
+    // Append new messages (incremental)
+    function appendMessages(newMessages) {
+        // Remove empty state if present
+        const emptyState = chatMessages.querySelector('.chat-empty');
+        if (emptyState) {
+            emptyState.remove();
+        }
+        
+        newMessages.forEach(msg => {
+            const msgDiv = document.createElement('div');
+            
+            // Check if it's a system message
+            if (msg.is_system_message) {
+                msgDiv.className = 'chat-message system-message';
+                msgDiv.dataset.messageId = msg.id;
+                
+                msgDiv.innerHTML = `
+                    <div class="chat-message-content">
+                        <div class="chat-message-bubble">${formatSystemMessage(msg.content)}</div>
+                        <span class="chat-message-time">${formatTime(msg.created_at)}</span>
+                    </div>
+                `;
+            } else {
+                // Regular message
+                msgDiv.className = `chat-message ${msg.is_sender ? 'sent' : 'received'}`;
+                msgDiv.dataset.messageId = msg.id;
+                
+                const avatar = msg.is_sender ? 
+                    (msg.sender_avatar || null) :
+                    chatWidget.currentUserAvatar;
+                
+                const userName = msg.is_sender ? 'Tu' : chatWidget.currentUserName;
+                const avatarHTML = createAvatarHTML(avatar, userName, msg.is_sender);
+                
+                msgDiv.innerHTML = `
+                    ${avatarHTML}
+                    <div class="chat-message-content">
+                        <div class="chat-message-bubble">${escapeHtml(msg.content)}</div>
+                        <span class="chat-message-time">${formatTime(msg.created_at)}</span>
+                    </div>
+                `;
+            }
+            
+            chatMessages.appendChild(msgDiv);
+        });
+        
+        // Scroll to bottom smoothly
+        chatMessages.scrollTo({
+            top: chatMessages.scrollHeight,
+            behavior: 'smooth'
+        });
+    }
+    
+    // Render messages (full reload)
+    function renderMessages(messages) {
+        console.log(`🎨 renderMessages chiamata con ${messages.length} messaggi`);
+        
+        if (messages.length === 0) {
+            console.log(`ℹ️ Nessun messaggio, mostro empty state`);
+            chatMessages.innerHTML = '<div class="chat-empty"><i class="fas fa-comments"></i><p>Nessun messaggio ancora<br>Inizia una conversazione!</p></div>';
+            return;
+        }
+        
+        chatMessages.innerHTML = '';
+        console.log(`🧹 DOM pulito, aggiungo ${messages.length} messaggi`);
+        
+        messages.forEach((msg, index) => {
+            console.log(`  📝 Messaggio ${index + 1}:`, {
+                id: msg.id,
+                is_sender: msg.is_sender,
+                content: msg.content.substring(0, 30) + '...'
+            });
+            
+            const msgDiv = document.createElement('div');
+            
+            // Check if it's a system message
+            if (msg.is_system_message) {
+                msgDiv.className = 'chat-message system-message';
+                msgDiv.dataset.messageId = msg.id;
+                
+                msgDiv.innerHTML = `
+                    <div class="chat-message-content">
+                        <div class="chat-message-bubble">${formatSystemMessage(msg.content)}</div>
+                        <span class="chat-message-time">${formatTime(msg.created_at)}</span>
+                    </div>
+                `;
+            } else {
+                // Regular message
+                msgDiv.className = `chat-message ${msg.is_sender ? 'sent' : 'received'}`;
+                msgDiv.dataset.messageId = msg.id;
+                
+                const avatar = msg.is_sender ? 
+                    (msg.sender_avatar || null) :
+                    chatWidget.currentUserAvatar;
+                
+                const userName = msg.is_sender ? 'Tu' : chatWidget.currentUserName;
+                const avatarHTML = createAvatarHTML(avatar, userName, msg.is_sender);
+                
+                msgDiv.innerHTML = `
+                    ${avatarHTML}
+                    <div class="chat-message-content">
+                        <div class="chat-message-bubble">${escapeHtml(msg.content)}</div>
+                        <span class="chat-message-time">${formatTime(msg.created_at)}</span>
+                    </div>
+                `;
+            }
+            
+            chatMessages.appendChild(msgDiv);
+        });
+        
+        console.log(`✅ Messaggi renderizzati, scroll to bottom`);
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Send message
+    async function sendMessage() {
+        const content = chatInput.value.trim();
+        if (!content || !chatWidget.currentUserId) return;
+        
+        sendBtn.disabled = true;
+        
+        // Optimistic update: mostra messaggio immediatamente
+        const tempMessage = {
+            id: Date.now(), // Temporary ID
+            content: content,
+            is_sender: true,
+            sender_avatar: null,
+            created_at: new Date().toISOString()
+        };
+        
+        appendMessages([tempMessage]);
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+        
+        try {
+            const response = await fetch(`/api/messaggi/${chatWidget.currentUserId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `content=${encodeURIComponent(content)}`
+            });
+            
+            if (!response.ok) throw new Error('Failed to send message');
+            
+            const data = await response.json();
+            
+            // Sostituisci messaggio temporaneo con quello reale dal server
+            const tempMsgElement = chatMessages.querySelector(`[data-message-id="${tempMessage.id}"]`);
+            if (tempMsgElement && data.message) {
+                tempMsgElement.dataset.messageId = data.message.id;
+                chatWidget.lastMessageId = data.message.id;
+            }
+            
+        } catch (error) {
+            console.error('Error sending message:', error);
+            alert('Errore nell\'invio del messaggio');
+            
+            // Rimuovi messaggio temporaneo in caso di errore
+            const tempMsgElement = chatMessages.querySelector(`[data-message-id="${tempMessage.id}"]`);
+            if (tempMsgElement) {
+                tempMsgElement.remove();
+            }
+        } finally {
+            sendBtn.disabled = false;
+            chatInput.focus();
+        }
+    }
+    
+    // Polling for new messages
+    function startPolling() {
+        stopPolling();
+        chatWidget.pollInterval = setInterval(async () => {
+            if (chatWidget.currentUserId) {
+                await loadMessages(true); // Incremental update
+            }
+        }, 3000); // Poll every 3 seconds
+    }
+    
+    function stopPolling() {
+        if (chatWidget.pollInterval) {
+            clearInterval(chatWidget.pollInterval);
+            chatWidget.pollInterval = null;
+        }
+    }
+    
+    // Auto-resize textarea
+    chatInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    });
+    
+    // Event Listeners
+    chatButton.addEventListener('click', () => {
+        console.log(`🖱️ CLICK CHAT BUTTON!`);
+        
+        // Apri finestra
+        chatButton.style.display = 'none';
+        chatWindow.classList.add('open');
+        chatWidget.isOpen = true;
+        
+        // Mostra lista conversazioni (view di default)
+        showConversationsList();
+    });
+    
+    backBtn.addEventListener('click', () => {
+        console.log(`⬅️ Torna alla lista conversazioni`);
+        showConversationsList();
+        
+        // Reset user corrente
+        chatWidget.currentUserId = null;
+        stopPolling();
+    });
+    
+    minimizeBtn.addEventListener('click', minimizeChat);
+    closeBtn.addEventListener('click', closeChat);
+    
+    // Consultation button event listener
+    if (createConsultationBtn) {
+        createConsultationBtn.addEventListener('click', function() {
+            if (chatWidget.currentUserId) {
+                window.location.href = `/consulenza/crea/${chatWidget.currentUserId}`;
+            }
+        });
+    }
+    
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        stopPolling();
+        stopNotificationPolling();
+    });
+    
+    // Show notification
+    function showNotification(userId, userName, userAvatar, message, timestamp) {
+        console.log(`🔔 showNotification chiamata:`, { userId, userName, message });
+        
+        // Don't show notification if chat is open with this user
+        if (chatWidget.isOpen && chatWidget.currentUserId === userId) {
+            console.log(`⏭️ Chat già aperta con ${userName}, skip notifica`);
+            return;
+        }
+        
+        console.log(`✅ Mostro notifica toast per ${userName}`);
+        
+        // Usa iniziali per avatar notifica
+        const notificationAvatarInitials = document.getElementById('notificationAvatarInitials');
+        if (notificationAvatarInitials) {
+            notificationAvatarInitials.textContent = getUserInitials(userName);
+            notificationAvatarInitials.title = userName;
+        }
+        
+        notificationName.textContent = userName;
+        notificationTime.textContent = formatTime(timestamp);
+        notificationMessage.textContent = message;
+        
+        chatNotification.classList.add('show');
+        
+        // Add pulse animation to chat button
+        chatButton.classList.add('has-notification');
+        
+        // Click notification to open chat
+        chatNotification.onclick = (e) => {
+            console.log(`🖱️ CLICK NOTIFICA RILEVATO!`);
+            console.log(`   userId: ${userId}, userName: ${userName}`);
+            e.preventDefault();
+            e.stopPropagation();
+            openChat(userId, userName, userAvatar);
+            hideNotification();
+        };
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            hideNotification();
+        }, 5000);
+        
+        // Play notification sound (optional)
+        try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBi6Czv==');
+            audio.volume = 0.3;
+            audio.play().catch(() => {
+                console.log(`🔇 Autoplay audio bloccato dal browser`);
+            });
+        } catch (e) {
+            console.log(`🔇 Errore riproduzione audio:`, e);
+        }
+    }
+    
+    window.hideNotification = function(event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        chatNotification.classList.remove('show');
+        chatNotification.onclick = null;
+    };
+    
+    // Poll for new messages from all conversations
+    async function pollNewMessages() {
+        try {
+            const response = await fetch('/api/conversations', {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                console.error('❌ Polling failed:', response.status, response.statusText);
+                return;
+            }
+            
+            const data = await response.json();
+            
+            // Verifica che data e conversations esistano
+            if (!data || !data.conversations) {
+                console.error('❌ Risposta API malformata:', data);
+                return;
+            }
+            
+            console.log('🔄 Polling notifiche:', {
+                conversazioni: data.conversations.length,
+                isOpen: chatWidget.isOpen,
+                userClosedWidget: chatWidget.userClosedWidget,
+                lastKnownMessageId: chatWidget.lastKnownMessageId
+            });
+            
+            // Gestisci visibilità widget
+            const chatWidgetContainer = document.getElementById('chatWidget');
+            
+            if (!chatWidget.isOpen) {
+                // Chat chiusa: controlla se l'utente l'ha chiusa manualmente
+                if (chatWidget.userClosedWidget) {
+                    // Widget chiuso dall'utente: rimani nascosto
+                    // Verrà riaperto solo quando arriva un NUOVO messaggio (vedi sotto)
+                    console.log(`🚫 Widget chiuso dall'utente, rimane nascosto`);
+                } else {
+                    // Widget non chiuso manualmente: mostra se ci sono conversazioni
+                    if (data.conversations.length > 0) {
+                        chatWidgetContainer.style.display = 'block';
+                        console.log(`✅ Widget visibile: ci sono ${data.conversations.length} conversazioni`);
+                    } else {
+                        chatWidgetContainer.style.display = 'none';
+                    }
+                }
+            }
+            // Se chat è aperta, non toccare la visibilità
+            
+            // Update unread badge
+            const totalUnread = data.conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+            if (totalUnread > 0) {
+                unreadBadge.textContent = totalUnread > 9 ? '9+' : totalUnread;
+                unreadBadge.style.display = 'flex';
+            } else {
+                unreadBadge.style.display = 'none';
+            }
+            
+            // Check each conversation for new messages
+            for (const conv of data.conversations) {
+                if (!conv || !conv.last_message || !conv.other_user) {
+                    continue; // Skip conversazioni malformate
+                }
+                
+                if (conv.last_message.id) {
+                    const msgId = conv.last_message.id;
+                    const isSender = conv.last_message.is_sender;
+                    
+                    console.log(`🔍 Check conversazione:`, {
+                        user: conv.other_user.nome,
+                        msgId: msgId,
+                        lastKnown: chatWidget.lastKnownMessageId,
+                        isSender: isSender,
+                        shouldNotify: msgId > chatWidget.lastKnownMessageId && !isSender
+                    });
+                    
+                    // Debug log (riduciamo il noise, solo quando c'è qualcosa di nuovo)
+                    if (msgId > chatWidget.lastKnownMessageId) {
+                        console.log(`📨 Conversazione con ${conv.other_user.nome}: msg_id=${msgId}, lastKnown=${chatWidget.lastKnownMessageId}, is_sender=${isSender}`);
+                        console.log(`🆕 NUOVO MESSAGGIO rilevato! ID: ${msgId}`);
+                        
+                        // Only show notification if we're not the sender
+                        if (!isSender) {
+                            console.log(`📢 Mostro notifica da ${conv.other_user.nome}`);
+                            
+                            // ✅ RIAPRI IL WIDGET se era stato chiuso dall'utente
+                            if (chatWidget.userClosedWidget) {
+                                console.log(`🔓 Nuovo messaggio ricevuto: riapro widget!`);
+                                const chatWidgetContainer = document.getElementById('chatWidget');
+                                chatWidgetContainer.style.display = 'block';
+                                chatWidget.userClosedWidget = false; // Reset flag
+                                localStorage.setItem('chatWidget_userClosed', 'false'); // ✅ Reset localStorage
+                            }
+                            
+                            showNotification(
+                                conv.other_user.id,
+                                `${conv.other_user.nome} ${conv.other_user.cognome || ''}`,
+                                conv.other_user.profile_picture,
+                                conv.last_message.content,
+                                conv.last_message.created_at
+                            );
+                        } else {
+                            console.log(`✋ Messaggio inviato da me, nessuna notifica`);
+                        }
+                        
+                        // Update last known message ID
+                        chatWidget.lastKnownMessageId = msgId;
+                        localStorage.setItem('chatWidget_lastKnownMessageId', msgId.toString()); // ✅ Salva in localStorage
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error polling new messages:', error);
+        }
+    }
+    
+    // Start notification polling
+    function startNotificationPolling() {
+        stopNotificationPolling();
+        
+        console.log('🚀 Avvio polling notifiche ogni 5 secondi');
+        
+        // Poll immediately on start
+        pollNewMessages();
+        
+        // Then poll every 5 seconds for new messages
+        chatWidget.notificationPollInterval = setInterval(pollNewMessages, 5000);
+    }
+    
+    function stopNotificationPolling() {
+        if (chatWidget.notificationPollInterval) {
+            console.log('⏹️ Stop polling notifiche');
+            clearInterval(chatWidget.notificationPollInterval);
+            chatWidget.notificationPollInterval = null;
+        }
+    }
+    
+    // Load unread count on page load
+    async function loadUnreadCount() {
+        try {
+            const response = await fetch('/api/conversations');
+            if (!response.ok) {
+                console.error('❌ loadUnreadCount failed:', response.status);
+                return;
+            }
+            
+            const data = await response.json();
+            
+            // Verifica che data e conversations esistano
+            if (!data || !data.conversations) {
+                console.error('❌ Risposta API malformata:', data);
+                return;
+            }
+            
+            console.log('📊 Conversazioni caricate:', data.conversations.length);
+            
+            // Mostra/nascondi widget in base alle conversazioni E allo stato di chiusura
+            const chatWidgetContainer = document.getElementById('chatWidget');
+            if (!chatWidget.isOpen) {
+                // Controlla se l'utente ha chiuso manualmente il widget
+                if (chatWidget.userClosedWidget) {
+                    // Widget chiuso dall'utente: rimani nascosto
+                    chatWidgetContainer.style.display = 'none';
+                    console.log('🚫 Widget rimane nascosto: chiuso manualmente dall\'utente');
+                    return; // ✅ Esci senza aggiornare badge
+                } else if (data.conversations.length > 0) {
+                    // Non chiuso manualmente e ci sono conversazioni: mostra
+                    chatWidgetContainer.style.display = 'block';
+                } else {
+                    // Nessuna conversazione: nascondi
+                    chatWidgetContainer.style.display = 'none';
+                    console.log('ℹ️ Nessuna conversazione - widget nascosto');
+                    return;
+                }
+            }
+            
+            const totalUnread = data.conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+            
+            if (totalUnread > 0) {
+                unreadBadge.textContent = totalUnread > 9 ? '9+' : totalUnread;
+                unreadBadge.style.display = 'flex';
+            } else {
+                unreadBadge.style.display = 'none';
+            }
+            
+            // Initialize lastKnownMessageId on first load
+            if (chatWidget.lastKnownMessageId === 0 && data.conversations.length > 0) {
+                const messagesWithId = data.conversations
+                    .filter(c => c && c.last_message && c.last_message.id)
+                    .map(c => c.last_message.id);
+                
+                if (messagesWithId.length > 0) {
+                    const maxId = Math.max(...messagesWithId);
+                    chatWidget.lastKnownMessageId = maxId;
+                    localStorage.setItem('chatWidget_lastKnownMessageId', maxId.toString()); // ✅ Salva
+                    console.log('🆔 lastKnownMessageId inizializzato:', maxId);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error loading unread count:', error);
+        }
+    }
+    
+    // Initialize on page load
+    console.log('🎬 Inizializzazione Chat Widget');
+    console.log('📦 Stato iniziale da localStorage:', {
+        userClosed: chatWidget.userClosedWidget,
+        lastKnownMessageId: chatWidget.lastKnownMessageId
+    });
+    
+    // Fetch current user info first
+    fetchCurrentUser();
+    
+    // Debug consultation button
+    console.log('🔍 Pulsante consulenza trovato nel DOM:', createConsultationBtn !== null);
+    
+    loadUnreadCount();
+    
+    
+    // Start notification polling (check for new messages every 5 seconds)
+    startNotificationPolling();
+    
+    // Refresh unread count every 30 seconds
+    setInterval(loadUnreadCount, 30000);
+    
+    console.log('✅ Chat Widget inizializzato con successo');
+</script>
+
+
