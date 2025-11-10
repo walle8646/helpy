@@ -110,6 +110,177 @@
             box-shadow: 0 6px 16px rgba(231, 76, 60, 0.4);
         }
         
+        /* === NOTIFICHE === */
+        .notifications-icon {
+            position: relative;
+            cursor: pointer;
+            font-size: 18px;
+            color: white;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            margin-left: 12px;
+        }
+        
+        .notifications-icon:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+        }
+        
+        .notifications-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #e74c3c;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 10px;
+            min-width: 18px;
+            text-align: center;
+        }
+        
+        .notifications-dropdown {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            width: 400px;
+            max-height: 600px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        
+        .notifications-dropdown.show {
+            display: flex;
+        }
+        
+        .notifications-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .notifications-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .mark-all-read-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+        
+        .mark-all-read-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .notifications-list {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 500px;
+        }
+        
+        .notification-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        
+        .notification-item:hover {
+            background: #f8f9ff;
+        }
+        
+        .notification-item.unread {
+            background: #f8f9ff;
+        }
+        
+        .notification-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        
+        .notification-icon.booking {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .notification-content {
+            flex: 1;
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .notification-message {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .notification-time {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .notifications-empty {
+            padding: 40px 20px;
+            text-align: center;
+            color: #999;
+        }
+        
+        .notifications-empty i {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.3;
+        }
+        
+        /* Animazione campanella */
+        @keyframes bellRing {
+            0%, 100% { transform: rotate(0deg); }
+            10%, 30% { transform: rotate(-15deg); }
+            20%, 40% { transform: rotate(15deg); }
+            50% { transform: rotate(0deg); }
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
             .navbar {
@@ -228,6 +399,12 @@
                 <a href="/logout" class="register-btn logout-btn">
                     Logout
                 </a>
+                
+                <!-- Icona Notifiche (in fondo con sfondo) -->
+                <div class="notifications-icon" id="notificationsIcon" onclick="toggleNotifications()">
+                    <i class="fas fa-bell"></i>
+                    <span class="notifications-badge" id="notificationsBadge" style="display: none;">0</span>
+                </div>
             {% else %}
                 <!-- Accedi -->
                 <a href="/login" class="navbar-link">Accedi</a>
@@ -239,6 +416,22 @@
             {% endif %}
         </div>
     </nav>
+
+    <!-- Dropdown Notifiche -->
+    <div class="notifications-dropdown" id="notificationsDropdown">
+        <div class="notifications-header">
+            <h3><i class="fas fa-bell"></i> Notifiche</h3>
+            <button class="mark-all-read-btn" onclick="markAllAsRead()">
+                <i class="fas fa-check-double"></i> Segna tutte lette
+            </button>
+        </div>
+        <div class="notifications-list" id="notificationsList">
+            <div class="notifications-empty">
+                <i class="fas fa-bell-slash"></i>
+                <p>Nessuna notifica</p>
+            </div>
+        </div>
+    </div>
 
     <!-- 🎯 CONTENUTO PAGINA (da sovrascrivere) -->
     {% block content %}{% endblock %}
@@ -308,6 +501,185 @@
 
     <!-- JavaScript Globale -->
     <script src="/static/script.js"></script>
+    
+    <!-- JavaScript Notifiche -->
+    <script>
+        let notificationsInterval;
+        let lastNotificationCount = 0;
+        
+        // Toggle dropdown notifiche
+        function toggleNotifications() {
+            const dropdown = document.getElementById('notificationsDropdown');
+            const isVisible = dropdown.classList.contains('show');
+            
+            if (isVisible) {
+                dropdown.classList.remove('show');
+            } else {
+                dropdown.classList.add('show');
+                loadNotifications();
+            }
+        }
+        
+        // Chiudi dropdown cliccando fuori
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('notificationsDropdown');
+            const icon = document.getElementById('notificationsIcon');
+            
+            if (!dropdown.contains(e.target) && !icon.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+        
+        // Carica notifiche
+        async function loadNotifications() {
+            try {
+                const response = await fetch('/api/notifications?limit=20');
+                if (!response.ok) return;
+                
+                const notifications = await response.json();
+                displayNotifications(notifications);
+            } catch (error) {
+                console.error('Errore caricamento notifiche:', error);
+            }
+        }
+        
+        // Mostra notifiche
+        function displayNotifications(notifications) {
+            const list = document.getElementById('notificationsList');
+            
+            if (notifications.length === 0) {
+                list.innerHTML = `
+                    <div class="notifications-empty">
+                        <i class="fas fa-bell-slash"></i>
+                        <p>Nessuna notifica</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            list.innerHTML = notifications.map(notif => {
+                const timeAgo = getTimeAgo(new Date(notif.created_at));
+                const unreadClass = notif.is_read ? '' : 'unread';
+                const icon = getNotificationIcon(notif.type);
+                
+                return `
+                    <div class="notification-item ${unreadClass}" onclick="markAsRead(${notif.id}, '${notif.action_url || '#'}')">
+                        <div class="notification-icon ${notif.type}">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <div class="notification-content">
+                            <div class="notification-title">${notif.title}</div>
+                            <div class="notification-message">${notif.message}</div>
+                            <div class="notification-time">${timeAgo}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Icona per tipo notifica
+        function getNotificationIcon(type) {
+            const icons = {
+                'booking': 'fa-calendar-check',
+                'message': 'fa-envelope',
+                'payment': 'fa-credit-card',
+                'cancellation': 'fa-times-circle',
+                'offer': 'fa-handshake'
+            };
+            return icons[type] || 'fa-bell';
+        }
+        
+        // Calcola tempo trascorso
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            
+            if (seconds < 60) return 'Ora';
+            if (seconds < 3600) return Math.floor(seconds / 60) + ' min fa';
+            if (seconds < 86400) return Math.floor(seconds / 3600) + ' ore fa';
+            if (seconds < 604800) return Math.floor(seconds / 86400) + ' giorni fa';
+            
+            return date.toLocaleDateString('it-IT');
+        }
+        
+        // Segna notifica come letta
+        async function markAsRead(notificationId, actionUrl) {
+            try {
+                await fetch(`/api/notifications/${notificationId}/read`, {
+                    method: 'POST'
+                });
+                
+                updateUnreadCount();
+                loadNotifications();
+                
+                if (actionUrl && actionUrl !== '#') {
+                    window.location.href = actionUrl;
+                }
+            } catch (error) {
+                console.error('Errore:', error);
+            }
+        }
+        
+        // Segna tutte come lette
+        async function markAllAsRead() {
+            try {
+                await fetch('/api/notifications/read-all', {
+                    method: 'POST'
+                });
+                
+                loadNotifications();
+                updateUnreadCount();
+            } catch (error) {
+                console.error('Errore:', error);
+            }
+        }
+        
+        // Aggiorna contatore e controlla nuove notifiche
+        async function updateUnreadCount() {
+            try {
+                const response = await fetch('/api/notifications/unread/count');
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                const badge = document.getElementById('notificationsBadge');
+                
+                // Se ci sono nuove notifiche, mostra animazione
+                if (data.count > lastNotificationCount && lastNotificationCount > 0) {
+                    showNewNotificationAnimation();
+                }
+                lastNotificationCount = data.count;
+                
+                if (data.count > 0) {
+                    badge.textContent = data.count > 99 ? '99+' : data.count;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+                
+                // Se il dropdown è aperto, aggiorna anche le notifiche
+                const dropdown = document.getElementById('notificationsDropdown');
+                if (dropdown.classList.contains('show')) {
+                    loadNotifications();
+                }
+            } catch (error) {
+                console.error('Errore conteggio notifiche:', error);
+            }
+        }
+        
+        // Animazione per nuova notifica
+        function showNewNotificationAnimation() {
+            const icon = document.getElementById('notificationsIcon');
+            icon.style.animation = 'none';
+            setTimeout(() => {
+                icon.style.animation = 'bellRing 0.5s ease-in-out';
+            }, 10);
+        }
+        
+        // Polling notifiche (ogni 10 secondi)
+        {% if current_user %}
+        updateUnreadCount();
+        notificationsInterval = setInterval(updateUnreadCount, 10000);
+        {% endif %}
+    </script>
     
     <!-- JavaScript Specifici per Pagina -->
     {% block extra_js %}{% endblock %}

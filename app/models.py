@@ -204,3 +204,25 @@ class ConsultationOffer(SQLModel, table=True):
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Notification(SQLModel, table=True):
+    """Modello per le notifiche utente"""
+    __tablename__ = "notifications"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")  # Destinatario della notifica
+    
+    type: str  # 'booking', 'message', 'payment', 'cancellation', 'offer', etc.
+    title: str  # Titolo breve della notifica
+    message: str  # Messaggio completo
+    
+    # Riferimenti opzionali
+    related_booking_id: Optional[int] = Field(default=None, foreign_key="booking.id")
+    related_user_id: Optional[int] = Field(default=None, foreign_key="user.id")  # Chi ha generato la notifica
+    
+    # Link di azione
+    action_url: Optional[str] = None  # URL dove andare cliccando la notifica
+    
+    is_read: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)

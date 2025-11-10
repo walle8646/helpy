@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from app.database import create_db_and_tables
-from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook
+from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, notifications
 from app.logger_config import logger
 
 app = FastAPI(title="Helpy", version="1.0.0")
@@ -42,6 +42,7 @@ app.include_router(availability.router, tags=["availability"])
 app.include_router(booking.router, tags=["booking"])
 app.include_router(consultation.router, tags=["consultation"])
 app.include_router(stripe_webhook.router, tags=["webhooks"])
+app.include_router(notifications.router, tags=["notifications"])
 
 
 # Database init

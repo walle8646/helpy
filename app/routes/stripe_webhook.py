@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session
 from datetime import datetime
 from app.database import engine
-from app.models import Booking, ConsultationOffer, User
+from app.models import Booking, ConsultationOffer, User, Notification
 from app.utils.stripe_config import construct_webhook_event
 from app.logger_config import logger
 
@@ -124,6 +124,23 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
         db_session.commit()
         db_session.refresh(new_booking)
         
+        # Get client info for notification
+        client = db_session.get(User, client_user_id)
+        client_name = f"{client.nome} {client.cognome}" if client and client.nome else "Un utente"
+        
+        # Create notification for consultant
+        notification = Notification(
+            user_id=consultant_user_id,
+            type="booking",
+            title="Nuova Prenotazione!",
+            message=f"{client_name} ha prenotato una consulenza per il {booking_date_str} alle {start_time}",
+            related_booking_id=new_booking.id,
+            related_user_id=client_user_id,
+            action_url=f"/profile#bookings"
+        )
+        db_session.add(notification)
+        db_session.commit()
+        
         logger.info(f"✅ Direct booking {new_booking.id} created successfully for session {session_id}")
 
 
@@ -184,7 +201,23 @@ async def handle_consultation_offer_booking(session_id, payment_intent_id, metad
         db_session.add(offer)
         db_session.commit()
         
+        # Get client info for notification
+        client = db_session.get(User, client_user_id)
+        client_name = f"{client.nome} {client.cognome}" if client and client.nome else "Un utente"
+        
+        # Create notification for consultant
+        notification = Notification(
+            user_id=consultant_user_id,
+            type="booking",
+            title="Nuova Prenotazione!",
+            message=f"{client_name} ha accettato la tua offerta e prenotato per il {selected_date} alle {start_time}",
+            related_booking_id=new_booking.id,
+            related_user_id=client_user_id,
+            action_url=f"/profile#bookings"
+        )
+        db_session.add(notification)
+        db_session.commit()
+        
         logger.info(f"✅ Booking {new_booking.id} created successfully for session {session_id}")
         
         # TODO: Send confirmation email to client and consultant
-        # TODO: Send notification to consultant
