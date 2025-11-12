@@ -114,24 +114,48 @@
         .notifications-icon {
             position: relative;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 15px;
             color: white;
-            padding: 10px;
+            padding: 8px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 50%;
-            width: 42px;
-            height: 42px;
+            width: 36px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
             transition: all 0.3s ease;
             margin-left: 12px;
+            margin-bottom: 4px;
         }
         
         .notifications-icon:hover {
             transform: translateY(-2px) scale(1.05);
             box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+        }
+        
+        .chat-reopen-text {
+            position: absolute;
+            bottom: -16px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            padding: 2px 7px;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(52, 152, 219, 0.3);
+        }
+        
+        .chat-reopen-text:hover {
+            background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+            transform: translateX(-50%) translateY(-1px);
+            box-shadow: 0 3px 8px rgba(52, 152, 219, 0.4);
         }
         
         .notifications-badge {
@@ -526,10 +550,11 @@
                     Logout
                 </a>
                 
-                <!-- Icona Notifiche (in fondo con sfondo) -->
+                <!-- Icona Notifiche con testo Chat sotto -->
                 <div class="notifications-icon" id="notificationsIcon" onclick="toggleNotifications()">
                     <i class="fas fa-bell"></i>
                     <span class="notifications-badge" id="notificationsBadge" style="display: none;">0</span>
+                    <span class="chat-reopen-text" onclick="event.stopPropagation(); reopenChatWidget()">Chat</span>
                 </div>
             {% else %}
                 <!-- Accedi -->
@@ -644,6 +669,40 @@
                 dropdown.classList.add('show');
                 loadNotifications();
             }
+        }
+        
+        // Riapri il widget della chat
+        function reopenChatWidget() {
+            console.log('🔄 Riapertura widget chat...');
+            
+            // Controlla se il widget esiste
+            const chatWidget = document.getElementById('chatWidget');
+            if (!chatWidget) {
+                console.warn('⚠️ Widget chat non trovato');
+                return;
+            }
+            
+            // Mostra il widget
+            chatWidget.style.display = 'block';
+            
+            // Nascondi il bottone e apri la finestra
+            const chatButton = document.getElementById('chatButton');
+            const chatWindow = document.getElementById('chatWindow');
+            
+            if (chatButton) chatButton.style.display = 'none';
+            if (chatWindow) {
+                chatWindow.classList.add('open');
+                if (typeof window.chatWidget !== 'undefined') {
+                    window.chatWidget.isOpen = true;
+                }
+            }
+            
+            // Mostra la lista delle conversazioni
+            if (typeof showConversationsList === 'function') {
+                showConversationsList();
+            }
+            
+            console.log('✅ Widget chat riaperto');
         }
         
         // Chiudi dropdown cliccando fuori
