@@ -281,6 +281,101 @@
             50% { transform: rotate(0deg); }
         }
         
+        /* === DROPDOWN CATEGORIE === */
+        .navbar-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .navbar-dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            min-width: 280px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            padding: 12px 0;
+            margin-top: 8px;
+            z-index: 1000;
+            animation: dropdownSlide 0.3s ease;
+        }
+        
+        @keyframes dropdownSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .navbar-dropdown:hover .navbar-dropdown-content {
+            display: block;
+        }
+        
+        .dropdown-category-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: #333;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        
+        .dropdown-category-item:hover {
+            background: linear-gradient(90deg, #f8f9ff 0%, #ffffff 100%);
+            color: #667eea;
+        }
+        
+        .dropdown-category-icon {
+            font-size: 24px;
+            width: 32px;
+            text-align: center;
+        }
+        
+        .dropdown-category-info {
+            flex: 1;
+        }
+        
+        .dropdown-category-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        
+        .dropdown-category-desc {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .dropdown-divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 8px 16px;
+        }
+        
+        .dropdown-all-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .dropdown-all-link:hover {
+            background: #f8f9ff;
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
             .navbar {
@@ -378,10 +473,41 @@
         
         <!-- Right: Link semplici in fila -->
         <div class="navbar-links">
-            <!-- Trova Consulenti -->
-            <a href="/consultants" class="navbar-link">
-                <span class="navbar-link-text">Trova Consulenti</span>
-            </a>
+            <!-- Trova Consulenti con Dropdown -->
+            <div class="navbar-dropdown">
+                <a href="/consultants" class="navbar-link">
+                    <span class="navbar-link-text">Trova Consulenti</span>
+                    <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 4px;"></i>
+                </a>
+                
+                <!-- Dropdown Content -->
+                <div class="navbar-dropdown-content">
+                    {% if categories %}
+                        {% for category in categories %}
+                        <a href="/consultants?category={{ category.id }}" class="dropdown-category-item">
+                            <span class="dropdown-category-icon">{{ category.icon }}</span>
+                            <div class="dropdown-category-info">
+                                <div class="dropdown-category-name">{{ category.name }}</div>
+                                {% if category.description %}
+                                <div class="dropdown-category-desc">{{ category.description[:50] }}...</div>
+                                {% endif %}
+                            </div>
+                        </a>
+                        {% endfor %}
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <a href="/consultants" class="dropdown-all-link">
+                            <i class="fas fa-th"></i>
+                            <span>Vedi Tutti i Consulenti</span>
+                        </a>
+                    {% else %}
+                        <a href="/consultants" class="dropdown-all-link">
+                            <span>Vedi Tutti i Consulenti</span>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
             
             <!-- Nuovo link alla Community -->
             <a href="/community" class="navbar-link">
@@ -562,8 +688,22 @@
                 const unreadClass = notif.is_read ? '' : 'unread';
                 const icon = getNotificationIcon(notif.type);
                 
+                // Prepara dati utente correlato (escapati per sicurezza)
+                const relatedUserId = notif.related_user ? notif.related_user.id : null;
+                const relatedUserName = notif.related_user 
+                    ? `${notif.related_user.nome} ${notif.related_user.cognome}`.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+                    : '';
+                const relatedUserAvatar = notif.related_user ? (notif.related_user.profile_picture || '') : '';
+                
                 return `
-                    <div class="notification-item ${unreadClass}" onclick="markAsRead(${notif.id}, '${notif.action_url || '#'}')">
+                    <div class="notification-item ${unreadClass}" 
+                         data-notification-id="${notif.id}"
+                         data-action-url="${notif.action_url || '#'}"
+                         data-type="${notif.type}"
+                         data-user-id="${relatedUserId || ''}"
+                         data-user-name="${relatedUserName}"
+                         data-user-avatar="${relatedUserAvatar}"
+                         onclick="handleNotificationClick(this)">
                         <div class="notification-icon ${notif.type}">
                             <i class="fas ${icon}"></i>
                         </div>
@@ -601,8 +741,28 @@
             return date.toLocaleDateString('it-IT');
         }
         
+        // Gestisce il click su una notifica
+        function handleNotificationClick(element) {
+            const notificationId = parseInt(element.dataset.notificationId);
+            const actionUrl = element.dataset.actionUrl;
+            const notificationType = element.dataset.type;
+            const relatedUserId = element.dataset.userId ? parseInt(element.dataset.userId) : null;
+            const relatedUserName = element.dataset.userName;
+            const relatedUserAvatar = element.dataset.userAvatar;
+            
+            console.log('🔔 Click notifica:', {
+                id: notificationId,
+                type: notificationType,
+                userId: relatedUserId,
+                userName: relatedUserName,
+                avatar: relatedUserAvatar
+            });
+            
+            markAsRead(notificationId, actionUrl, notificationType, relatedUserId, relatedUserName, relatedUserAvatar);
+        }
+        
         // Segna notifica come letta
-        async function markAsRead(notificationId, actionUrl) {
+        async function markAsRead(notificationId, actionUrl, notificationType, relatedUserId, relatedUserName, relatedUserAvatar) {
             try {
                 await fetch(`/api/notifications/${notificationId}/read`, {
                     method: 'POST'
@@ -611,7 +771,26 @@
                 updateUnreadCount();
                 loadNotifications();
                 
-                if (actionUrl && actionUrl !== '#') {
+                // Se è una notifica di messaggio e c'è un utente correlato, apri il widget chat
+                if (notificationType === 'community_contact' && relatedUserId && relatedUserId !== 'null') {
+                    // Chiudi il dropdown delle notifiche
+                    document.getElementById('notificationsDropdown').classList.remove('active');
+                    
+                    // Apri il widget chat con l'utente specifico
+                    if (typeof window.openChat === 'function') {
+                        console.log('🔔 Apertura chat da notifica:', { 
+                            userId: relatedUserId, 
+                            userName: relatedUserName,
+                            avatar: relatedUserAvatar
+                        });
+                        window.openChat(relatedUserId, relatedUserName, relatedUserAvatar || null);
+                    } else {
+                        // Fallback: vai alla pagina messaggi
+                        console.warn('⚠️ window.openChat non trovata, redirect a /messages');
+                        window.location.href = actionUrl || '/messages';
+                    }
+                } else if (actionUrl && actionUrl !== '#') {
+                    // Per altre notifiche, usa il redirect normale
                     window.location.href = actionUrl;
                 }
             } catch (error) {

@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
 from datetime import datetime, timedelta, time
 from typing import Optional, List, Dict, Union
+from zoneinfo import ZoneInfo
 from app.database import engine
 from app.models import Booking, User, AvailabilityBlock
 from app.routes.auth import get_current_user
@@ -13,6 +14,9 @@ from app.utils.stripe_config import create_checkout_session
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+# Timezone italiano
+ITALY_TZ = ZoneInfo("Europe/Rome")
 
 # ========== UTILITÀ ==========
 
@@ -51,10 +55,32 @@ def calculate_available_slots(
     """
     available_slots = []
     
+    # Determina l'ora minima per la data odierna (timezone italiano)
+    now_italy = datetime.now(ITALY_TZ)
+    today = now_italy.date()
+    target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    current_time_minutes = None
+    
+    if target_date == today:
+        # Se è oggi, calcola i minuti dall'inizio della giornata
+        current_time_minutes = now_italy.hour * 60 + now_italy.minute
+    
     for block in availability_blocks:
         # Converti start_time e end_time in minuti
         block_start = parse_time_to_minutes(block.start_time)
         block_end = parse_time_to_minutes(block.end_time)
+        
+        # Se è oggi, non mostrare slot già passati
+        if current_time_minutes is not None:
+            # Lo slot deve iniziare almeno ora corrente + 5 minuti (buffer)
+            min_start_time = current_time_minutes + 5
+            if block_end <= min_start_time:
+                # Tutto il blocco è nel passato, saltalo
+                continue
+            # Aggiorna il block_start se parte del blocco è nel passato
+            if block_start < min_start_time:
+                # Arrotonda al prossimo slot di 30 minuti
+                block_start = ((min_start_time + 29) // 30) * 30
         
         # Crea lista di intervalli occupati in questo blocco
         occupied_intervals = []
@@ -162,8 +188,9 @@ async def get_available_slots(
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato data non valido. Usa YYYY-MM-DD")
         
-        # Non si può prenotare nel passato
-        if target_date < datetime.now().date():
+        # Non si può prenotare nel passato (usa timezone italiano)
+        today_italy = datetime.now(ITALY_TZ).date()
+        if target_date < today_italy:
             raise HTTPException(status_code=400, detail="Non puoi prenotare nel passato")
         
         # Prendi i blocchi di disponibilità per quella data
@@ -244,9 +271,10 @@ async def create_booking(
     duration_minutes = booking_data.get('duration_minutes')
     availability_block_id = booking_data.get('availability_block_id')
     client_notes = booking_data.get('client_notes', '')
+    price = booking_data.get('price')  # Prezzo calcolato dal frontend
     
     # Validazioni
-    if not all([consultant_id, booking_date_str, start_time, end_time, duration_minutes]):
+    if not all([consultant_id, booking_date_str, start_time, end_time, duration_minutes, price]):
         raise HTTPException(status_code=400, detail="Campi obbligatori mancanti")
     
     if duration_minutes not in [30, 60, 90, 120]:
@@ -280,11 +308,20 @@ async def create_booking(
         if existing_booking:
             raise HTTPException(status_code=409, detail="Questo slot è già stato prenotato")
         
-        # Calcola il prezzo
-        price = consultant.prezzo_consulenza if consultant.prezzo_consulenza else 0
-        
+        # Validazione prezzo ricevuto dal frontend
         if not price or price <= 0:
+            raise HTTPException(status_code=400, detail="Prezzo non valido")
+        
+        # Verifica che il prezzo sia coerente con la tariffa del consulente
+        hourly_rate = consultant.prezzo_consulenza if consultant.prezzo_consulenza else 0
+        if hourly_rate <= 0:
             raise HTTPException(status_code=400, detail="Il consulente non ha impostato un prezzo")
+        
+        # Calcola il prezzo atteso basato sulla durata
+        expected_price = (hourly_rate / 60) * duration_minutes
+        # Tolleranza di 1 euro per arrotondamenti
+        if abs(price - expected_price) > 1:
+            raise HTTPException(status_code=400, detail="Prezzo non valido per la durata selezionata")
         
         # Get APP_URL from environment
         app_url = os.getenv("BASE_URL", "http://localhost:8080")

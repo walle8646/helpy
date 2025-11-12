@@ -6,12 +6,19 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
 from datetime import datetime
+from zoneinfo import ZoneInfo
+import os
 from app.database import engine
 from app.models import Booking, ConsultationOffer, User, Notification
 from app.utils.stripe_config import construct_webhook_event
 from app.logger_config import logger
+from app.scheduler import schedule_booking_reminders
+from app.utils.notification_service import send_notification
 
 router = APIRouter()
+
+# Timezone italiano
+ITALY_TZ = ZoneInfo("Europe/Rome")
 
 @router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
@@ -124,24 +131,43 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
         db_session.commit()
         db_session.refresh(new_booking)
         
-        # Get client info for notification
+        # Get client and consultant info
         client = db_session.get(User, client_user_id)
+        consultant = db_session.get(User, consultant_user_id)
         client_name = f"{client.nome} {client.cognome}" if client and client.nome else "Un utente"
+        consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant and consultant.nome else "Il consulente"
         
-        # Create notification for consultant
-        notification = Notification(
+        # Invia notifica al consulente usando il nuovo sistema
+        send_notification(
             user_id=consultant_user_id,
-            type="booking",
+            type_key='booking_confirmed',
             title="Nuova Prenotazione!",
             message=f"{client_name} ha prenotato una consulenza per il {booking_date_str} alle {start_time}",
+            template_data={
+                'consultant_name': consultant_name,
+                'client_name': client_name,
+                'date': booking_date_str,
+                'time': start_time,
+                'duration': str(duration_minutes),
+                'action_url': f"{os.getenv('BASE_URL', 'http://localhost:8080')}/profile#bookings"
+            },
             related_booking_id=new_booking.id,
             related_user_id=client_user_id,
             action_url=f"/profile#bookings"
         )
-        db_session.add(notification)
-        db_session.commit()
         
         logger.info(f"✅ Direct booking {new_booking.id} created successfully for session {session_id}")
+        
+        # Schedula notifiche promemoria (1 ora prima e 10 minuti prima)
+        booking_datetime_tz = booking_datetime.replace(tzinfo=ITALY_TZ)
+        schedule_booking_reminders(
+            booking_id=new_booking.id,
+            booking_datetime=booking_datetime_tz,
+            client_id=client_user_id,
+            consultant_id=consultant_user_id
+        )
+        logger.info(f"📅 Notifiche reminder schedulate per booking {new_booking.id}")
+
 
 
 async def handle_consultation_offer_booking(session_id, payment_intent_id, metadata):
@@ -201,23 +227,40 @@ async def handle_consultation_offer_booking(session_id, payment_intent_id, metad
         db_session.add(offer)
         db_session.commit()
         
-        # Get client info for notification
+        # Get client and consultant info
         client = db_session.get(User, client_user_id)
+        consultant = db_session.get(User, consultant_user_id)
         client_name = f"{client.nome} {client.cognome}" if client and client.nome else "Un utente"
+        consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant and consultant.nome else "Il consulente"
         
-        # Create notification for consultant
-        notification = Notification(
+        # Invia notifica al consulente usando il nuovo sistema
+        send_notification(
             user_id=consultant_user_id,
-            type="booking",
+            type_key='booking_confirmed',
             title="Nuova Prenotazione!",
             message=f"{client_name} ha accettato la tua offerta e prenotato per il {selected_date} alle {start_time}",
+            template_data={
+                'consultant_name': consultant_name,
+                'client_name': client_name,
+                'date': selected_date,
+                'time': start_time,
+                'duration': str(duration_minutes),
+                'action_url': f"{os.getenv('BASE_URL', 'http://localhost:8080')}/profile#bookings"
+            },
             related_booking_id=new_booking.id,
             related_user_id=client_user_id,
             action_url=f"/profile#bookings"
         )
-        db_session.add(notification)
-        db_session.commit()
         
         logger.info(f"✅ Booking {new_booking.id} created successfully for session {session_id}")
         
-        # TODO: Send confirmation email to client and consultant
+        # Schedula notifiche promemoria (1 ora prima e 10 minuti prima)
+        booking_datetime_tz = booking_datetime.replace(tzinfo=ITALY_TZ)
+        schedule_booking_reminders(
+            booking_id=new_booking.id,
+            booking_datetime=booking_datetime_tz,
+            client_id=client_user_id,
+            consultant_id=consultant_user_id
+        )
+        logger.info(f"📅 Notifiche reminder schedulate per booking {new_booking.id}")
+

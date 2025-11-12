@@ -78,7 +78,8 @@ async def update_profile(
     descrizione: str = Form(None),
     category_id: Optional[int] = Form(None),
     aree_interesse: str = Form(None),
-    prezzo_consulenza: Optional[int] = Form(None)
+    prezzo_consulenza: Optional[int] = Form(None),
+    is_anonymous: Optional[bool] = Form(None)  # ✅ NUOVO: flag anonimato
 ):
     """Aggiorna profilo utente"""
     try:
@@ -110,6 +111,9 @@ async def update_profile(
                 db_user.aree_interesse = aree_interesse
             if prezzo_consulenza is not None:
                 db_user.prezzo_consulenza = prezzo_consulenza
+            if is_anonymous is not None:  # ✅ NUOVO: aggiorna flag anonimato
+                db_user.is_anonymous = is_anonymous
+                logger.info(f"{'🔒' if is_anonymous else '👤'} User {db_user.id} set anonymous mode: {is_anonymous}")
             
             session.add(db_user)
             session.commit()

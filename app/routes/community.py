@@ -3,10 +3,12 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import select, func, or_, and_
 from typing import Optional
 from datetime import datetime, timedelta
+import os
 
 from app.database import get_session
-from app.models import User, Category, CommunityQuestion, QuestionStatus
+from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, QuestionStatus
 from app.routes.auth import verify_token
+from app.utils_user import get_display_name
 from loguru import logger
 
 router = APIRouter()
@@ -90,6 +92,17 @@ async def community_page(
             # ========== ESEGUI QUERY ==========
             questions = session.exec(query_stmt).all()
             
+            # ========== CARICA LIKES UTENTE ==========
+            # Se l'utente è loggato, carica tutti i suoi like per mostrare quali domande ha già likato
+            user_liked_questions = set()
+            if current_user:
+                user_likes = session.exec(
+                    select(CommunityLike.question_id).where(
+                        CommunityLike.user_id == current_user.id
+                    )
+                ).all()
+                user_liked_questions = set(user_likes)
+            
             # ========== ENRICHMENT DATI ==========
             enriched_questions = []
             
@@ -124,7 +137,8 @@ async def community_page(
                     'author': author,
                     'category': cat,
                     'suggested_consultants': suggested_consultants,
-                    'is_owner': current_user and question.user_id == current_user.id
+                    'is_owner': current_user and question.user_id == current_user.id,
+                    'user_liked': question.id in user_liked_questions  # ✅ Indica se l'utente ha già messo like
                 })
             
             # ========== STATS ==========
@@ -321,3 +335,126 @@ async def increment_view(question_id: int):
     except Exception as e:
         logger.error(f"Error incrementing view: {e}")
         return JSONResponse({"error": "Errore"}, status_code=500)
+
+
+@router.post("/api/community/{question_id}/like")
+async def toggle_like(request: Request, question_id: int):
+    """
+    Mette o toglie like a una domanda della community.
+    Un utente può mettere un solo like per domanda.
+    Se l'utente ha già messo like, lo rimuove (toggle).
+    """
+    
+    try:
+        # Verifica autenticazione
+        current_user = verify_token(request)
+        if not current_user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        with get_session() as session:
+            # Verifica che la domanda esista
+            question = session.get(CommunityQuestion, question_id)
+            if not question:
+                return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
+            
+            # Verifica se l'utente ha già messo like
+            existing_like = session.exec(
+                select(CommunityLike).where(
+                    and_(
+                        CommunityLike.question_id == question_id,
+                        CommunityLike.user_id == current_user.id
+                    )
+                )
+            ).first()
+            
+            if existing_like:
+                # ❌ Rimuovi like (toggle off)
+                session.delete(existing_like)
+                question.upvotes = max(0, question.upvotes - 1)
+                action = "removed"
+                logger.info(f"❌ User {current_user.id} removed like from question {question_id}")
+            else:
+                # ✅ Aggiungi like
+                new_like = CommunityLike(
+                    question_id=question_id,
+                    user_id=current_user.id
+                )
+                session.add(new_like)
+                question.upvotes += 1
+                action = "added"
+                logger.info(f"✅ User {current_user.id} liked question {question_id}")
+            
+            session.add(question)
+            session.commit()
+            
+            return JSONResponse({
+                "success": True,
+                "action": action,
+                "upvotes": question.upvotes,
+                "user_liked": (action == "added")
+            })
+    
+    except Exception as e:
+        logger.error(f"Error toggling like: {e}")
+        return JSONResponse({"error": "Errore durante l'operazione"}, status_code=500)
+
+
+@router.post("/api/community/{question_id}/contact")
+async def track_contact(request: Request, question_id: int):
+    """
+    Traccia quando un utente clicca sul tasto 'Messaggia'.
+    Ogni utente può incrementare il contatore una sola volta per domanda.
+    """
+    try:
+        # Verifica utente loggato
+        current_user = verify_token(request)
+        if not current_user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        with get_session() as session:
+            # Trova la domanda
+            question = session.get(CommunityQuestion, question_id)
+            if not question:
+                return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
+            
+            # Verifica se l'utente ha già contattato (per incrementare counter solo prima volta)
+            existing_contact = session.exec(
+                select(CommunityContact).where(
+                    and_(
+                        CommunityContact.question_id == question_id,
+                        CommunityContact.user_id == current_user.id
+                    )
+                )
+            ).first()
+            
+            if not existing_contact:
+                # Crea nuovo contatto e incrementa counter (SOLO PRIMA VOLTA)
+                new_contact = CommunityContact(
+                    question_id=question_id,
+                    user_id=current_user.id
+                )
+                session.add(new_contact)
+                question.views += 1
+                session.add(question)
+                session.commit()
+                
+                logger.info(f"✅ User {current_user.id} contacted author of question {question_id} (first time)")
+                
+                return JSONResponse({
+                    "success": True,
+                    "action": "tracked",
+                    "contacts": question.views
+                })
+            else:
+                # Già contattato, non incrementa counter
+                logger.info(f"User {current_user.id} already contacted author of question {question_id}")
+                
+                return JSONResponse({
+                    "success": True,
+                    "action": "already_tracked",
+                    "contacts": question.views
+                })
+    
+    except Exception as e:
+        logger.error(f"Error tracking contact: {e}")
+        return JSONResponse({"error": "Errore durante l'operazione"}, status_code=500)

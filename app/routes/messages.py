@@ -3,12 +3,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
 from app.models import User, Conversation, Message
 from sqlmodel import select, or_, and_, func
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.logger_config import logger
 from typing import Optional
+import os
 
 # ✅ Importa funzioni autenticazione da auth.py
 from app.routes.auth import verify_token, get_current_user
+from app.utils.notification_manager import send_notification
+from app.utils_user import get_display_name
 
 router = APIRouter()
 
@@ -311,6 +314,26 @@ async def send_message(
             
             conversation = get_or_create_conversation(session, user_id, other_user_id)
             
+            # ⏰ CONTROLLO PER NOTIFICA: primo messaggio O >30 minuti dall'ultimo
+            should_notify = False
+            
+            # Trova l'ultimo messaggio nella conversazione
+            last_message = session.exec(
+                select(Message)
+                .where(Message.conversation_id == conversation.id)
+                .order_by(Message.created_at.desc())
+            ).first()
+            
+            if last_message:
+                # Calcola tempo trascorso dall'ultimo messaggio
+                time_since_last = datetime.utcnow() - last_message.created_at
+                should_notify = time_since_last > timedelta(minutes=30)
+                logger.info(f"⏱️ Ultimo messaggio {time_since_last.seconds // 60} minuti fa. Notifica: {should_notify}")
+            else:
+                # Primo messaggio assoluto nella conversazione
+                should_notify = True
+                logger.info(f"🆕 Primo messaggio nella conversazione. Notifica: True")
+            
             # ✅ VERIFICA LIMITE MESSAGGI
             message_count = session.exec(
                 select(func.count())
@@ -339,6 +362,38 @@ async def send_message(
             session.refresh(message)
             
             logger.info(f"✅ Message sent: {current_user.nome} (#{user_id}) -> {other_user.nome} (#{other_user_id}) [{message_count + 1}/{MAX_MESSAGES_PER_CONVERSATION}]")
+            
+            # 📧🔔 Invia notifica al destinatario SE should_notify è True
+            if should_notify:
+                try:
+                    base_url = os.getenv("BASE_URL", "http://localhost:8080")
+                    sender_name = get_display_name(current_user)
+                    recipient_name = get_display_name(other_user, include_full_name=False)
+                    
+                    notification_sent = send_notification(
+                        notification_type_key='community_contact',
+                        recipient_user_id=other_user.id,
+                        recipient_email=other_user.email,
+                        recipient_name=recipient_name,
+                        template_data={
+                            'author_name': recipient_name,
+                            'contact_name': sender_name,
+                            'question_title': f'Nuovo messaggio da {sender_name}',
+                            'contact_date': datetime.now().strftime('%d/%m/%Y alle %H:%M'),
+                            'action_url': f"{base_url}/messages"
+                        },
+                        related_user_id=current_user.id,
+                        action_url=f"{base_url}/messages"
+                    )
+                    
+                    if notification_sent:
+                        logger.info(f"✅ Notifica messaggio inviata a user {other_user.id} ({other_user.email})")
+                    else:
+                        logger.warning(f"⚠️ Notifica messaggio non inviata a user {other_user.id}")
+                        
+                except Exception as notif_error:
+                    logger.error(f"❌ Errore invio notifica messaggio: {notif_error}")
+                    # Non bloccare l'invio del messaggio anche se la notifica fallisce
             
             return JSONResponse({
                 "success": True,

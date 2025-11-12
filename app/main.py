@@ -1,14 +1,28 @@
 import os
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.database import create_db_and_tables
 from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, notifications
 from app.logger_config import logger
+from app.scheduler import start_scheduler, shutdown_scheduler
+from app.utils.template_helpers import get_all_categories
+from app.utils_user import get_display_name
 
 app = FastAPI(title="Helpy", version="1.0.0")
+
+
+# Middleware per aggiungere categorie globalmente ai template
+class CategoriesMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Carica categorie e le rende disponibili nel request.state
+        request.state.categories = get_all_categories()
+        response = await call_next(request)
+        return response
+
 
 # Session middleware
 app.add_middleware(
@@ -17,8 +31,13 @@ app.add_middleware(
     max_age=86400
 )
 
+# Aggiungi middleware categorie
+app.add_middleware(CategoriesMiddleware)
+
 # Templates
 templates = Jinja2Templates(directory="app/templates")
+# Aggiungi filtro personalizzato per nomi utenti
+templates.env.filters['display_name'] = get_display_name
 app.state.templates = templates
 
 # Crea directory uploads
@@ -49,7 +68,15 @@ app.include_router(notifications.router, tags=["notifications"])
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+    start_scheduler()  # Avvia lo scheduler per le notifiche programmate
     logger.info("✅ Helpy started successfully")
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    shutdown_scheduler()  # Ferma lo scheduler in modo pulito
+    logger.info("👋 Helpy shutting down")
+
 
 # Esecuzione locale
 if __name__ == "__main__":

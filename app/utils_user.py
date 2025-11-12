@@ -10,6 +10,24 @@ def hash_md5(password: str) -> str:
 def gen_code6() -> str:
     return f"{random.randint(0, 999999):06d}"
 
+def get_display_name(user, include_full_name=True):
+    """
+    Restituisce il nome da visualizzare per un utente.
+    Se is_anonymous=True, mostra "Utente #ID"
+    Altrimenti mostra nome e cognome
+    
+    Args:
+        user: Oggetto User
+        include_full_name: Se False, mostra solo il nome (per contesti brevi)
+    """
+    if user.is_anonymous:
+        return f"Utente #{user.id}"
+    
+    if include_full_name:
+        return f"{user.nome or ''} {user.cognome or ''}".strip() or f"Utente #{user.id}"
+    else:
+        return user.nome or f"Utente #{user.id}"
+
 def send_confirmation_email(to_email: str, code: str):
     SMTP_HOST = os.getenv("SMTP_HOST")
     SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))

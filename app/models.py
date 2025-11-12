@@ -46,6 +46,7 @@ class User(SQLModel, table=True):
     confirmed: int = Field(default=0)
     confirmation_code: Optional[str] = None
     is_verified: bool = Field(default=False)
+    is_anonymous: bool = Field(default=False)  # Se True, mostra "Utente #ID" invece del nome
     user_type_id: int = Field(default=1)  # 1=Utente, 2=Verificatore, 3=Amministratore
     
     # Timestamps
@@ -113,10 +114,43 @@ class CommunityQuestion(SQLModel, table=True):
     title: str = Field(max_length=200)
     description: str = Field(max_length=5000)
     status: str = Field(default=QuestionStatus.OPEN)
-    views: int = Field(default=0)
+    views: int = Field(default=0)  # Ora rappresenta quanti utenti UNICI hanno cliccato "Messaggia"
     upvotes: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CommunityLike(SQLModel, table=True):
+    """Like degli utenti sulle domande della community - un utente può mettere un solo like per domanda"""
+    __tablename__ = "community_likes"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    question_id: int = Field(foreign_key="community_questions.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        # Constraint univoco: un utente può mettere un solo like per domanda
+        table_args = (
+            {'sqlite_autoincrement': True},
+        )
+
+
+class CommunityContact(SQLModel, table=True):
+    """Traccia quali utenti hanno contattato (cliccato Messaggia) l'autore di una domanda"""
+    __tablename__ = "community_contacts"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    question_id: int = Field(foreign_key="community_questions.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)  # Chi ha cliccato Messaggia
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        # Constraint univoco: un utente può incrementare il contatore una sola volta
+        table_args = (
+            {'sqlite_autoincrement': True},
+        )
+
 
 # ========== AVAILABILITY SYSTEM ==========
 
@@ -226,3 +260,34 @@ class Notification(SQLModel, table=True):
     
     is_read: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class NotificationType(SQLModel, table=True):
+    """
+    Configurazione tipi di notifica con flag per in-app e email.
+    
+    Permette di configurare quali notifiche inviare e come:
+    - in_app: Mostra la notifica nel dropdown campanella
+    - send_email: Invia anche email all'utente
+    - email_subject: Oggetto dell'email
+    - email_template: Nome del template HTML da usare
+    """
+    __tablename__ = "notification_types"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    type_key: str = Field(unique=True, index=True)  # es: 'booking_confirmed', 'reminder_1h', 'reminder_10min'
+    name: str  # Nome descrittivo in italiano
+    description: Optional[str] = None
+    
+    # Flags configurazione
+    in_app: bool = Field(default=True)  # Mostra notifica in-app
+    send_email: bool = Field(default=False)  # Invia anche email
+    
+    # Configurazione email
+    email_subject: Optional[str] = None  # Oggetto email (può contenere {variables})
+    email_template: Optional[str] = None  # Nome template HTML (es: 'booking_confirmation.html')
+    
+    # Metadata
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

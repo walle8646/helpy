@@ -15,11 +15,11 @@ async def home(request: Request):
     # Controlla se utente è loggato
     current_user = verify_token(request)
     
+    # Categorie disponibili tramite middleware
+    categories = getattr(request.state, 'categories', [])
+    
     with get_session() as session:
         try:
-            # Carica categorie
-            categories = session.exec(select(Category)).all()
-            
             # Carica consulenti featured (con bollini > 0)
             featured_consultants_query = (
                 select(User)

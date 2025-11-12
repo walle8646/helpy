@@ -863,6 +863,90 @@
         background: #d97706;
     }
 
+    /* Like Button Styles */
+    .btn-like {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 25px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 600;
+        font-size: 14px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        background: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-like::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(102, 126, 234, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+    
+    .btn-like:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+        color: #667eea;
+    }
+    
+    .btn-like.liked {
+        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-like.liked:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+    }
+    
+    .btn-like.animating::before {
+        width: 300px;
+        height: 300px;
+    }
+    
+    .btn-like i {
+        transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        z-index: 1;
+    }
+    
+    .btn-like.liked i {
+        animation: likeHeartBeat 0.6s ease;
+    }
+    
+    @keyframes likeHeartBeat {
+        0% { transform: scale(1); }
+        25% { transform: scale(1.3) rotate(-10deg); }
+        50% { transform: scale(0.9) rotate(10deg); }
+        75% { transform: scale(1.2) rotate(-5deg); }
+        100% { transform: scale(1) rotate(0deg); }
+    }
+    
+    .upvotes-count {
+        z-index: 1;
+        font-weight: 700;
+        transition: transform 0.3s ease;
+    }
+    
+    .btn-like.liked .upvotes-count {
+        animation: countPulse 0.4s ease;
+    }
+    
+    @keyframes countPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+    }
+
 
 </style>
 {% endblock %}
@@ -927,16 +1011,16 @@
             
             {% if questions %}
                 {% for item in questions %}
-                <div class="question-card">
+                <div class="question-card" data-question-id="{{ item.question.id }}">
                     <!-- Header -->
                     <div class="question-header">
                         <img 
                             src="{{ item.author.profile_picture or '/static/default-avatar.png' }}" 
-                            alt="{{ item.author.nome }}"
+                            alt="{{ item.author|display_name }}"
                             class="author-avatar"
                         >
                         <div class="author-info">
-                            <div class="author-name">{{ item.author.nome }} {{ item.author.cognome }}</div>
+                            <div class="author-name">{{ item.author|display_name }}</div>
                             <div class="question-time">{{ item.question.created_at.strftime('%d %B %Y') }}</div>
                         </div>
                         <span class="question-status status-{{ item.question.status }}">
@@ -964,8 +1048,23 @@
                         </div>
                         
                         <div class="question-meta">
-                            <span><i class="fas fa-eye"></i> {{ item.question.views }}</span>
-                            <span><i class="fas fa-thumbs-up"></i> {{ item.question.upvotes }}</span>
+                            <span><i class="fas fa-comment"></i> <span class="views-count">{{ item.question.views }}</span></span>
+                            
+                            <!-- Like Button (cliccabile solo se loggato) -->
+                            {% if user %}
+                            <button 
+                                class="btn-like {% if item.user_liked %}liked{% endif %}" 
+                                data-question-id="{{ item.question.id }}"
+                                onclick="toggleLike({{ item.question.id }})"
+                                title="{% if item.user_liked %}Rimuovi like{% else %}Metti like{% endif %}">
+                                <i class="fas fa-thumbs-up"></i>
+                                <span class="upvotes-count">{{ item.question.upvotes }}</span>
+                            </button>
+                            {% else %}
+                            <span style="color: #999; display: inline-flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-thumbs-up"></i> {{ item.question.upvotes }}
+                            </span>
+                            {% endif %}
                         </div>
                     </div>
                     
@@ -974,8 +1073,11 @@
                         {% if user.is_verified %}
                         <!-- Utente LOGGATO verificato: può messaggiare -->
                         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
-                            <button onclick="openChat({{ item.author.id }}, '{{ item.author.nome }} {{ item.author.cognome }}', '{{ item.author.profile_picture_url }}')"
-                               class="btn-message-verified"
+                            <button class="btn-message-verified btn-contact-author"
+                               data-question-id="{{ item.question.id }}"
+                               data-author-id="{{ item.author.id }}"
+                               data-author-name="{{ item.author.nome }} {{ item.author.cognome }}"
+                               data-author-pic="{{ item.author.profile_picture_url }}"
                                style="display: inline-flex; 
                                       align-items: center; 
                                       gap: 8px; 
@@ -1273,6 +1375,174 @@ document.getElementById('askModal').addEventListener('click', function(e) {
         closeAskModal();
     }
 });
+
+// ========== LIKE SYSTEM ==========
+async function toggleLike(questionId) {
+    const button = document.querySelector(`.btn-like[data-question-id="${questionId}"]`);
+    
+    if (!button) return;
+    
+    // Disabilita il bottone durante la richiesta
+    button.disabled = true;
+    
+    try {
+        const response = await fetch(`/api/community/${questionId}/like`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.status === 401) {
+            // Non autenticato - redirect a login
+            alert('Devi effettuare il login per mettere like');
+            window.location.href = '/login';
+            return;
+        }
+        
+        if (response.ok && data.success) {
+            const countSpan = button.querySelector('.upvotes-count');
+            const icon = button.querySelector('i');
+            
+            // Animazione "wave" del background
+            button.classList.add('animating');
+            setTimeout(() => button.classList.remove('animating'), 600);
+            
+            // Aggiorna il contatore con animazione
+            countSpan.textContent = data.upvotes;
+            
+            if (data.action === 'added') {
+                // ✅ Like aggiunto
+                button.classList.add('liked');
+                
+                // Animazione del cuore - parte da scale 0
+                icon.style.transform = 'scale(0)';
+                setTimeout(() => {
+                    icon.style.transform = 'scale(1)';
+                }, 50);
+                
+                // Crea particelle di "cuoricini" che volano via 🎉
+                createLikeParticles(button);
+                
+            } else {
+                // ❌ Like rimosso
+                button.classList.remove('liked');
+                
+                // Animazione di "bounce"
+                icon.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    icon.style.transform = 'scale(1)';
+                }, 200);
+            }
+            
+        } else {
+            alert(data.error || 'Errore durante l\'operazione');
+        }
+        
+    } catch (error) {
+        console.error('Error toggling like:', error);
+        alert('Errore di connessione');
+    } finally {
+        // Riabilita il bottone
+        button.disabled = false;
+    }
+}
+
+// 🎊 Crea particelle animate quando si mette like
+function createLikeParticles(button) {
+    const rect = button.getBoundingClientRect();
+    
+    for (let i = 0; i < 8; i++) {
+        const particle = document.createElement('div');
+        particle.innerHTML = '👍';
+        particle.style.position = 'fixed';
+        particle.style.left = rect.left + rect.width / 2 + 'px';
+        particle.style.top = rect.top + rect.height / 2 + 'px';
+        particle.style.fontSize = '16px';
+        particle.style.pointerEvents = 'none';
+        particle.style.zIndex = '9999';
+        particle.style.transition = 'all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        
+        document.body.appendChild(particle);
+        
+        // Animazione particella - vola in direzioni diverse
+        const angle = (i / 8) * Math.PI * 2;
+        const distance = 50 + Math.random() * 30;
+        
+        setTimeout(() => {
+            particle.style.transform = `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance - 40}px) scale(1.5) rotate(${Math.random() * 360}deg)`;
+            particle.style.opacity = '0';
+        }, 50);
+        
+        // Rimuovi particella dopo animazione
+        setTimeout(() => {
+            particle.remove();
+        }, 900);
+    }
+}
+
+// 📬 Traccia contatti "Messaggia" e apri chat
+async function contactAuthor(questionId, authorId, authorName, authorPic) {
+    console.log('🔵 contactAuthor called with:', { questionId, authorId, authorName, authorPic });
+    
+    try {
+        // Traccia il contatto
+        console.log('🔵 Sending POST to:', `/api/community/${questionId}/contact`);
+        const response = await fetch(`/api/community/${questionId}/contact`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('🔵 Response status:', response.status);
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Contact tracked:', data);
+            
+            // Aggiorna contatore nella UI (opzionale)
+            const contactsElement = document.querySelector(`[data-question-id="${questionId}"] .views-count`);
+            console.log('🔵 Found contacts element:', contactsElement);
+            if (contactsElement && data.action === 'tracked') {
+                contactsElement.textContent = data.contacts;
+                console.log('✅ Updated counter to:', data.contacts);
+            }
+        } else {
+            const errorData = await response.json();
+            console.error('❌ Error response:', errorData);
+        }
+    } catch (error) {
+        console.error('❌ Error tracking contact:', error);
+    }
+    
+    // Apri chat (anche se tracking fallisce)
+    console.log('🔵 Opening chat with:', { authorId, authorName, authorPic });
+    openChat(authorId, authorName, authorPic);
+}
+
+// Event listener per bottoni "Messaggia"
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-contact-author');
+        if (btn) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const questionId = parseInt(btn.dataset.questionId);
+            const authorId = parseInt(btn.dataset.authorId);
+            const authorName = btn.dataset.authorName;
+            const authorPic = btn.dataset.authorPic;
+            
+            console.log('🔵 Button clicked, calling contactAuthor...');
+            contactAuthor(questionId, authorId, authorName, authorPic);
+        }
+    });
+});
+
+
 </script>
 
 <!-- Pulsante Fisso in Basso -->

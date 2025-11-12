@@ -910,6 +910,9 @@
         this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Prenotazione in corso...';
         
+        // Calcola il prezzo totale da inviare al backend
+        const totalPrice = (pricePerHour / 60) * selectedDuration;
+        
         const bookingData = {
             consultant_user_id: consultantId,
             booking_date: formatDate(selectedDate),
@@ -917,7 +920,8 @@
             end_time: selectedSlot.end_time,
             duration_minutes: selectedDuration,
             availability_block_id: selectedSlot.availability_block_id,
-            client_notes: document.getElementById('clientNotes').value
+            client_notes: document.getElementById('clientNotes').value,
+            price: parseFloat(totalPrice.toFixed(2))  // Prezzo calcolato in base alla durata
         };
         
         try {
