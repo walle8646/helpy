@@ -797,6 +797,7 @@ async function loadAvailability(dateStr) {
             timeBlocks = data.blocks;
             availabilityData[dateStr] = data.blocks;
             renderSchedule();
+            updateCopyButtonVisibility(); // ✅ Mostra bottone se ci sono fasce orarie salvate
             renderCalendar(); // ✅ Riaggiorna calendario per mostrare pallini verdi
         }
     } catch (error) {
@@ -829,13 +830,15 @@ function renderSchedule() {
             <button class="btn btn-primary" onclick="saveAvailability()">
                 <i class="fas fa-save"></i> Salva Disponibilità
             </button>
-            <button class="btn btn-secondary" onclick="openCopyModal()">
+            <button class="btn btn-secondary" onclick="openCopyModal()" id="copyButton" style="display: none;">
                 <i class="fas fa-copy"></i> Copia in Altri Giorni
             </button>
         </div>
     `;
     
     renderTimeBlocks();
+    // Mostra il bottone copia solo se ci sono fasce orarie salvate
+    updateCopyButtonVisibility();
 }
 
 function renderTimeBlocks() {
@@ -935,12 +938,27 @@ async function saveAvailability() {
             availabilityData[dateStr] = timeBlocks;
             renderCalendar(); // Aggiorna calendario con bollino verde
             renderWeeklySummary(); // ✅ Aggiorna riepilogo settimanale
+            updateCopyButtonVisibility(); // ✅ Mostra bottone copia dopo salvataggio
         } else {
             alert('Errore nel salvataggio');
         }
     } catch (error) {
         console.error('Errore:', error);
         alert('Errore di connessione');
+    }
+}
+
+// ✅ Mostra/nascondi bottone copia in base al salvataggio
+function updateCopyButtonVisibility() {
+    const copyButton = document.getElementById('copyButton');
+    const dateStr = formatDate(selectedDate);
+    
+    // Mostra il bottone solo se ci sono dati salvati per questo giorno nel database
+    // Verifichiamo se availabilityData contiene dati per questo giorno
+    if (copyButton && availabilityData[dateStr] && availabilityData[dateStr].length > 0) {
+        copyButton.style.display = 'inline-block';
+    } else {
+        copyButton.style.display = 'none';
     }
 }
 

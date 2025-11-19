@@ -4,9 +4,15 @@
 
 {% block content %}
 <style>
+    /* Nascondi l'header */
+    .navbar {
+        display: none !important;
+    }
+    
+    /* Adatta il container per fullscreen senza header */
     .call-container {
         max-width: 100%;
-        height: calc(100vh - 80px);
+        height: 100vh;
         margin: 0;
         padding: 0;
         display: flex;
@@ -27,6 +33,91 @@
     .video-grid.has-remote {
         grid-template-columns: 1fr 1fr;
     }
+    
+    /* Layout picture-in-picture quando c'è screen sharing */
+    .video-grid.screen-sharing {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+    }
+    
+    /* Layout normale: io condivido, vedo il mio schermo grande */
+    .video-grid.screen-sharing:not(.remote-sharing) #localPlayer {
+        grid-column: 1;
+        grid-row: 1;
+        width: 100%;
+        height: 100%;
+        position: relative;
+        border-radius: 12px;
+    }
+    
+    .video-grid.screen-sharing:not(.remote-sharing) #localPlayer video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain !important;
+    }
+    
+    .video-grid.screen-sharing:not(.remote-sharing) #remotePlayer {
+        position: fixed;
+        bottom: 110px;
+        right: 20px;
+        width: 250px;
+        height: 180px;
+        z-index: 50;
+        border: 3px solid #667eea;
+        border-radius: 12px;
+        grid-column: auto;
+        grid-row: auto;
+    }
+    
+    .video-grid.screen-sharing:not(.remote-sharing) #remotePlayer video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+    
+    /* Layout invertito: l'altro condivide, vedo il suo schermo grande */
+    .video-grid.screen-sharing.remote-sharing #remotePlayer {
+        grid-column: 1;
+        grid-row: 1;
+        width: 100%;
+        height: 100%;
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .video-grid.screen-sharing.remote-sharing #remotePlayer video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain !important;
+    }
+    
+    .video-grid.screen-sharing.remote-sharing #localPlayer {
+        position: fixed;
+        bottom: 110px;
+        right: 20px;
+        width: 250px;
+        height: 180px;
+        z-index: 50;
+        border: 3px solid #667eea;
+        border-radius: 12px;
+        grid-column: auto;
+        grid-row: auto;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .video-grid.screen-sharing.remote-sharing #localPlayer video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+    
     
     /* Video Players */
     .video-player {
@@ -135,6 +226,25 @@
     .control-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+    }
+    
+    /* Timer in controls bar */
+    .call-timer-inline {
+        color: white;
+        font-size: 1.2rem;
+        font-weight: bold;
+        font-family: 'Courier New', monospace;
+        padding: 10px 20px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 80px;
+    }
+    
+    .call-timer-inline span {
+        color: #ffffff;
     }
     
     /* Connection Status */
@@ -299,6 +409,11 @@
             <i class="fas fa-desktop"></i>
         </button>
         
+        <!-- Timer moved to controls bar -->
+        <div class="call-timer-inline" id="callTimerInline">
+            <span id="timerDisplayInline">--:--</span>
+        </div>
+        
         <button class="control-btn end-call" id="endCallBtn" title="Termina chiamata">
             <i class="fas fa-phone-slash"></i>
         </button>
@@ -311,7 +426,9 @@
 <script>
     const bookingId = {{ booking.id }};
     const bookingDuration = {{ booking.duration_minutes }};
-    const maxCallDuration = bookingDuration + 10; // Durata + 10 minuti extra
+    const bookingDate = "{{ booking.booking_date.strftime('%Y-%m-%d') }}";
+    const bookingEndTimeStr = "{{ booking.end_time }}"; // HH:MM format
+    const bookingEndTime = `${bookingDate}T${bookingEndTimeStr}:00`; // Combina data + ora in ISO format
     
     let client = null;
     let localTracks = {
@@ -323,6 +440,8 @@
     let remoteUsers = {};
     let callStartTime = null;
     let timerInterval = null;
+    let screenShareActive = false; // Traccia se c'è condivisione schermo attiva
+    let remoteScreenShareActive = false; // Traccia se l'ALTRO utente sta condividendo lo schermo
     
     // UI Elements
     const loadingOverlay = document.getElementById('loadingOverlay');
@@ -338,6 +457,7 @@
     const endCallBtn = document.getElementById('endCallBtn');
     const callTimer = document.getElementById('callTimer');
     const timerDisplay = document.getElementById('timerDisplay');
+    const timerDisplayInline = document.getElementById('timerDisplayInline');
     
     // Start/Stop Recording functions
     async function startRecording() {
@@ -392,17 +512,29 @@
         }
     }
     
-    // Start call timer
+    // Start call timer - basato su end_time del booking + 5 minuti
     function startCallTimer() {
-        callStartTime = Date.now();
+        // Calcola l'orario di scadenza: end_time del booking + 5 minuti
+        const endDateTime = new Date(bookingEndTime);
+        const callDeadline = new Date(endDateTime.getTime() + 5 * 60 * 1000); // Aggiungi 5 minuti
+        
+        console.log(`📅 Booking end time: ${bookingEndTime}`);
+        console.log(`⏰ Call deadline (end_time + 5min): ${callDeadline.toISOString()}`);
         
         timerInterval = setInterval(() => {
-            const elapsedSeconds = Math.floor((Date.now() - callStartTime) / 1000);
-            const remainingSeconds = (maxCallDuration * 60) - elapsedSeconds;
+            const now = new Date();
+            const remainingMilliseconds = callDeadline - now;
+            const remainingSeconds = Math.floor(remainingMilliseconds / 1000);
             
             if (remainingSeconds <= 0) {
                 // Tempo scaduto - termina call automaticamente
                 clearInterval(timerInterval);
+                console.log('⏰ Timer scaduto - notificando il server...');
+                
+                // ✅ Notifica al backend che la call è terminata
+                fetch(`/api/booking/${bookingId}/call-end`, { method: 'POST' })
+                    .catch(err => console.error('Errore notifica end call:', err));
+                
                 alert('Il tempo della consulenza è terminato. La chiamata verrà chiusa.');
                 leaveCall().then(() => {
                     window.location.href = '/profile';
@@ -416,6 +548,7 @@
             
             // Aggiorna display
             timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            timerDisplayInline.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             
             // Avviso quando mancano 5 minuti
             if (remainingSeconds === 300) {
@@ -439,6 +572,26 @@
     // Initialize Agora
     async function initializeCall() {
         try {
+            // ✅ PRIMO: Verifica che la call sia ancora attiva
+            console.log('📞 Verificando se la call è ancora attiva...');
+            const statusResponse = await fetch(`/api/booking/${bookingId}/call-status`);
+            
+            if (!statusResponse.ok) {
+                throw new Error('Errore nella verifica dello stato della call');
+            }
+            
+            const statusData = await statusResponse.json();
+            console.log('📞 Call status:', statusData);
+            
+            if (statusData.is_expired) {
+                console.log('❌ La call è scaduta! Reindirizzamento a profile...');
+                alert('Scusa, il tempo della consulenza è scaduto. Non puoi riaccedere a questa call.');
+                window.location.href = '/profile';
+                return;
+            }
+            
+            console.log(`✅ Call attiva - tempo rimasto: ${statusData.remaining_seconds} secondi`);
+            
             // Get Agora token from backend
             const response = await fetch(`/api/booking/${bookingId}/agora-token`);
             if (!response.ok) {
@@ -478,6 +631,9 @@
             
             // Start call timer
             startCallTimer();
+            
+            // ✅ Avvia polling per sincronizzare screen share con l'altro utente
+            startScreenSharePolling();
             
             // Avvia registrazione automaticamente
             await startRecording();
@@ -577,6 +733,21 @@
             screenTrack.play('localPlayer');
             
             isScreenSharing = true;
+            screenShareActive = true;
+            
+            // Aggiorna il layout per picture-in-picture
+            videoGrid.classList.add('screen-sharing');
+            
+            // Notifica al backend che stai condividendo lo schermo
+            try {
+                await fetch(`/api/booking/${bookingId}/screen-share/start`, {
+                    method: 'POST'
+                });
+                console.log('✅ Screen share notification sent to server');
+            } catch (error) {
+                console.error('⚠️ Errore notifica screen share:', error);
+            }
+            
             screenShareBtn.classList.add('active');
             screenShareBtn.querySelector('i').className = 'fas fa-desktop';
             
@@ -607,6 +778,21 @@
             localTracks.video.play('localPlayer');
             
             isScreenSharing = false;
+            screenShareActive = false;
+            
+            // Ripristina il layout normale
+            videoGrid.classList.remove('screen-sharing');
+            
+            // Notifica al backend che hai smesso di condividere lo schermo
+            try {
+                await fetch(`/api/booking/${bookingId}/screen-share/stop`, {
+                    method: 'POST'
+                });
+                console.log('✅ Screen share stop notification sent to server');
+            } catch (error) {
+                console.error('⚠️ Errore notifica stop screen share:', error);
+            }
+            
             screenShareBtn.classList.remove('active');
             screenShareBtn.querySelector('i').className = 'fas fa-desktop';
             
@@ -625,6 +811,9 @@
     
     // Leave call
     async function leaveCall() {
+        // Stop screen share polling
+        stopScreenSharePolling();
+        
         // Stop recording
         await stopRecording();
         
@@ -664,6 +853,10 @@
     
     // Cleanup on page unload (chiusura browser, tab, refresh)
     window.addEventListener('beforeunload', (e) => {
+        // Mostra popup di conferma
+        e.preventDefault();
+        e.returnValue = 'Sei sicuro di voler chiudere la chiamata? La registrazione sarà interrotta.';
+        
         // Stop recording usando sendBeacon (funziona anche se la pagina si chiude)
         // sendBeacon è garantito essere eseguito anche durante la chiusura
         const stopUrl = `/api/booking/${bookingId}/recording/stop`;
@@ -715,5 +908,66 @@
             navigator.sendBeacon(stopUrl, blob);
         }
     });
+    
+    // ========== POLLING PER SINCRONIZZARE SCREEN SHARE STATE ==========
+    
+    let screenShareCheckInterval = null;
+    
+    /**
+     * Controlla se l'altro utente sta condividendo lo schermo
+     */
+    async function checkRemoteScreenShareState() {
+        try {
+            const response = await fetch(`/api/booking/${bookingId}/screen-share/status`);
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            
+            // Se IO sto condividendo, non mi interessa cosa fa l'altro
+            if (isScreenSharing) {
+                return;
+            }
+            
+            // Se l'altro utente sta condividendo e noi non abbiamo ancora aggiunto la classe
+            if (data.is_remote_sharing && !remoteScreenShareActive) {
+                console.log('📺 L\'altro utente sta condividendo lo schermo, aggiorno layout (inverted)');
+                remoteScreenShareActive = true;
+                videoGrid.classList.add('screen-sharing');
+                videoGrid.classList.add('remote-sharing'); // ✅ Aggiungi classe per layout invertito
+            }
+            // Se l'altro utente ha smesso di condividere e noi avevamo aggiunto la classe
+            else if (!data.is_remote_sharing && remoteScreenShareActive) {
+                console.log('🎥 L\'altro utente ha smesso di condividere, ripristino layout');
+                remoteScreenShareActive = false;
+                videoGrid.classList.remove('screen-sharing');
+                videoGrid.classList.remove('remote-sharing'); // ✅ Rimuovi classe layout invertito
+            }
+        } catch (error) {
+            console.error('Errore check screen share state:', error);
+        }
+    }
+    
+    /**
+     * Avvia polling dello screen share state
+     */
+    function startScreenSharePolling() {
+        // Ferma polling precedente se esiste
+        if (screenShareCheckInterval) {
+            clearInterval(screenShareCheckInterval);
+        }
+        // Controlla ogni 500ms (mezzo secondo) per sincronizzazione veloce
+        screenShareCheckInterval = setInterval(checkRemoteScreenShareState, 500);
+        console.log('✅ Polling screen share state avviato');
+    }
+    
+    /**
+     * Ferma polling dello screen share state
+     */
+    function stopScreenSharePolling() {
+        if (screenShareCheckInterval) {
+            clearInterval(screenShareCheckInterval);
+            screenShareCheckInterval = null;
+        }
+    }
 </script>
 {% endblock %}

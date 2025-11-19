@@ -271,6 +271,59 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
     </div>
 </body>
 </html>
+""",
+            'booking_refused.html': """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #ffebee; padding: 30px; border-radius: 0 0 10px 10px; }}
+        .button {{ display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e74c3c; }}
+        .refund-info {{ background: #e8f5e9; padding: 15px; border-radius: 5px; border-left: 4px solid #4caf50; margin: 20px 0; }}
+        .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Consulenza Rifiutata</h1>
+        </div>
+        <div class="content">
+            <p>Caro/a <strong>{client_name}</strong>,</p>
+            <p>Purtroppo <strong>{consultant_name}</strong> ha rifiutato la consulenza che avevi prenotato.</p>
+            
+            <div class="details">
+                <p><strong>📅 Data:</strong> {date}</p>
+                <p><strong>🕐 Orario:</strong> {time}</p>
+                <p><strong>👤 Consulente:</strong> {consultant_name}</p>
+            </div>
+            
+            {reason_section}
+            
+            <div class="refund-info">
+                <p><strong>💰 Rimborso:</strong></p>
+                <p>Se hai pagato la consulenza, riceverai il rimborso entro 5-10 giorni lavorativi sul metodo di pagamento utilizzato.</p>
+            </div>
+            
+            <p style="margin-top: 20px;">Non demordere! Puoi cercare altri consulenti disponibili nel nostro catalogo.</p>
+            
+            <a href="{action_url}" class="button">🔍 Cerca altri Consulenti</a>
+            
+            <p style="margin-top: 30px; font-size: 14px; color: #666;">
+                Se hai domande o necessiti di assistenza, contattaci pure!
+            </p>
+        </div>
+        <div class="footer">
+            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+        </div>
+    </div>
+</body>
+</html>
 """
         }
         

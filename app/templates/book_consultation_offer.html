@@ -472,6 +472,7 @@ currentWeekStart.setHours(0, 0, 0, 0);
 
 // Load initial week
 window.addEventListener('DOMContentLoaded', () => {
+    console.log('✅ book_consultation_offer.html loaded - starting loadWeeklyAvailability');
     loadWeeklyAvailability();
 });
 
@@ -551,11 +552,17 @@ async function loadDayAvailability(dateStr) {
         if (!response.ok) return { date: dateStr, blocks: [], slots: [] };
         
         const data = await response.json();
-        const slots = generateTimeSlots(data.blocks || [], durationMinutes);
+        // Aggiungi la data a ogni blocco
+        const blocksWithDate = (data.blocks || []).map(block => ({
+            ...block,
+            date: dateStr
+        }));
+        console.log(`📅 loadDayAvailability(${dateStr}):`, blocksWithDate);
+        const slots = generateTimeSlots(blocksWithDate, durationMinutes);
         
         return {
             date: dateStr,
-            blocks: data.blocks || [],
+            blocks: blocksWithDate,
             slots: slots
         };
     } catch (error) {
@@ -605,6 +612,8 @@ function renderWeeklyCalendar(days, availabilities) {
 
 function generateTimeSlots(blocks, duration) {
     const slots = [];
+    const now = new Date();
+    console.log(`🕐 NOW: ${now.toString()}`);
     
     blocks.forEach(block => {
         if (block.status !== 'available') return;
@@ -622,11 +631,28 @@ function generateTimeSlots(blocks, duration) {
             const slotEndHour = Math.floor(slotEndMinutes / 60);
             const slotEndMin = slotEndMinutes % 60;
             
-            slots.push({
-                start_time: `${String(slotStartHour).padStart(2, '0')}:${String(slotStartMin).padStart(2, '0')}`,
-                end_time: `${String(slotEndHour).padStart(2, '0')}:${String(slotEndMin).padStart(2, '0')}`,
-                block_id: block.id
-            });
+            // Controlla se questa fascia è almeno 4 ore nel futuro
+            const blockDate = block.date;
+            if (blockDate) {
+                // Crea la data/ora dello slot in modo corretto
+                const [year, month, day] = blockDate.split('-').map(Number);
+                const slotDateTime = new Date(year, month - 1, day, slotStartHour, slotStartMin, 0, 0);
+                
+                const millisecondsUntilSlot = slotDateTime - now;
+                const hoursUntilSlot = millisecondsUntilSlot / (1000 * 60 * 60);
+                
+                const isValid = hoursUntilSlot >= 4;
+                console.log(`Slot ${blockDate} ${slotStartHour}:${String(slotStartMin).padStart(2, '0')} (${slotDateTime.toString()}) - Ore: ${hoursUntilSlot.toFixed(2)} - Mostra: ${isValid}`);
+                
+                // Se la fascia è almeno 4 ore nel futuro, la mostriamo
+                if (isValid) {
+                    slots.push({
+                        start_time: `${String(slotStartHour).padStart(2, '0')}:${String(slotStartMin).padStart(2, '0')}`,
+                        end_time: `${String(slotEndHour).padStart(2, '0')}:${String(slotEndMin).padStart(2, '0')}`,
+                        block_id: block.id
+                    });
+                }
+            }
             
             currentMinutes += 30; // Increment by 30 minutes
         }

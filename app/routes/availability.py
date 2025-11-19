@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select, func, and_
 from datetime import datetime, timedelta, date, time
 from typing import List, Optional
 import logging
@@ -116,8 +116,11 @@ async def save_availability(
             # Rimuovi blocchi esistenti per quella data
             existing = session.exec(
                 select(AvailabilityBlock).where(
-                    AvailabilityBlock.user_id == user.id,
-                    func.date(AvailabilityBlock.date) == date
+                    and_(
+                        AvailabilityBlock.user_id == user.id,
+                        AvailabilityBlock.date >= datetime.combine(target_date, datetime.min.time()),
+                        AvailabilityBlock.date < datetime.combine(target_date, datetime.max.time())
+                    )
                 )
             ).all()
             
@@ -141,14 +144,14 @@ async def save_availability(
                 
                 new_block = AvailabilityBlock(
                     user_id=user.id,
-                    date=target_date,
+                    date=datetime.combine(target_date, datetime.min.time()),
                     start_time=start_time,
                     end_time=end_time,
                     total_minutes=total_minutes,
                     status="available"
                 )
                 session.add(new_block)
-                logger.info(f"💾 Saving block: date={target_date} (type: {type(target_date)}), time={start_time}-{end_time}")
+                logger.info(f"💾 Saving block: date={target_date}, time={start_time}-{end_time}")
             
             session.commit()
             logger.info(f"✅ Saved {len(blocks_data)} availability blocks for user {user.id} on {date}")

@@ -29,28 +29,36 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get('stripe-signature')
     
+    logger.info(f"🔔 Stripe webhook received. Signature header: {sig_header is not None}")
+    
     if not sig_header:
+        logger.error("❌ Missing Stripe signature header")
         raise HTTPException(status_code=400, detail="Missing Stripe signature")
     
     try:
         # Verify webhook signature and construct event
         event = construct_webhook_event(payload, sig_header)
+        logger.info(f"✅ Webhook signature verified. Event type: {event.get('type')}")
     except ValueError as e:
-        logger.error(f"Invalid Stripe webhook: {e}")
+        logger.error(f"❌ Invalid Stripe webhook: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     
     # Handle the event
     if event['type'] == 'checkout.session.completed':
+        logger.info("🎉 Processing checkout.session.completed event")
         session = event['data']['object']
         await handle_checkout_session_completed(session)
     
     elif event['type'] == 'payment_intent.succeeded':
         payment_intent = event['data']['object']
-        logger.info(f"Payment intent succeeded: {payment_intent['id']}")
+        logger.info(f"✅ Payment intent succeeded: {payment_intent['id']}")
     
     elif event['type'] == 'payment_intent.payment_failed':
         payment_intent = event['data']['object']
-        logger.warning(f"Payment intent failed: {payment_intent['id']}")
+        logger.warning(f"❌ Payment intent failed: {payment_intent['id']}")
+    
+    else:
+        logger.warning(f"⚠️  Unhandled event type: {event.get('type')}")
     
     # Return 200 to acknowledge receipt of the event
     return JSONResponse({"status": "success"})
@@ -64,15 +72,19 @@ async def handle_checkout_session_completed(checkout_session):
     payment_intent_id = checkout_session.get('payment_intent')
     metadata = checkout_session['metadata']
     
-    logger.info(f"Processing checkout session: {session_id}")
+    logger.info(f"📦 Processing checkout session: {session_id}")
+    logger.info(f"💳 Payment intent: {payment_intent_id}")
     
     # Check booking type
     booking_type = metadata.get('booking_type', 'consultation_offer')
+    logger.info(f"📝 Booking type: {booking_type}")
     
     if booking_type == 'direct':
+        logger.info(f"🔄 Handling direct booking from metadata: {metadata}")
         # Direct booking (from booking.html)
         await handle_direct_booking(session_id, payment_intent_id, metadata)
     else:
+        logger.info(f"🔄 Handling consultation offer booking from metadata: {metadata}")
         # Consultation offer booking (from consultation offer)
         await handle_consultation_offer_booking(session_id, payment_intent_id, metadata)
 
@@ -87,6 +99,11 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
     duration_minutes = int(metadata.get('duration_minutes'))
     availability_block_id = metadata.get('availability_block_id')
     client_notes = metadata.get('client_notes', '')
+    
+    logger.info(f"👤 Direct booking details:")
+    logger.info(f"   Client: {client_user_id}, Consultant: {consultant_user_id}")
+    logger.info(f"   Date: {booking_date_str}, Time: {start_time}-{end_time}")
+    logger.info(f"   Duration: {duration_minutes} min, Block ID: {availability_block_id}")
     
     with Session(engine) as db_session:
         # Check if booking already exists

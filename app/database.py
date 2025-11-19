@@ -17,7 +17,7 @@ if "sqlite" in DATABASE_URL:
 
 engine = create_engine(
     DATABASE_URL,
-    echo=True,  # Log SQL queries (metti False in produzione)
+    echo=False,  # Log SQL queries (metti False in produzione)
     connect_args=connect_args
 )
 
@@ -37,7 +37,8 @@ def create_db_and_tables():
         CommunityQuestion,  # ✅ Solo CommunityQuestion, senza CommunityAnswer
         AvailabilityBlock,  # ✅ Gestione disponibilità
         Booking,  # ✅ Gestione prenotazioni
-        ConsultationOffer  # ✅ Gestione offerte consulenze
+        ConsultationOffer,  # ✅ Gestione offerte consulenze
+        ConfigurationProperty  # ✅ Configurazione globale
     )
     
     SQLModel.metadata.create_all(engine)

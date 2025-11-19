@@ -5,12 +5,14 @@ from sqlmodel import Session, select, func
 from datetime import datetime, timedelta, time
 from typing import Optional, List, Dict, Union
 from zoneinfo import ZoneInfo
+import os
 from app.database import engine
 from app.models import Booking, User, AvailabilityBlock
 from app.routes.auth import get_current_user
 from app.utils.agora_recording import start_recording, stop_recording, get_recording_url
 from app.logger_config import logger
 from app.utils.stripe_config import create_checkout_session
+from app.utils.notification_service import send_notification
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -59,28 +61,42 @@ def calculate_available_slots(
     now_italy = datetime.now(ITALY_TZ)
     today = now_italy.date()
     target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    current_time_minutes = None
     
-    if target_date == today:
-        # Se è oggi, calcola i minuti dall'inizio della giornata
-        current_time_minutes = now_italy.hour * 60 + now_italy.minute
+    # Calcola il minimo datetime: 4 ore nel futuro dal momento attuale
+    min_datetime = now_italy + timedelta(hours=4)
+    
+    # Se il minimo datetime è dopo il target_date (cioè il target_date è nel passato rispetto al limite),
+    # allora non ci sono slot disponibili per questa data
+    if target_date < min_datetime.date():
+        print(f"🕐 Data {target_date} è prima del limite di 4 ore ({min_datetime.date()}), nessuno slot disponibile")
+        return []
+    
+    # Calcola i minuti da inizio giornata per il minimo time
+    if min_datetime.date() == target_date:
+        # Il limite di 4 ore cade nello stesso giorno della prenotazione
+        current_time_minutes = min_datetime.hour * 60 + min_datetime.minute
+    else:
+        # Il limite di 4 ore cade in un giorno precedente (target_date è dopo il limite)
+        # Quindi nessun limite per questo giorno (può iniziare da 00:00)
+        current_time_minutes = 0
+    
+    print(f"🕐 calculate_available_slots: now={now_italy}, min_datetime={min_datetime}, target_date={target_date}, current_time_minutes={current_time_minutes}")
     
     for block in availability_blocks:
         # Converti start_time e end_time in minuti
         block_start = parse_time_to_minutes(block.start_time)
         block_end = parse_time_to_minutes(block.end_time)
         
-        # Se è oggi, non mostrare slot già passati
-        if current_time_minutes is not None:
-            # Lo slot deve iniziare almeno ora corrente + 5 minuti (buffer)
-            min_start_time = current_time_minutes + 5
-            if block_end <= min_start_time:
-                # Tutto il blocco è nel passato, saltalo
-                continue
-            # Aggiorna il block_start se parte del blocco è nel passato
-            if block_start < min_start_time:
-                # Arrotonda al prossimo slot di 30 minuti
-                block_start = ((min_start_time + 29) // 30) * 30
+        # Calcola il minimo di tempo richiesto (4 ore dal momento attuale)
+        min_start_time = current_time_minutes if current_time_minutes is not None else 0
+        
+        if block_end <= min_start_time:
+            # Tutto il blocco è nel passato o entro il limite di 4 ore, saltalo
+            continue
+        # Aggiorna il block_start se parte del blocco è nel passato/entro 4 ore
+        if block_start < min_start_time:
+            # Arrotonda al prossimo slot di 30 minuti
+            block_start = ((min_start_time + 29) // 30) * 30
         
         # Crea lista di intervalli occupati in questo blocco
         occupied_intervals = []
@@ -102,11 +118,13 @@ def calculate_available_slots(
         for occupied_start, occupied_end in occupied_intervals:
             # C'è spazio prima di questo intervallo occupato?
             while current_time + duration_minutes <= occupied_start:
-                available_slots.append({
+                slot = {
                     'start_time': minutes_to_time(current_time),
                     'end_time': minutes_to_time(current_time + duration_minutes),
                     'availability_block_id': block.id
-                })
+                }
+                available_slots.append(slot)
+                print(f"   ✅ Slot aggiunto: {slot['start_time']} - {slot['end_time']}")
                 current_time += 30  # Incremento di 30 minuti per slot successivo
             
             # Salta l'intervallo occupato
@@ -114,11 +132,13 @@ def calculate_available_slots(
         
         # Slot disponibili dopo l'ultimo intervallo occupato
         while current_time + duration_minutes <= block_end:
-            available_slots.append({
+            slot = {
                 'start_time': minutes_to_time(current_time),
                 'end_time': minutes_to_time(current_time + duration_minutes),
                 'availability_block_id': block.id
-            })
+            }
+            available_slots.append(slot)
+            print(f"   ✅ Slot aggiunto (dopo): {slot['start_time']} - {slot['end_time']}")
             current_time += 30
     
     return available_slots
@@ -295,6 +315,15 @@ async def create_booking(
             booking_date = datetime.strptime(booking_date_str, '%Y-%m-%d')
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato data non valido")
+        
+        # ✅ Validazione: prenotazione almeno 4 ore nel futuro
+        # Combina data + ora di inizio
+        booking_datetime = datetime.strptime(f"{booking_date_str} {start_time}", '%Y-%m-%d %H:%M')
+        now = datetime.utcnow()
+        time_until_booking = (booking_datetime - now).total_seconds() / 3600  # in ore
+        
+        if time_until_booking < 4:
+            raise HTTPException(status_code=400, detail="La consulenza deve essere prenotata almeno 4 ore nel futuro")
         
         # Verifica che lo slot sia ancora disponibile (prevenzione double booking)
         existing_booking = session.exec(
@@ -480,6 +509,9 @@ async def get_upcoming_bookings(request: Request):
                 "start_time": booking.start_time,
                 "end_time": booking.end_time,
                 "duration": booking.duration_minutes,
+                "status": booking.status,
+                "payment_status": booking.payment_status,
+                "stripe_payment_intent_id": booking.stripe_payment_intent_id,
                 "role": role,
                 "other_user": {
                     "name": f"{other_user.nome} {other_user.cognome}" if other_user else "Utente",
@@ -858,3 +890,318 @@ async def booking_cancel(request: Request, offer_id: Optional[int] = None):
         "back_url": back_url
     })
 
+@router.post("/api/booking/{booking_id}/refuse")
+async def refuse_booking(booking_id: int, request: Request):
+    """Consulente rifiuta una prenotazione"""
+    from pydantic import BaseModel
+    
+    class RefuseRequest(BaseModel):
+        reason: Optional[str] = None
+    
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    body = await request.json()
+    refuse_reason = body.get("reason", "")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia il consulente
+        if booking.consultant_user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Solo il consulente può rifiutare la prenotazione")
+        
+        # Verifica che lo stato sia refusabile
+        if booking.status not in ['pending', 'confirmed']:
+            raise HTTPException(status_code=400, detail="Non puoi rifiutare una prenotazione in questo stato")
+        
+        # ✅ Validazione: annullamento max 4 ore prima dell'inizio
+        booking_datetime = datetime.combine(booking.booking_date, booking.start_time)
+        now = datetime.utcnow()
+        time_until_booking = (booking_datetime - now).total_seconds() / 3600  # in ore
+        
+        if time_until_booking < 4:
+            raise HTTPException(status_code=400, detail="Puoi annullare la consulenza solo fino a 4 ore prima dell'inizio")
+        
+        # ✅ 1. Cambia lo stato
+        booking.status = "cancelled"
+        booking.cancellation_reason = refuse_reason or "Rifiutato dal consulente"
+        booking.cancelled_by = current_user.id
+        booking.cancelled_at = datetime.utcnow()
+        session.add(booking)
+        
+        # ✅ 2. Rimborsa se il pagamento è avvenuto
+        if booking.payment_status == 'paid' and booking.stripe_payment_intent_id:
+            try:
+                import stripe as stripe_module
+                stripe_module.api_key = os.getenv("STRIPE_SECRET_KEY")
+                
+                # Effettua il rimborso
+                refund = stripe_module.Refund.create(
+                    payment_intent=booking.stripe_payment_intent_id,
+                    reason='requested_by_customer'
+                )
+                logger.info(f"✅ Rimborso creato: {refund.id} per booking {booking_id}")
+                booking.payment_status = "refunded"
+            except stripe_module.error.InvalidRequestError as e:
+                # Se la charge è già stata rimborsata, non è un errore
+                if "already been refunded" in str(e):
+                    logger.info(f"⚠️ Booking {booking_id} era già stato rimborsato prima")
+                    booking.payment_status = "refunded"
+                else:
+                    logger.error(f"❌ Errore nel rimborso: {e}")
+                    # Continua comunque, il rimborso manuale può essere fatto dopo
+            except Exception as e:
+                logger.error(f"❌ Errore nel rimborso: {e}")
+                # Continua comunque, il rimborso manuale può essere fatto dopo
+        
+        session.commit()
+        
+        # ✅ 3. Invia notifica e email al cliente
+        client = session.get(User, booking.client_user_id)
+        consultant = session.get(User, booking.consultant_user_id)
+        
+        if client:
+            client_name = f"{client.nome} {client.cognome}" if client.nome else "Cliente"
+            consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant and consultant.nome else "Il consulente"
+            
+            # Prepara la sezione motivo (opzionale)
+            reason_section = ""
+            if refuse_reason:
+                reason_section = f"""
+            <div style="background: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107; margin: 20px 0;">
+                <p><strong>📝 Motivo del rifiuto:</strong></p>
+                <p>{refuse_reason}</p>
+            </div>
+            """
+            
+            # Notifica nel sistema usando il servizio centralizzato
+            send_notification(
+                user_id=booking.client_user_id,
+                type_key='booking_refused',
+                title="Consulenza Rifiutata",
+                message=f"{consultant_name} ha rifiutato la tua consulenza del {booking.booking_date.strftime('%d/%m/%Y')} alle {booking.start_time}",
+                template_data={
+                    'client_name': client_name,
+                    'consultant_name': consultant_name,
+                    'date': booking.booking_date.strftime('%d/%m/%Y'),
+                    'time': booking.start_time,
+                    'reason_section': reason_section,
+                    'action_url': f"{os.getenv('BASE_URL', 'http://localhost:8080')}/profile#bookings"
+                },
+                related_booking_id=booking_id,
+                action_url="/profile#bookings"
+            )
+        
+        return {
+            "success": True,
+            "message": "Consulenza rifiutata con successo",
+            "booking_id": booking_id,
+            "refunded": booking.payment_status == "refunded"
+        }
+
+
+# ========== SCREEN SHARE STATE TRACKING ==========
+
+# Variabile in-memory per tracciare lo stato di screen share per booking
+# In produzione, usare Redis per multi-server
+_screen_share_state = {}
+
+@router.post("/api/booking/{booking_id}/screen-share/start")
+async def screen_share_start(
+    request: Request,
+    booking_id: int
+):
+    """Notifica che un utente sta iniziando a condividere lo schermo - con state tracking"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autorizzato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia coinvolto nella prenotazione
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Traccia chi sta condividendo lo schermo
+        _screen_share_state[booking_id] = {
+            'is_sharing': True,
+            'user_id': current_user.id,
+            'timestamp': datetime.now(ITALY_TZ)
+        }
+        
+        print(f"📺 Screen share avviato per booking {booking_id} da utente {current_user.id}")
+        
+        return {"success": True, "message": "Screen share avviato"}
+
+
+@router.post("/api/booking/{booking_id}/screen-share/stop")
+async def screen_share_stop(
+    request: Request,
+    booking_id: int
+):
+    """Notifica che un utente ha smesso di condividere lo schermo - con state tracking"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autorizzato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia coinvolto nella prenotazione
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Pulisci lo stato di screen share
+        if booking_id in _screen_share_state:
+            del _screen_share_state[booking_id]
+        
+        print(f"🎥 Screen share fermato per booking {booking_id} da utente {current_user.id}")
+        
+        return {"success": True, "message": "Screen share fermato"}
+
+
+@router.get("/api/booking/{booking_id}/screen-share/status")
+async def screen_share_status(
+    request: Request,
+    booking_id: int
+):
+    """Ottiene lo stato di screen share per il booking"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autorizzato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia coinvolto nella prenotazione
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Determina chi è l'altro utente
+        other_user_id = booking.consultant_user_id if current_user.id == booking.client_user_id else booking.client_user_id
+        
+        # Controlla se c'è screen share attivo
+        share_state = _screen_share_state.get(booking_id)
+        
+        # Se c'è screen share, verifica se è dell'altro utente
+        is_remote_sharing = share_state is not None and share_state['user_id'] != current_user.id
+        
+        return {
+            "booking_id": booking_id,
+            "is_remote_sharing": is_remote_sharing,
+            "sharing_user_id": share_state['user_id'] if share_state else None,
+            "current_user_id": current_user.id
+        }
+
+
+# ========== CALL TIME VALIDATION ==========
+
+@router.get("/api/booking/{booking_id}/call-status")
+async def call_status(
+    request: Request,
+    booking_id: int
+):
+    """Verifica se la call è ancora attiva (non è scaduta)"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autorizzato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia coinvolto nella prenotazione
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Calcola l'orario di scadenza: end_time + 5 minuti
+        now_italy = datetime.now(ITALY_TZ)
+        
+        # Combina booking_date + end_time (converte end_time da stringa a time)
+        end_time_obj = datetime.strptime(booking.end_time, "%H:%M").time()
+        end_datetime_naive = datetime.combine(booking.booking_date, end_time_obj)
+        end_datetime = end_datetime_naive.replace(tzinfo=ITALY_TZ)
+        call_deadline = end_datetime + timedelta(minutes=5)
+        
+        # Controlla se la call è scaduta
+        is_expired = now_italy >= call_deadline
+        
+        # Secondi rimanenti
+        remaining_seconds = int((call_deadline - now_italy).total_seconds())
+        
+        print(f"📞 Call status check - booking {booking_id}: now={now_italy}, deadline={call_deadline}, expired={is_expired}, remaining={remaining_seconds}s")
+        
+        return {
+            "booking_id": booking_id,
+            "is_active": not is_expired,
+            "is_expired": is_expired,
+            "remaining_seconds": max(0, remaining_seconds),
+            "end_time": booking.end_time,
+            "booking_date": booking.booking_date.isoformat()
+        }
+
+
+@router.post("/api/booking/{booking_id}/call-end")
+async def call_end(
+    request: Request,
+    booking_id: int
+):
+    """Marca la call come terminata e aggiorna lo stato del booking"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autorizzato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia coinvolto nella prenotazione
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Calcola l'orario di scadenza: end_time + 5 minuti
+        now_italy = datetime.now(ITALY_TZ)
+        
+        # Combina booking_date + end_time (converte end_time da stringa a time)
+        end_time_obj = datetime.strptime(booking.end_time, "%H:%M").time()
+        end_datetime_naive = datetime.combine(booking.booking_date, end_time_obj)
+        end_datetime = end_datetime_naive.replace(tzinfo=ITALY_TZ)
+        call_deadline = end_datetime + timedelta(minutes=5)
+        
+        # Controlla se il tempo è scaduto
+        if now_italy >= call_deadline:
+            print(f"✅ Call terminata per booking {booking_id} - deadline scaduto")
+            # Pulisci lo stato di screen share se esiste
+            if booking_id in _screen_share_state:
+                del _screen_share_state[booking_id]
+            
+            return {
+                "success": True,
+                "message": "Call terminata",
+                "booking_id": booking_id,
+                "reason": "deadline_exceeded"
+            }
+        else:
+            remaining_minutes = int((call_deadline - now_italy).total_seconds() / 60)
+            print(f"⚠️ Tentativo di terminare call prematuramente - booking {booking_id}: {remaining_minutes} minuti rimasti")
+            
+            return {
+                "success": False,
+                "message": f"Call non può essere terminata - rimangono {remaining_minutes} minuti",
+                "booking_id": booking_id,
+                "reason": "time_remaining",
+                "remaining_minutes": remaining_minutes
+            }

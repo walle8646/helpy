@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Form, HTTPException, Query, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
-from app.models import User, Conversation, Message
+from app.models import User, Conversation, Message, Booking, ConfigurationProperty
 from sqlmodel import select, or_, and_, func
 from datetime import datetime, timedelta
 from app.logger_config import logger
@@ -61,7 +61,6 @@ def get_or_create_conversation(session, user1_id: int, user2_id: int) -> Convers
         session.add(conversation)
         session.commit()
         session.refresh(conversation)
-        logger.info(f"✅ New conversation created: {min_id} <-> {max_id}")
     
     return conversation
 
@@ -74,8 +73,6 @@ async def messages_inbox_page(request: Request):
     
     if not current_user:
         return RedirectResponse("/login?redirect=/messaggi", status_code=302)
-    
-    logger.info(f"📧 Inbox - User: {current_user.nome} (ID: {current_user.id})")
     
     return request.app.state.templates.TemplateResponse(
         "messages_inbox.html",
@@ -103,8 +100,6 @@ async def chat_page(request: Request, other_user_id: int):
         
         if current_user.id == other_user_id:
             raise HTTPException(status_code=400, detail="Non puoi chattare con te stesso")
-        
-        logger.info(f"💬 Chat: {current_user.nome} -> {other_user.nome}")
         
         return request.app.state.templates.TemplateResponse(
             "chat.html",
@@ -188,7 +183,6 @@ async def get_conversations(request: Request):
                     "updated_at": conv.updated_at.isoformat()
                 })
             
-            logger.info(f"✅ Loaded {len(result)} conversations for user {user_id}")
             return JSONResponse({"conversations": result}, status_code=200)
     
     except Exception as e:
@@ -224,12 +218,36 @@ async def get_messages(
                 .limit(100)  # ✅ Carica ultimi 100 messaggi
             ).all()
             
-            # Conta messaggi totali
-            total_messages = session.exec(
-                select(func.count())
-                .select_from(Message)
-                .where(Message.conversation_id == conversation.id)
-            ).one()
+            # Conta messaggi totali (solo dopo ultima prenotazione confermata)
+            # Trova l'ultima prenotazione confermata tra i due utenti (in entrambi gli ordini)
+            last_confirmed_booking = session.exec(
+                select(Booking)
+                .where(
+                    and_(
+                        Booking.status == 'confirmed',
+                        or_(
+                            and_(
+                                Booking.client_user_id == conversation.user1_id,
+                                Booking.consultant_user_id == conversation.user2_id
+                            ),
+                            and_(
+                                Booking.client_user_id == conversation.user2_id,
+                                Booking.consultant_user_id == conversation.user1_id
+                            )
+                        )
+                    )
+                )
+                .order_by(Booking.created_at.desc())
+            ).first()
+            
+            # Costruisci la query per contare messaggi
+            count_query = select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
+            
+            # Se esiste una prenotazione confermata, conta solo messaggi dopo quella data
+            if last_confirmed_booking:
+                count_query = count_query.where(Message.created_at > last_confirmed_booking.created_at)
+            
+            total_messages = session.exec(count_query).one()
             
             # Marca messaggi come letti
             unread_messages = session.exec(
@@ -249,7 +267,6 @@ async def get_messages(
             
             if unread_messages:
                 session.commit()
-                logger.info(f"✅ Marked {len(unread_messages)} messages as read")
             
             result = [
                 {
@@ -264,8 +281,6 @@ async def get_messages(
                 }
                 for msg in reversed(messages)
             ]
-            
-            logger.info(f"✅ Loaded {len(result)}/{total_messages} messages for conversation {conversation.id}")
             
             return JSONResponse({
                 "messages": result,
@@ -328,20 +343,44 @@ async def send_message(
                 # Calcola tempo trascorso dall'ultimo messaggio
                 time_since_last = datetime.utcnow() - last_message.created_at
                 should_notify = time_since_last > timedelta(minutes=30)
-                logger.info(f"⏱️ Ultimo messaggio {time_since_last.seconds // 60} minuti fa. Notifica: {should_notify}")
             else:
                 # Primo messaggio assoluto nella conversazione
                 should_notify = True
-                logger.info(f"🆕 Primo messaggio nella conversazione. Notifica: True")
             
-            # ✅ VERIFICA LIMITE MESSAGGI
-            message_count = session.exec(
-                select(func.count())
-                .select_from(Message)
-                .where(Message.conversation_id == conversation.id)
-            ).one()
+            # ✅ VERIFICA LIMITE MESSAGGI (conta solo messaggi dopo ultima prenotazione confermata)
+            # Trova l'ultima prenotazione confermata tra i due utenti (in entrambi gli ordini)
+            last_confirmed_booking = session.exec(
+                select(Booking)
+                .where(
+                    and_(
+                        Booking.status == 'confirmed',
+                        or_(
+                            and_(
+                                Booking.client_user_id == conversation.user1_id,
+                                Booking.consultant_user_id == conversation.user2_id
+                            ),
+                            and_(
+                                Booking.client_user_id == conversation.user2_id,
+                                Booking.consultant_user_id == conversation.user1_id
+                            )
+                        )
+                    )
+                )
+                .order_by(Booking.created_at.desc())
+            ).first()
             
-            if message_count >= MAX_MESSAGES_PER_CONVERSATION:
+            # Costruisci la query per contare messaggi
+            count_query = select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
+            
+            # Se esiste una prenotazione confermata, conta solo messaggi dopo quella data
+            if last_confirmed_booking:
+                count_query = count_query.where(Message.created_at > last_confirmed_booking.created_at)
+            else:
+                pass
+            
+            total_messages = session.exec(count_query).one()
+            
+            if total_messages >= MAX_MESSAGES_PER_CONVERSATION:
                 return JSONResponse({
                     "error": f"Limite di {MAX_MESSAGES_PER_CONVERSATION} messaggi raggiunto per questa conversazione"
                 }, status_code=400)
@@ -360,8 +399,6 @@ async def send_message(
             
             session.commit()
             session.refresh(message)
-            
-            logger.info(f"✅ Message sent: {current_user.nome} (#{user_id}) -> {other_user.nome} (#{other_user_id}) [{message_count + 1}/{MAX_MESSAGES_PER_CONVERSATION}]")
             
             # 📧🔔 Invia notifica al destinatario SE should_notify è True
             if should_notify:
@@ -387,7 +424,7 @@ async def send_message(
                     )
                     
                     if notification_sent:
-                        logger.info(f"✅ Notifica messaggio inviata a user {other_user.id} ({other_user.email})")
+                        pass
                     else:
                         logger.warning(f"⚠️ Notifica messaggio non inviata a user {other_user.id}")
                         
@@ -403,7 +440,7 @@ async def send_message(
                     "created_at": message.created_at.isoformat(),
                     "is_mine": True
                 },
-                "messages_left": MAX_MESSAGES_PER_CONVERSATION - message_count - 1
+                "messages_left": MAX_MESSAGES_PER_CONVERSATION - total_messages - 1
             }, status_code=201)
     
     except Exception as e:
@@ -433,8 +470,6 @@ async def delete_message(request: Request, message_id: int):
             
             session.delete(message)
             session.commit()
-            
-            logger.info(f"✅ Message {message_id} deleted by user {current_user.id}")
             
             return JSONResponse({"success": True}, status_code=200)
     
@@ -478,3 +513,30 @@ async def get_unread_count(request: Request):
     except Exception as e:
         logger.error(f"Error getting unread count: {e}", exc_info=True)
         return JSONResponse({"error": "Errore conteggio messaggi"}, status_code=500)
+
+# ========== API: Chat Configuration ==========
+
+@router.get("/api/chat-config")
+async def get_chat_config(request: Request):
+    """Ottieni configurazione limiti chat (max messaggi e lunghezza)"""
+    try:
+        with get_session() as session:
+            # Ottieni configurazione dal database
+            max_messages = session.exec(
+                select(ConfigurationProperty)
+                .where(ConfigurationProperty.property_key == 'max_messages')
+            ).first()
+            
+            max_length = session.exec(
+                select(ConfigurationProperty)
+                .where(ConfigurationProperty.property_key == 'max_length')
+            ).first()
+            
+            return JSONResponse({
+                "max_messages": int(max_messages.property_value) if max_messages else 40,
+                "max_length": int(max_length.property_value) if max_length else 500
+            }, status_code=200)
+    
+    except Exception as e:
+        logger.error(f"Error getting chat config: {e}", exc_info=True)
+        return JSONResponse({"max_messages": 40, "max_length": 500}, status_code=200)

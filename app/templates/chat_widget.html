@@ -500,6 +500,7 @@
         justify-content: center;
         transition: transform 0.2s;
         flex-shrink: 0;
+        margin-left: auto;
     }
     
     .chat-send-btn:hover:not(:disabled) {
@@ -509,6 +510,56 @@
     .chat-send-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+    }
+    
+    /* Char & Message Counters */
+    .chat-input-wrapper {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .chat-char-count {
+        font-size: 12px;
+        color: #64748b;
+        text-align: right;
+        padding: 0 16px;
+        height: 16px;
+        line-height: 16px;
+        display: block;
+    }
+    
+    .chat-char-count.warning {
+        color: #f59e0b;
+        font-weight: 600;
+    }
+    
+    .chat-char-count.danger {
+        color: #ef4444;
+        font-weight: 600;
+    }
+    
+    .chat-send-wrapper {
+        align-items: flex-end;
+        gap: 8px;
+    }
+    
+    .chat-message-count {
+        font-size: 12px;
+        color: #64748b;
+        white-space: nowrap;
+        text-align: center;
+    }
+    
+    .chat-message-count.warning {
+        color: #f59e0b;
+        font-weight: 600;
+    }
+    
+    .chat-message-count.danger {
+        color: #ef4444;
+        font-weight: 600;
     }
     
     /* Loading State */
@@ -728,14 +779,20 @@
         
         <!-- Input Area -->
         <div class="chat-input-area" id="chatInputArea">
-            <textarea 
-                class="chat-input" 
-                id="chatInput" 
-                placeholder="Scrivi un messaggio..."
-                rows="1"></textarea>
-            <button class="chat-send-btn" id="sendBtn">
-                <i class="fas fa-paper-plane"></i>
-            </button>
+            <div class="chat-input-wrapper">
+                <textarea 
+                    class="chat-input" 
+                    id="chatInput" 
+                    placeholder="Scrivi un messaggio..."
+                    rows="1"></textarea>
+                <div class="chat-char-count" id="charCount">0/500</div>
+            </div>
+            <div class="chat-send-wrapper">
+                <button class="chat-send-btn" id="sendBtn">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+                <div class="chat-message-count" id="messageCount">1/40</div>
+            </div>
         </div>
     </div>
 </div>
@@ -1008,7 +1065,7 @@
     }
     
     // Open chat with specific user
-    window.openChat = function(userId, userName, userAvatar = null) {
+    window.openChat = async function(userId, userName, userAvatar = null) {
         console.log(`💬 openChat chiamata:`, { userId, userName, userAvatar });
         
         // Mostra il widget se era nascosto
@@ -1041,8 +1098,15 @@
         // Remove pulse animation when opening chat
         chatButton.classList.remove('has-notification');
         
+        // Load chat config first
+        await loadChatConfig();
+        
         // Load messages
         loadMessages();
+        
+        // Update character and message counts
+        updateCharCount();
+        updateMessageCount();
         
         // Start polling for new messages
         startPolling();
@@ -1133,6 +1197,12 @@
             
             const messages = data.messages || [];
             console.log(`💬 Messaggi ricevuti: ${messages.length}`);
+            
+            // Update message count
+            if (data.total !== undefined) {
+                currentMessageCount = data.total;
+                updateMessageCount();
+            }
             
             if (messages.length > 0) {
                 console.log(`📝 Primo messaggio:`, messages[0]);
@@ -1354,10 +1424,81 @@
         }
     }
     
+    // Variables for chat limits
+    let chatConfig = {
+        max_messages: 40,
+        max_length: 500
+    };
+    
+    let currentMessageCount = 0;
+    
+    // Load chat configuration
+    async function loadChatConfig() {
+        try {
+            const response = await fetch('/api/chat-config');
+            const data = await response.json();
+            chatConfig.max_messages = data.max_messages;
+            chatConfig.max_length = data.max_length;
+            console.log('⚙️ Chat config loaded:', chatConfig);
+        } catch (error) {
+            console.error('❌ Error loading chat config:', error);
+        }
+    }
+    
+    // Update character count display
+    function updateCharCount() {
+        if (!chatInput || !document.getElementById('charCount')) {
+            console.warn('⚠️ updateCharCount: chatInput o charCount element non trovato');
+            return;
+        }
+        
+        const charCount = chatInput.value.length;
+        const charCountElement = document.getElementById('charCount');
+        const percent = (charCount / chatConfig.max_length) * 100;
+        
+        charCountElement.textContent = `${charCount}/${chatConfig.max_length}`;
+        charCountElement.classList.remove('warning', 'danger');
+        
+        if (percent > 90) {
+            charCountElement.classList.add('danger');
+        } else if (percent > 70) {
+            charCountElement.classList.add('warning');
+        }
+    }
+    
+    // Update message count display
+    function updateMessageCount() {
+        const messageCountElement = document.getElementById('messageCount');
+        if (!messageCountElement) {
+            console.warn('⚠️ updateMessageCount: messageCount element non trovato');
+            return;
+        }
+        
+        const remaining = chatConfig.max_messages - currentMessageCount;
+        const percent = (currentMessageCount / chatConfig.max_messages) * 100;
+        
+        messageCountElement.textContent = `${currentMessageCount}/${chatConfig.max_messages}`;
+        messageCountElement.classList.remove('warning', 'danger');
+        
+        if (percent > 90) {
+            messageCountElement.classList.add('danger');
+            if (sendBtn) sendBtn.disabled = remaining <= 0;
+        } else if (percent > 70) {
+            messageCountElement.classList.add('warning');
+        }
+    }
+    
+    // Initialize
+    loadChatConfig();
+    
     // Auto-resize textarea
     chatInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+        updateCharCount();
+        
+        // Disable send button if message is empty or too long
+        sendBtn.disabled = this.value.trim().length === 0 || this.value.length > chatConfig.max_length;
     });
     
     // Event Listeners

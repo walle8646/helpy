@@ -81,3 +81,36 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
     except Exception as e:
         logger.error(f"❌ Failed to send verification email to {to_email}: {e}")
         return False
+
+
+def send_email_notification(to_email: str, subject: str, html_body: str) -> bool:
+    """Invia email generica tramite SMTP (SendGrid)"""
+    
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    from_email = os.getenv("EMAIL_FROM")
+    
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = from_email
+        msg['To'] = to_email
+        
+        # Aggiungi parte HTML
+        html_part = MIMEText(html_body, 'html')
+        msg.attach(html_part)
+        
+        # ✅ Connetti e invia tramite SMTP
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()  # TLS encryption
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+        
+        logger.info(f"✅ Email notification sent to {to_email} with subject: {subject}")
+        return True
+    
+    except Exception as e:
+        logger.error(f"❌ Failed to send email notification to {to_email}: {e}")
+        return False

@@ -36,6 +36,161 @@
         position: relative !important;
         z-index: 1000000 !important;
     }
+
+    /* ✅ Stili per modal rifiuto consulenza */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    }
+
+    .modal-overlay .modal-content {
+        background: white;
+        border-radius: 12px;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.3em;
+        color: #333;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5em;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close-btn:hover {
+        color: #333;
+    }
+
+    .modal-body {
+        margin: 20px 0;
+    }
+
+    .modal-body p {
+        margin: 10px 0;
+        line-height: 1.5;
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+
+    /* ✅ Bottone Rifiuta */
+    .btn-refuse {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.95em;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-refuse:hover {
+        background: #c82333;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    }
+
+    .btn-refuse:active {
+        transform: translateY(0);
+    }
+
+    /* ✅ Stili bottoni modal */
+    .modal-footer .btn {
+        padding: 10px 20px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.95em;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .modal-footer .btn-secondary {
+        background: #f0f0f0;
+        color: #333;
+    }
+
+    .modal-footer .btn-secondary:hover {
+        background: #e0e0e0;
+    }
+
+    .modal-footer .btn-danger {
+        background: #dc3545;
+        color: white;
+        border-color: #dc3545;
+    }
+
+    .modal-footer .btn-danger:hover {
+        background: #c82333;
+        border-color: #c82333;
+    }
+
+    .success-message {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 9999;
+        font-weight: 500;
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -504,6 +659,7 @@
     
     function createAppointmentCard(booking) {
         console.log('Booking data:', booking);
+        console.log('Booking role:', booking.role, 'Status:', booking.status, 'Is consultant:', booking.role === 'consultant');
         
         const otherUser = booking.other_user;
         const avatarHTML = otherUser.picture 
@@ -540,6 +696,31 @@
         
         // Usa il calcolo client-side invece di quello del server
         const minutesUntil = Math.abs(timeUntilMinutes);
+        
+        // ✅ Aggiungi bottone Rifiuta solo se:
+        // - L'utente è il consulente (role === 'consultant')
+        // - Lo stato è pending, confirmed, o in altri stati (non completato/cancelled/refused)
+        // - La consulenza è ancora in futuro o non è ancora iniziata
+        // - Mancano ALMENO 4 ore (240 minuti) alla call
+        let refuseButtonHTML = '';
+        const isConsultant = booking.role === 'consultant';
+        const statusOk = booking.status && booking.status !== 'completed' && booking.status !== 'cancelled' && booking.status !== 'no_show';
+        const timeOk = timeUntilMinutes > -10;
+        const hasEnoughTimeToRefuse = timeUntilMinutes >= 240; // 4 ore = 240 minuti
+        
+        console.log('Status value:', JSON.stringify(booking.status), 'Length:', booking.status?.length, 'Type:', typeof booking.status);
+        console.log('Refuse button check - isConsultant:', isConsultant, 'statusOk:', statusOk, 'timeOk:', timeOk, 'hasEnoughTimeToRefuse:', hasEnoughTimeToRefuse, 'timeUntilMinutes:', timeUntilMinutes);
+        
+        if (isConsultant && statusOk && timeOk && hasEnoughTimeToRefuse) {
+            refuseButtonHTML = `
+                <button class="btn-refuse" onclick="openRefuseModal(${booking.id}, '${otherUser.name}')">
+                    <i class="fas fa-times-circle"></i> Rifiuta
+                </button>
+            `;
+            console.log('✅ Bottone Rifiuta creato per booking:', booking.id);
+        } else {
+            console.log('❌ Bottone Rifiuta NOT creato - Motivo:', {isConsultant, statusOk, timeOk, hasEnoughTimeToRefuse, status: booking.status});
+        }
         
         if (timeUntilMinutes > 10) {
             // Troppo presto
@@ -634,6 +815,7 @@
                 ${statusHTML}
                 <div class="appointment-actions">
                     ${actionsHTML}
+                    ${refuseButtonHTML}
                 </div>
             </div>
         `;
@@ -641,6 +823,76 @@
     
     function setupAppointmentActions(booking) {
         // Event listeners già gestiti tramite onclick inline per semplicità
+    }
+
+    // ✅ Popup di rifiuto consulenza
+    function openRefuseModal(bookingId, clientName) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = `refuse-modal-${bookingId}`;
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Rifiuta Consulenza</h3>
+                    <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p>Sei sicuro di voler rifiutare questa consulenza con <strong>${clientName}</strong>?</p>
+                    <p style="color: #666; font-size: 0.9em;">
+                        Il cliente riceverà una notifica e una mail. Se già pagato, gli sarà rimborsato l'importo.
+                    </p>
+                    <textarea id="refuse-reason-${bookingId}" placeholder="Motivo del rifiuto (opzionale)" 
+                              style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
+                        Annulla
+                    </button>
+                    <button class="btn btn-danger" onclick="refuseBooking(${bookingId})">
+                        <i class="fas fa-times"></i> Rifiuta Consulenza
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Click outside to close
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    }
+
+    async function refuseBooking(bookingId) {
+        const reason = document.getElementById(`refuse-reason-${bookingId}`).value;
+        
+        try {
+            const response = await fetch(`/api/booking/${bookingId}/refuse`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    reason: reason
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showSuccess('✅ Consulenza rifiutata con successo!');
+                document.getElementById(`refuse-modal-${bookingId}`).remove();
+                
+                // Ricarica le consulenze
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                alert('Errore: ' + (data.detail || 'Impossibile rifiutare la consulenza'));
+            }
+        } catch (error) {
+            console.error('Errore:', error);
+            alert('Errore di connessione');
+        }
     }
     
     async function joinAppointment(bookingId) {
@@ -686,6 +938,17 @@
     
     function startCall(bookingId) {
         window.location.href = `/booking/call/${bookingId}`;
+    }
+    
+    function showSuccess(message) {
+        const toast = document.createElement('div');
+        toast.className = 'success-message';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
     }
     
     // Carica gli appuntamenti all'avvio

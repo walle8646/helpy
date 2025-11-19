@@ -291,3 +291,14 @@ class NotificationType(SQLModel, table=True):
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ConfigurationProperty(SQLModel, table=True):
+    """Configurazione globale dell'applicazione"""
+    __tablename__ = "configuration_property"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    property_key: str = Field(alias="key", unique=True, index=True)
+    property_value: str = Field(alias="value")
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
