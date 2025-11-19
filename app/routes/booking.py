@@ -5,9 +5,10 @@ from sqlmodel import Session, select, func
 from datetime import datetime, timedelta, time
 from typing import Optional, List, Dict, Union
 from zoneinfo import ZoneInfo
+from pydantic import BaseModel
 import os
 from app.database import engine
-from app.models import Booking, User, AvailabilityBlock
+from app.models import Booking, User, AvailabilityBlock, CallMessage
 from app.routes.auth import get_current_user
 from app.utils.agora_recording import start_recording, stop_recording, get_recording_url
 from app.logger_config import logger
@@ -16,6 +17,10 @@ from app.utils.notification_service import send_notification
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+# ===== PYDANTIC MODELS =====
+class ChatMessageRequest(BaseModel):
+    message: str
 
 # Timezone italiano
 ITALY_TZ = ZoneInfo("Europe/Rome")
@@ -125,7 +130,7 @@ def calculate_available_slots(
                 }
                 available_slots.append(slot)
                 print(f"   ✅ Slot aggiunto: {slot['start_time']} - {slot['end_time']}")
-                current_time += 30  # Incremento di 30 minuti per slot successivo
+                current_time += 15  # Incremento di 15 minuti per slot successivo
             
             # Salta l'intervallo occupato
             current_time = max(current_time, occupied_end)
@@ -139,7 +144,7 @@ def calculate_available_slots(
             }
             available_slots.append(slot)
             print(f"   ✅ Slot aggiunto (dopo): {slot['start_time']} - {slot['end_time']}")
-            current_time += 30
+            current_time += 15
     
     return available_slots
 
@@ -1205,3 +1210,181 @@ async def call_end(
                 "reason": "time_remaining",
                 "remaining_minutes": remaining_minutes
             }
+
+
+@router.post("/api/booking/{booking_id}/call-start")
+async def mark_call_started(
+    request: Request,
+    booking_id: int
+):
+    """Marca il momento in cui la call viene avviata (per permettere ripresa)"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autorizzato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia coinvolto nella prenotazione
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Marca il momento in cui la call è stata avviata (se non già marcata)
+        if booking.call_started_at is None:
+            booking.call_started_at = datetime.now(ITALY_TZ)
+            session.add(booking)
+            session.commit()
+            print(f"📞 Call avviata per booking {booking_id} da utente {current_user.id}")
+        
+        return {
+            "success": True,
+            "call_started_at": booking.call_started_at.isoformat() if booking.call_started_at else None
+        }
+
+
+@router.get("/api/booking/{booking_id}/call-status-extended")
+async def get_call_status_extended(
+    request: Request,
+    booking_id: int
+):
+    """Verifica stato della call: se scaduta, se già avviata, se può essere ripresa"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autorizzato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia coinvolto nella prenotazione
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Calcola deadline della call
+        now_italy = datetime.now(ITALY_TZ)
+        end_time_obj = datetime.strptime(booking.end_time, "%H:%M").time()
+        end_datetime_naive = datetime.combine(booking.booking_date, end_time_obj)
+        end_datetime = end_datetime_naive.replace(tzinfo=ITALY_TZ)
+        call_deadline = end_datetime + timedelta(minutes=5)
+        
+        # Stato della call
+        is_expired = now_italy >= call_deadline
+        call_has_started = booking.call_started_at is not None
+        can_resume = call_has_started and not is_expired
+        
+        remaining_seconds = int((call_deadline - now_italy).total_seconds()) if not is_expired else 0
+        
+        print(f"📞 Call status extended - booking {booking_id}: started={call_has_started}, expired={is_expired}, can_resume={can_resume}")
+        
+        return {
+            "booking_id": booking_id,
+            "is_expired": is_expired,
+            "call_has_started": call_has_started,
+            "can_resume": can_resume,
+            "remaining_seconds": max(0, remaining_seconds),
+            "call_started_at": booking.call_started_at.isoformat() if booking.call_started_at else None
+        }
+
+
+# ========== CALL CHAT ENDPOINTS ==========
+
+@router.post("/api/booking/{booking_id}/chat/send")
+async def send_call_message(
+    booking_id: int,
+    body: ChatMessageRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Invia un messaggio durante la call"""
+    
+    try:
+        with Session(engine) as session:
+            # Verifica che il booking esista e che l'utente sia parte della call
+            booking = session.exec(
+                select(Booking).where(Booking.id == booking_id)
+            ).first()
+            
+            if not booking:
+                raise HTTPException(status_code=404, detail="Booking non trovato")
+            
+            # Verifica che l'utente sia il client o il consultant
+            if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+                raise HTTPException(status_code=403, detail="Non autorizzato")
+            
+            # Crea il messaggio
+            call_msg = CallMessage(
+                booking_id=booking_id,
+                user_id=current_user.id,
+                message=body.message.strip()
+            )
+            session.add(call_msg)
+            session.commit()
+            session.refresh(call_msg)
+            
+            # Ottieni l'utente per il nome
+            user = session.exec(select(User).where(User.id == current_user.id)).first()
+            
+            logger.info(f"💬 Messaggio call inviato nel booking {booking_id} da {user.nome} {user.cognome}")
+            
+            return {
+                "id": call_msg.id,
+                "user_id": call_msg.user_id,
+                "user_name": f"{user.nome} {user.cognome}" if user.nome and user.cognome else user.email,
+                "message": call_msg.message,
+                "created_at": call_msg.created_at.isoformat()
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Errore invio messaggio call: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/booking/{booking_id}/chat/messages")
+async def get_call_messages(
+    booking_id: int,
+    current_user: User = Depends(get_current_user)
+):
+    """Ottiene tutti i messaggi della call"""
+    
+    try:
+        with Session(engine) as session:
+            # Verifica che il booking esista e che l'utente sia parte della call
+            booking = session.exec(
+                select(Booking).where(Booking.id == booking_id)
+            ).first()
+            
+            if not booking:
+                raise HTTPException(status_code=404, detail="Booking non trovato")
+            
+            # Verifica che l'utente sia il client o il consultant
+            if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+                raise HTTPException(status_code=403, detail="Non autorizzato")
+            
+            # Ottieni tutti i messaggi ordinati per data
+            messages = session.exec(
+                select(CallMessage)
+                .where(CallMessage.booking_id == booking_id)
+                .order_by(CallMessage.created_at)
+            ).all()
+            
+            # Costruisci la risposta con info dell'utente
+            messages_data = []
+            for msg in messages:
+                user = session.exec(select(User).where(User.id == msg.user_id)).first()
+                messages_data.append({
+                    "id": msg.id,
+                    "user_id": msg.user_id,
+                    "user_name": f"{user.nome} {user.cognome}" if user.nome and user.cognome else user.email,
+                    "message": msg.message,
+                    "created_at": msg.created_at.isoformat()
+                })
+            
+            return {"messages": messages_data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Errore lettura messaggi call: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

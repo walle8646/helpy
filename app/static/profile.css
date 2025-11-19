@@ -175,49 +175,71 @@ body {
 
 .btn-join, .btn-start-call {
     flex: 1;
-    padding: 0.6rem 1rem;
+    padding: 0.75rem 1.2rem;
     border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    letter-spacing: 0.3px;
 }
 
 .btn-join {
     background: white;
     color: #667eea;
+    border: 2px solid #667eea;
 }
 
 .btn-join:hover {
-    background: #f0f0f0;
-    transform: scale(1.02);
+    background: #667eea;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
 }
 
 .btn-join:disabled {
     background: rgba(255, 255, 255, 0.3);
     color: rgba(255, 255, 255, 0.6);
     cursor: not-allowed;
+    border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .btn-start-call {
-    background: #10b981;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: white;
+    border: none;
 }
 
 .btn-start-call:hover {
-    background: #059669;
-    transform: scale(1.02);
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
 }
 
 .btn-start-call:disabled {
     background: rgba(255, 255, 255, 0.2);
     color: rgba(255, 255, 255, 0.5);
     cursor: not-allowed;
+    box-shadow: none;
+}
+
+.btn-resume-call {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.btn-resume-call:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.45);
 }
 
 .time-until {

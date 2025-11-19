@@ -202,6 +202,9 @@ class Booking(SQLModel, table=True):
     client_joined_at: Optional[datetime] = None
     consultant_joined_at: Optional[datetime] = None
     
+    # Call tracking - quando la call è stata avviata (per riprenderla se disconnesso)
+    call_started_at: Optional[datetime] = None
+    
     # Recording tracking - registrazione video call
     recording_sid: Optional[str] = None  # Agora Cloud Recording SID
     recording_resource_id: Optional[str] = None  # Agora resource ID
@@ -218,6 +221,17 @@ class Booking(SQLModel, table=True):
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CallMessage(SQLModel, table=True):
+    """Messaggi durante la call (chat video call)"""
+    __tablename__ = "call_messages"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    booking_id: int = Field(foreign_key="booking.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    message: str
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
 
 class ConsultationOffer(SQLModel, table=True):
