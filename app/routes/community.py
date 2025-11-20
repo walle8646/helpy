@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import os
 
 from app.database import get_session
-from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, QuestionStatus
+from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, CommunityQuestionFollow, QuestionStatus
 from app.routes.auth import verify_token
 from app.utils_user import get_display_name
 from loguru import logger
@@ -458,3 +458,214 @@ async def track_contact(request: Request, question_id: int):
     except Exception as e:
         logger.error(f"Error tracking contact: {e}")
         return JSONResponse({"error": "Errore durante l'operazione"}, status_code=500)
+
+@router.get("/api/community/question-page")
+async def get_question_page(
+    question_id: int = Query(...),
+    category: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query(None)
+):
+    """Trova il numero di pagina di una domanda specifica basato sui filtri attuali"""
+    
+    try:
+        with get_session() as session:
+            # ========== BASE QUERY ==========
+            query_stmt = select(CommunityQuestion.id).order_by(
+                CommunityQuestion.created_at.desc()
+            )
+            
+            # ========== FILTRO CATEGORIA ==========
+            if category:
+                query_stmt = query_stmt.where(CommunityQuestion.category_id == category)
+            
+            # ========== FILTRO STATUS ==========
+            if status and status in ['open', 'in_progress', 'closed']:
+                query_stmt = query_stmt.where(CommunityQuestion.status == status)
+            
+            # ========== RICERCA ==========
+            if search:
+                search_pattern = f"%{search}%"
+                query_stmt = query_stmt.where(
+                    or_(
+                        CommunityQuestion.title.ilike(search_pattern),
+                        CommunityQuestion.description.ilike(search_pattern)
+                    )
+                )
+            
+            # ========== ESEGUI QUERY PER TROVARE LA POSIZIONE ==========
+            all_question_ids = session.exec(query_stmt).all()
+            
+            # Trova l'indice della domanda
+            try:
+                index = all_question_ids.index(question_id)
+            except ValueError:
+                # La domanda non esiste con questi filtri
+                return JSONResponse({
+                    "success": False,
+                    "error": "Domanda non trovata con i filtri attuali"
+                }, status_code=404)
+            
+            # ========== CALCOLA LA PAGINA ==========
+            per_page = 10
+            page = (index // per_page) + 1
+            
+            return JSONResponse({
+                "success": True,
+                "page": page,
+                "question_id": question_id
+            })
+    
+    except Exception as e:
+        logger.error(f"Error getting question page: {e}")
+        return JSONResponse({"error": "Errore durante l'operazione"}, status_code=500)
+
+
+@router.post("/api/community/{question_id}/follow")
+async def toggle_follow_question(request: Request, question_id: int):
+    """Toggle follow di una domanda - Segui e Richiedi"""
+    try:
+        user = verify_token(request)
+        
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        with get_session() as session:
+            from app.models import CommunityQuestion, CommunityQuestionFollow
+            
+            # Verifica che la domanda esista
+            question = session.get(CommunityQuestion, question_id)
+            if not question:
+                return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
+            
+            # Controlla se l'utente ha già seguito questa domanda
+            existing_follow = session.exec(
+                select(CommunityQuestionFollow).where(
+                    (CommunityQuestionFollow.question_id == question_id) &
+                    (CommunityQuestionFollow.user_id == user.id)
+                )
+            ).first()
+            
+            if existing_follow:
+                # Rimuovi il follow
+                session.delete(existing_follow)
+                session.commit()
+                followed = False
+            else:
+                # Aggiungi il follow
+                follow = CommunityQuestionFollow(
+                    question_id=question_id,
+                    user_id=user.id
+                )
+                session.add(follow)
+                session.commit()
+                followed = True
+            
+            # Conta i follow totali
+            follow_count = session.exec(
+                select(func.count(CommunityQuestionFollow.id)).where(
+                    CommunityQuestionFollow.question_id == question_id
+                )
+            ).first() or 0
+            
+            return JSONResponse({
+                "success": True,
+                "followed": followed,
+                "follow_count": follow_count
+            })
+    
+    except Exception as e:
+        logger.error(f"Error toggling follow: {e}")
+        return JSONResponse({"error": "Errore durante l'operazione"}, status_code=500)
+
+
+@router.get("/api/community/{question_id}/follow-count")
+async def get_follow_count(request: Request, question_id: int):
+    """Recupera il numero di persone che hanno seguito una domanda"""
+    try:
+        with get_session() as session:
+            from app.models import CommunityQuestion, CommunityQuestionFollow
+            
+            # Verifica che la domanda esista
+            question = session.get(CommunityQuestion, question_id)
+            if not question:
+                return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
+            
+            # Conta i follow
+            follow_count = session.exec(
+                select(func.count(CommunityQuestionFollow.id)).where(
+                    CommunityQuestionFollow.question_id == question_id
+                )
+            ).first() or 0
+            
+            # Controlla se l'utente attuale ha seguito
+            user_has_followed = False
+            user = verify_token(request)
+            if user:
+                user_has_followed = session.exec(
+                    select(CommunityQuestionFollow).where(
+                        (CommunityQuestionFollow.question_id == question_id) &
+                        (CommunityQuestionFollow.user_id == user.id)
+                    )
+                ).first() is not None
+            
+            return JSONResponse({
+                "success": True,
+                "follow_count": follow_count,
+                "user_has_followed": user_has_followed
+            })
+    
+    except Exception as e:
+        logger.error(f"Error getting follow count: {e}")
+        return JSONResponse({"error": "Errore durante l'operazione"}, status_code=500)
+
+
+@router.get("/api/community/{question_id}/followers")
+async def get_question_followers(request: Request, question_id: int):
+    """Recupera la lista di utenti interessati a una domanda"""
+    try:
+        user = verify_token(request)
+        
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        # Solo gli utenti verificati (consulenti) possono vedere questa lista
+        if not user.is_verified:
+            return JSONResponse({"error": "Solo i consulenti possono visualizzare questa lista"}, status_code=403)
+        
+        with get_session() as session:
+            from app.models import CommunityQuestion, CommunityQuestionFollow, User as UserModel
+            
+            # Verifica che la domanda esista
+            question = session.get(CommunityQuestion, question_id)
+            if not question:
+                return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
+            
+            # Recupera tutti gli utenti che hanno seguito questa domanda
+            followers = session.exec(
+                select(UserModel)
+                .join(CommunityQuestionFollow, CommunityQuestionFollow.user_id == UserModel.id)
+                .where(CommunityQuestionFollow.question_id == question_id)
+                .order_by(CommunityQuestionFollow.created_at.desc())
+            ).all()
+            
+            followers_data = []
+            for follower in followers:
+                followers_data.append({
+                    "id": follower.id,
+                    "nome": follower.nome or "",
+                    "cognome": follower.cognome or "",
+                    "email": follower.email,
+                    "profile_picture": follower.profile_picture or "/static/default-avatar.png",
+                    "professione": follower.professione or "Utente"
+                })
+            
+            return JSONResponse({
+                "success": True,
+                "followers": followers_data
+            })
+    
+    except Exception as e:
+        logger.error(f"Error getting followers: {e}")
+        return JSONResponse({"error": "Errore durante l'operazione"}, status_code=500)
+

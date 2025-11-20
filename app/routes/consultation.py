@@ -23,8 +23,12 @@ async def show_create_consultation_form(
     """Show form for consultant to create a consultation offer"""
     
     with Session(engine) as session:
-        # Verify current user is a consultant
-        if user.category_id != 2:
+        # Verify user is logged in
+        if not user:
+            raise HTTPException(status_code=401, detail="Devi essere loggato per creare offerte")
+        
+        # Verify current user is a verified consultant
+        if not user.is_verified:
             raise HTTPException(status_code=403, detail="Solo i consulenti possono creare offerte di consulenza")
         
         # Get client user
@@ -43,7 +47,7 @@ async def show_create_consultation_form(
         
         return templates.TemplateResponse("create_consultation_offer.html", {
             "request": request,
-            "user": user,
+            "current_user": user,
             "client": client,
             "existing_offer": existing_offer,
             "default_price": user.prezzo_consulenza or 50,
@@ -63,8 +67,12 @@ async def create_consultation_offer(
     """Create a new consultation offer and send automated message"""
     
     with Session(engine) as session:
-        # Verify current user is a consultant
-        if user.category_id != 2:
+        # Verify user is logged in
+        if not user:
+            raise HTTPException(status_code=401, detail="Devi essere loggato per creare offerte")
+        
+        # Verify current user is a verified consultant
+        if not user.is_verified:
             raise HTTPException(status_code=403, detail="Solo i consulenti possono creare offerte di consulenza")
         
         # Validate inputs

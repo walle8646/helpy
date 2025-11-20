@@ -201,6 +201,14 @@
         <div id="upcomingAppointmentsSection">
             <div class="cover-image" id="coverImagePlaceholder"></div>
         </div>
+
+        <!-- Liked Questions Section (Top position) -->
+        <section class="card" id="likedQuestionsTopSection" style="display:none;">
+            <h2>❤️ Domande a cui hai messo Like</h2>
+            <div id="likedQuestionsContainerTop" class="liked-questions-grid">
+                <p style="color:#888; text-align: center; grid-column: 1 / -1;">Caricamento...</p>
+            </div>
+        </section>
         
         <!-- Profile Header -->
         <header class="profile-header card">
@@ -998,8 +1006,84 @@
         }, 3000);
     }
     
-    // Carica gli appuntamenti all'avvio
+    // ========== LIKED QUESTIONS SECTION ==========
+    async function navigateToQuestion(questionId) {
+        try {
+            // Chiama l'API per trovare il numero di pagina della domanda
+            const response = await fetch(`/api/community/question-page?question_id=${questionId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                // Naviga alla pagina corretta con l'anchor
+                const page = data.page > 1 ? `?page=${data.page}` : '';
+                window.location.href = `/community${page}#question-${questionId}`;
+            } else {
+                console.error('Domanda non trovata');
+                alert('Domanda non trovata');
+            }
+        } catch (error) {
+            console.error('Error navigating to question:', error);
+            // Fallback: naviga comunque ma senza page
+            window.location.href = `/community#question-${questionId}`;
+        }
+    }
+    
+    async function loadLikedQuestions() {
+        try {
+            const response = await fetch('/api/profile/liked-questions');
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            const container = document.getElementById('likedQuestionsContainerTop');
+            const section = document.getElementById('likedQuestionsTopSection');
+            
+            if (!data.questions || data.questions.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            // Mostra la sezione se ci sono domande
+            section.style.display = 'block';
+            
+            // Crea le card per ogni domanda
+            const questionsHTML = data.questions.map(q => `
+                <div class="liked-question-card" onclick="navigateToQuestion(${q.id})" style="cursor: pointer;">
+                    <div class="question-category">
+                        <small>ID: ${q.category_id || 'Generale'}</small>
+                    </div>
+                    <h3 class="question-title">
+                        ${q.title}
+                    </h3>
+                    <p class="question-description">${q.description}</p>
+                    <div class="question-footer">
+                        <div class="question-meta">
+                            <span class="meta-item">
+                                <i class="fas fa-thumbs-up"></i> ${q.upvotes}
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-eye"></i> ${q.views}
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-calendar"></i> ${q.created_at}
+                            </span>
+                        </div>
+                        <p class="question-author">
+                            <small>da <strong>${q.author_name}</strong></small>
+                        </p>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = questionsHTML;
+            
+        } catch (error) {
+            console.error('Error loading liked questions:', error);
+        }
+    }
+    
+    // Carica gli appuntamenti e le domande amate all'avvio
     loadUpcomingAppointments();
+    loadLikedQuestions();
 
 </script>
 {% endblock %}

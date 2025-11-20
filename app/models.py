@@ -152,6 +152,22 @@ class CommunityContact(SQLModel, table=True):
         )
 
 
+class CommunityQuestionFollow(SQLModel, table=True):
+    """Traccia quali utenti sono interessati a una domanda della community (Segui e Richiedi)"""
+    __tablename__ = "community_question_follows"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    question_id: int = Field(foreign_key="community_questions.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        # Constraint univoco: un utente può seguire una domanda solo una volta
+        table_args = (
+            {'sqlite_autoincrement': True},
+        )
+
+
 # ========== AVAILABILITY SYSTEM ==========
 
 class AvailabilityBlock(SQLModel, table=True):

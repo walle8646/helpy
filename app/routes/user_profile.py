@@ -69,6 +69,57 @@ async def user_profile(request: Request):
         request.session.clear()
         return RedirectResponse("/login", status_code=307)
 
+@router.get("/api/profile/liked-questions")
+async def get_liked_questions(request: Request):
+    """Recupera le ultime 6 domande a cui l'utente ha messo like"""
+    try:
+        user = verify_token(request)
+        
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        with get_session() as session:
+            from app.models import CommunityQuestion, CommunityLike, User as UserModel
+            
+            # Query per recuperare le ultime 6 domande amate ordinate per data decrescente
+            liked_questions = session.exec(
+                select(CommunityQuestion)
+                .join(CommunityLike, CommunityQuestion.id == CommunityLike.question_id)
+                .where(CommunityLike.user_id == user.id)
+                .order_by(CommunityLike.created_at.desc())
+                .limit(6)
+            ).all()
+            
+            questions_data = []
+            for q in liked_questions:
+                # Recupera l'autore della domanda
+                author = session.get(UserModel, q.user_id)
+                
+                questions_data.append({
+                    "id": q.id,
+                    "title": q.title,
+                    "description": q.description[:150] + "..." if len(q.description) > 150 else q.description,  # Preview
+                    "author_name": author.nome if author else "Utente Anonimo",
+                    "author_id": q.user_id,
+                    "category_id": q.category_id,
+                    "upvotes": q.upvotes,
+                    "views": q.views,
+                    "created_at": q.created_at.strftime("%d/%m/%Y"),
+                    "url": f"/community/question/{q.id}"
+                })
+            
+            return JSONResponse({
+                "success": True,
+                "questions": questions_data
+            })
+    
+    except Exception as e:
+        logger.error(f"Error getting liked questions: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore nel recupero delle domande"},
+            status_code=500
+        )
+
 @router.post("/api/profile/update")
 async def update_profile(
     request: Request,

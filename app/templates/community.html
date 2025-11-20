@@ -947,6 +947,50 @@
         50% { transform: scale(1.2); }
     }
 
+    /* Follow Question Button Styles */
+    .btn-follow-question {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 25px;
+        border: 2px solid #667eea;
+        background: white;
+        color: #667eea;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .btn-follow-question:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-follow-question.followed {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-follow-question i {
+        transition: transform 0.3s ease;
+    }
+
+    .btn-follow-question.followed i {
+        animation: followHeartBeat 0.6s ease;
+    }
+
+    @keyframes followHeartBeat {
+        0% { transform: scale(1); }
+        25% { transform: scale(1.3); }
+        50% { transform: scale(0.9); }
+        75% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
 
 </style>
 {% endblock %}
@@ -1011,7 +1055,7 @@
             
             {% if questions %}
                 {% for item in questions %}
-                <div class="question-card" data-question-id="{{ item.question.id }}">
+                <div class="question-card" data-question-id="{{ item.question.id }}" id="question-{{ item.question.id }}">
                     <!-- Header -->
                     <div class="question-header">
                         <img 
@@ -1038,6 +1082,11 @@
                     <p class="question-description">
                         {{ item.question.description[:200] }}{% if item.question.description|length > 200 %}...{% endif %}
                     </p>
+                    
+                    <!-- Follow Counter - Cliccabile per consulenti -->
+                    <div class="follow-counter" id="follow-counter-{{ item.question.id }}" style="display: none; color: #667eea; font-size: 0.85rem; margin: 8px 0; font-weight: 500; cursor: pointer;" onclick="{% if user and user.is_verified %}openFollowersModal({{ item.question.id }}){% endif %}">
+                        <i class="fas fa-heart"></i> <span class="follow-count">0</span> persone sono interessate a questa domanda
+                    </div>
                     
                     <!-- Footer -->
                     <div class="question-footer">
@@ -1072,7 +1121,7 @@
                     {% if user and item.author.id != user.id %}
                         {% if user.is_verified %}
                         <!-- Utente LOGGATO verificato: può messaggiare -->
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                             <button class="btn-message-verified btn-contact-author"
                                data-question-id="{{ item.question.id }}"
                                data-author-id="{{ item.author.id }}"
@@ -1093,10 +1142,19 @@
                                 <i class="fas fa-check-circle" style="color: #4ade80;"></i>
                                 💬 Messaggia
                             </button>
+                            
+                            <!-- Bottone Segui e Richiedi (destra) -->
+                            <button 
+                                class="btn-follow-question" 
+                                data-question-id="{{ item.question.id }}"
+                                onclick="toggleFollowQuestion({{ item.question.id }})"
+                                title="Segui questa domanda">
+                                <i class="fas fa-heart"></i> Segui e Richiedi
+                            </button>
                         </div>
                         {% else %}
                         <!-- Utente LOGGATO non verificato: deve completare il profilo -->
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                             <a href="/profile" 
                                class="btn-complete-profile"
                                style="display: inline-flex; 
@@ -1113,6 +1171,28 @@
                                 <i class="fas fa-exclamation-circle"></i>
                                 📝 Compila il tuo profilo per diventare un consulente
                             </a>
+                            
+                            <!-- Bottone Segui e Richiedi (destra) -->
+                            <button 
+                                class="btn-follow-question" 
+                                data-question-id="{{ item.question.id }}"
+                                onclick="toggleFollowQuestion({{ item.question.id }})"
+                                title="Segui questa domanda">
+                                <i class="fas fa-heart"></i> Segui e Richiedi
+                            </button>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <!-- Utente non loggato o è l'autore della domanda: mostra solo il bottone Segui -->
+                        {% if user %}
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end;">
+                            <button 
+                                class="btn-follow-question" 
+                                data-question-id="{{ item.question.id }}"
+                                onclick="toggleFollowQuestion({{ item.question.id }})"
+                                title="Segui questa domanda">
+                                <i class="fas fa-heart"></i> Segui e Richiedi
+                            </button>
                         </div>
                         {% endif %}
                     {% endif %}
@@ -1189,7 +1269,7 @@
                 
                 {% if top_consultants %}
                     {% for consultant in top_consultants %}
-                    <a href="/consultant/{{ consultant.id }}" class="top-helpyer-card">
+                    <a href="/user/{{ consultant.id }}" class="top-helpyer-card">
                         {% if consultant.profile_picture %}
                         <img 
                             src="{{ consultant.profile_picture }}" 
@@ -1483,6 +1563,93 @@ function createLikeParticles(button) {
     }
 }
 
+// ❤️ Toggle follow domanda - Segui e Richiedi
+async function toggleFollowQuestion(questionId) {
+    const button = document.querySelector(`.btn-follow-question[data-question-id="${questionId}"]`);
+    const counter = document.getElementById(`follow-counter-${questionId}`);
+    
+    if (!button) return;
+    
+    // Disabilita il bottone durante la richiesta
+    button.disabled = true;
+    
+    try {
+        const response = await fetch(`/api/community/${questionId}/follow`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.status === 401) {
+            alert('Devi effettuare il login per seguire domande');
+            window.location.href = '/login';
+            return;
+        }
+        
+        if (response.ok && data.success) {
+            if (data.followed) {
+                button.classList.add('followed');
+            } else {
+                button.classList.remove('followed');
+            }
+            
+            // Aggiorna il contatore
+            if (counter) {
+                const countSpan = counter.querySelector('.follow-count');
+                countSpan.textContent = data.follow_count;
+                
+                if (data.follow_count > 0) {
+                    counter.style.display = 'block';
+                } else {
+                    counter.style.display = 'none';
+                }
+            }
+            
+        } else {
+            alert(data.error || 'Errore durante l\'operazione');
+        }
+        
+    } catch (error) {
+        console.error('Error toggling follow:', error);
+        alert('Errore di connessione');
+    } finally {
+        button.disabled = false;
+    }
+}
+
+// Carica i contatori dei follow al caricamento della pagina
+async function loadFollowCounts() {
+    const cards = document.querySelectorAll('[id^="follow-counter-"]');
+    
+    for (const counter of cards) {
+        const questionId = counter.id.replace('follow-counter-', '');
+        
+        try {
+            const response = await fetch(`/api/community/${questionId}/follow-count`);
+            const data = await response.json();
+            
+            if (data.success && data.follow_count > 0) {
+                const countSpan = counter.querySelector('.follow-count');
+                countSpan.textContent = data.follow_count;
+                counter.style.display = 'block';
+                
+                // Se l'utente ha già seguito, aggiungi la classe
+                if (data.user_has_followed) {
+                    const button = document.querySelector(`.btn-follow-question[data-question-id="${questionId}"]`);
+                    if (button) {
+                        button.classList.add('followed');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`Error loading follow count for question ${questionId}:`, error);
+        }
+    }
+}
+
 // 📬 Traccia contatti "Messaggia" e apri chat
 async function contactAuthor(questionId, authorId, authorName, authorPic) {
     console.log('🔵 contactAuthor called with:', { questionId, authorId, authorName, authorPic });
@@ -1560,5 +1727,299 @@ document.addEventListener('DOMContentLoaded', function() {
     <i class="fas fa-sign-in-alt"></i> Accedi per Chiedere
 </a>
 {% endif %}
+
+<script>
+    // Variabile globale per tracciare quale domanda sta visualizzando la lista di follower
+    let currentQuestionIdForFollowers = null;
+
+    // Assicurati che il modale sia nascosto al caricamento della pagina
+    document.addEventListener('DOMContentLoaded', function() {
+        const followersModal = document.getElementById('followersModal');
+        if (followersModal) {
+            followersModal.style.display = 'none';
+        }
+        
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#question-')) {
+            const questionId = hash.substring(10); // Rimuove '#question-'
+            const element = document.getElementById(`question-${questionId}`);
+            if (element) {
+                // Attendi un piccolo delay per assicurarti che la pagina sia completamente caricata
+                setTimeout(() => {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // Aggiungi una classe per evidenziare il box
+                    element.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.5)';
+                    setTimeout(() => {
+                        element.style.boxShadow = '';
+                    }, 2000);
+                }, 100);
+            }
+        }
+        
+        // Carica i contatori dei follow
+        loadFollowCounts();
+    });
+</script>
+
+<!-- Modale per visualizzare le persone interessate -->
+<div id="followersModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Persone interessate a questa domanda</h3>
+            <button class="close-btn" onclick="closeFollowersModal()">✕</button>
+        </div>
+        <div class="modal-body" id="followersListContainer" style="max-height: 400px; overflow-y: auto;">
+            <p style="text-align: center; color: #888;">Caricamento...</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    }
+
+    .modal-overlay.open {
+        display: flex !important;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        width: 90%;
+        max-width: 500px;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.2em;
+        color: #333;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5em;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close-btn:hover {
+        color: #333;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .follower-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #eee;
+        margin-bottom: 10px;
+        transition: all 0.2s ease;
+    }
+
+    .follower-item:hover {
+        background: #f9f9f9;
+        border-color: #667eea;
+    }
+
+    .follower-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
+    .follower-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .follower-name {
+        font-weight: 600;
+        color: #333;
+        margin: 0 0 4px 0;
+    }
+
+    .follower-name a {
+        color: #333;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .follower-name a:hover {
+        color: #667eea;
+        text-decoration: underline;
+    }
+
+    .follower-email {
+        font-size: 0.85rem;
+        color: #888;
+        margin: 0;
+    }
+
+    .follower-message-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .follower-message-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .follower-message-btn:active {
+        transform: translateY(0);
+    }
+</style>
+
+<script>
+    async function openFollowersModal(questionId) {
+        // Verifica che sia stato esplicitamente richiesto (non accidentalmente al caricamento)
+        if (!questionId || questionId === null || questionId === undefined) {
+            return;
+        }
+        
+        currentQuestionIdForFollowers = questionId;
+        const modal = document.getElementById('followersModal');
+        const container = document.getElementById('followersListContainer');
+
+        console.log('🔍 openFollowersModal called with questionId:', questionId);
+        console.log('🔍 modal element found:', !!modal);
+        console.log('🔍 container element found:', !!container);
+
+        if (!modal) {
+            console.error('❌ Modal not found in DOM!');
+            return;
+        }
+
+        console.log('🔍 Modal classes before adding open:', modal.className);
+        modal.classList.add('open');
+        console.log('🔍 Modal classes after adding open:', modal.className);
+
+        try {
+            const response = await fetch(`/api/community/${questionId}/followers`);
+            const data = await response.json();
+
+            console.log('Followers API response:', { status: response.status, data });
+
+            if (response.status === 403) {
+                container.innerHTML = '<p style="color: #dc3545; text-align: center;">Solo i consulenti possono visualizzare questa lista.</p>';
+                return;
+            }
+
+            if (!response.ok) {
+                console.error('API error:', response.status, data);
+                container.innerHTML = '<p style="color: #dc3545; text-align: center;">Errore: ' + (data.error || 'Errore sconosciuto') + '</p>';
+                return;
+            }
+
+            if (data.success && data.followers) {
+                // Filtra i followers per escludere l'utente corrente
+                const filteredFollowers = data.followers.filter(follower => follower.id !== currentUserId);
+                
+                if (filteredFollowers.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #888;">Nessuno è ancora interessato a questa domanda.</p>';
+                    return;
+                }
+
+                const followersHTML = filteredFollowers.map(follower => `
+                    <div class="follower-item">
+                        <img src="${follower.profile_picture}" alt="${follower.nome}" class="follower-avatar">
+                        <div class="follower-info">
+                            <p class="follower-name">
+                                <a href="/user/${follower.id}" target="_blank" style="color: #333; text-decoration: none; cursor: pointer;">
+                                    ${follower.nome} ${follower.cognome}
+                                </a>
+                            </p>
+                            <p class="follower-email">${follower.email}</p>
+                        </div>
+                        <button 
+                            class="follower-message-btn"
+                            onclick="startDirectMessage(${follower.id}, '${follower.nome} ${follower.cognome}', '${follower.profile_picture}')">
+                            <i class="fas fa-envelope"></i> Messaggia
+                        </button>
+                    </div>
+                `).join('');
+
+                container.innerHTML = followersHTML;
+            } else {
+                console.error('No success or followers in response:', data);
+                container.innerHTML = '<p style="color: #dc3545; text-align: center;">Errore nel caricamento della lista.</p>';
+            }
+        } catch (error) {
+            console.error('Error loading followers:', error);
+            container.innerHTML = '<p style="color: #dc3545; text-align: center;">Errore di connessione: ' + error.message + '</p>';
+        }
+    }
+
+    function closeFollowersModal() {
+        const modal = document.getElementById('followersModal');
+        modal.classList.remove('open');
+        currentQuestionIdForFollowers = null;
+    }
+
+    // Chiudi modale quando clicchi fuori
+    document.getElementById('followersModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeFollowersModal();
+        }
+    });
+
+    function startDirectMessage(userId, userName, userPic) {
+        // Chiudi il modale
+        closeFollowersModal();
+        
+        // Apri il chat widget con l'utente selezionato
+        if (window.openChat && typeof window.openChat === 'function') {
+            window.openChat(userId, userName, userPic);
+        } else {
+            console.error('Chat widget not available');
+            alert('Chat widget non disponibile');
+        }
+    }
+</script>
 
 {% endblock %}
