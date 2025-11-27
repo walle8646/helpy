@@ -19,6 +19,16 @@ class Category(SQLModel, table=True):
     target: Optional[str] = Field(default=None)
     color: Optional[str] = Field(default="#4CAF50")
 
+class CategoryHierarchy(SQLModel, table=True):
+    """Relazione gerarchica molti-a-molti tra categorie (principale e sottocategorie)"""
+    __tablename__ = "category_hierarchy"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    parent_category_id: int = Field(foreign_key="category.id", index=True)
+    child_category_id: int = Field(foreign_key="category.id", index=True)
+    position: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 class User(SQLModel, table=True):
     """Modello utente/consulente"""
     __tablename__ = "user"
@@ -32,6 +42,7 @@ class User(SQLModel, table=True):
     
     # Relazione con categoria
     category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+    selected_subcategories: Optional[str] = Field(default=None)  # JSON array di IDs: '["9", "10"]'
     
     # Profilo consulente
     profile_picture: Optional[str] = None
@@ -228,8 +239,10 @@ class Booking(SQLModel, table=True):
     recording_url: Optional[str] = None  # S3 URL del video
     recording_duration: Optional[int] = None  # Durata in secondi
     recording_file_size: Optional[int] = None  # Dimensione file in bytes
+    recording_filename: Optional[str] = None  # Nome file: booking_123_20251121_210446
     recording_started_at: Optional[datetime] = None
     recording_completed_at: Optional[datetime] = None
+    recording_session_count: int = Field(default=1)  # Traccia il numero di sessioni di registrazione (per rejoin)
     
     cancellation_reason: Optional[str] = None
     cancelled_by: Optional[int] = Field(default=None, foreign_key="user.id")

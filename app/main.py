@@ -64,10 +64,101 @@ app.include_router(stripe_webhook.router, tags=["webhooks"])
 app.include_router(notifications.router, tags=["notifications"])
 
 
+# Test S3 credentials
+def test_s3_credentials():
+    """Testa se le credenziali S3 sono valide"""
+    try:
+        import boto3
+        from botocore.exceptions import ClientError
+        import sys
+        
+        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        aws_s3_bucket_name = os.getenv("AWS_S3_BUCKET_NAME")
+        aws_s3_region = os.getenv("AWS_S3_REGION", "eu-south-1")
+        
+        if not all([aws_access_key_id, aws_secret_access_key, aws_s3_bucket_name]):
+            msg = "⚠️ [S3] AWS credentials non configurate completamente"
+            print(msg, file=sys.stderr)
+            logger.warning(msg)
+            return False
+        
+        msg = "\n🔐 [S3] Testing AWS credentials..."
+        print(msg, file=sys.stderr)
+        logger.info(msg)
+        sys.stderr.flush()
+        
+        s3_client = boto3.client(
+            's3',
+            region_name=aws_s3_region,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key
+        )
+        
+        # Test: head_bucket verifica se il bucket è accessibile
+        s3_client.head_bucket(Bucket=aws_s3_bucket_name)
+        msg = f"✅ [S3] AWS credentials VALID - Bucket '{aws_s3_bucket_name}' is accessible"
+        print(msg, file=sys.stderr)
+        logger.info(msg)
+        msg2 = f"   Region: {aws_s3_region}"
+        print(msg2, file=sys.stderr)
+        logger.info(msg2)
+        
+        # Lista i primi file nel bucket
+        try:
+            response = s3_client.list_objects_v2(Bucket=aws_s3_bucket_name, MaxKeys=5)
+            if 'Contents' in response:
+                file_count = response.get('KeyCount', 0)
+                msg3 = f"   Files in bucket: {file_count}"
+                print(msg3, file=sys.stderr)
+                logger.info(msg3)
+                if file_count > 0:
+                    logger.info(f"   Sample files:")
+                    for obj in response['Contents'][:3]:
+                        logger.info(f"     - {obj['Key']}")
+            else:
+                msg4 = f"   Bucket is empty"
+                print(msg4, file=sys.stderr)
+                logger.info(msg4)
+        except Exception as e:
+            msg5 = f"   (Could not list files: {str(e)})"
+            print(msg5, file=sys.stderr)
+            logger.info(msg5)
+        
+        sys.stderr.flush()
+        return True
+        
+    except ClientError as e:
+        error_code = e.response['Error']['Code']
+        if error_code == 'NoSuchBucket':
+            msg = f"❌ [S3] ERROR - Bucket '{aws_s3_bucket_name}' does not exist"
+            print(msg, file=sys.stderr)
+            logger.error(msg)
+        elif error_code == 'InvalidAccessKeyId':
+            msg = f"❌ [S3] ERROR - Invalid AWS Access Key ID"
+            print(msg, file=sys.stderr)
+            logger.error(msg)
+        elif error_code == 'SignatureDoesNotMatch':
+            msg = f"❌ [S3] ERROR - Invalid AWS Secret Access Key"
+            print(msg, file=sys.stderr)
+            logger.error(msg)
+        else:
+            msg = f"❌ [S3] ERROR - {error_code}: {str(e)}"
+            print(msg, file=sys.stderr)
+            logger.error(msg)
+        return False
+    except Exception as e:
+        msg = f"❌ [S3] ERROR - {str(e)}"
+        print(msg, file=sys.stderr)
+        logger.error(msg)
+        return False
+
+
 # Database init
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+    test_s3_credentials()  # Test S3 credentials early
     start_scheduler()  # Avvia lo scheduler per le notifiche programmate
     logger.info("✅ Helpy started successfully")
 

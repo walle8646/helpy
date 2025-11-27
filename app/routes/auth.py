@@ -39,7 +39,6 @@ def verify_token(request: Request) -> Optional[User]:
                 with get_session() as session:
                     user = session.get(User, user_id)
                     if user:
-                        logger.info(f"✅ User authenticated via session fallback: {user.nome} (ID: {user.id})")
                         return user
             
             return None
@@ -69,7 +68,6 @@ def verify_token(request: Request) -> Optional[User]:
                 logger.warning(f"⚠️ User {user_id} not found in database")
                 return None
             
-            logger.info(f"✅ User authenticated: {user.nome} (ID: {user.id})")
             return user
     
     except Exception as e:

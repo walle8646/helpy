@@ -5,7 +5,7 @@ from typing import Optional
 import re
 
 from app.database import get_session
-from app.models import User, Category
+from app.models import User, Category, CategoryHierarchy
 from app.routes.auth import verify_token
 from loguru import logger
 
@@ -146,10 +146,36 @@ async def consultants_page(
         current_user = verify_token(request)
         
         with get_session() as session:
-            # ========== CARICA CATEGORIE ==========
-            categories = session.exec(
-                select(Category).order_by(Category.name)
+            # ========== CARICA CATEGORIE PRINCIPALI ==========
+            principal_categories = session.exec(
+                select(Category).where(Category.id <= 8).order_by(Category.id)
             ).all()
+            
+            # ========== COSTRUISCI STRUTTURA CATEGORIE CON SOTTOCATEGORIE ==========
+            categories_with_children = []
+            child_to_parent_map = {}  # Mappa: child_id -> parent_id
+            
+            for parent_cat in principal_categories:
+                # Carica le sottocategorie di questa categoria
+                hierarchy_entries = session.exec(
+                    select(CategoryHierarchy)
+                    .where(CategoryHierarchy.parent_category_id == parent_cat.id)
+                    .order_by(CategoryHierarchy.position)
+                ).all()
+                
+                # Carica i dati completi delle sottocategorie
+                children = []
+                for hierarchy in hierarchy_entries:
+                    child_cat = session.get(Category, hierarchy.child_category_id)
+                    if child_cat:
+                        children.append(child_cat)
+                        # Popola la mappa
+                        child_to_parent_map[child_cat.id] = parent_cat.id
+                
+                categories_with_children.append({
+                    'parent': parent_cat,
+                    'children': children
+                })
             
             # ========== BASE QUERY ==========
             query_stmt = select(User)
@@ -266,10 +292,11 @@ async def consultants_page(
                 "consultants.html",
                 {
                     "request": request,
-                    "user": current_user,  # ⚠️ Mantenuto per compatibilità
-                    "current_user": current_user,  # ✅ Aggiunto per navbar
+                    "user": current_user,
+                    "current_user": current_user,
                     "consultants": enriched_consultants,
-                    "categories": categories,
+                    "categories_with_children": categories_with_children,
+                    "child_to_parent_map": child_to_parent_map,
                     "selected_category": category,
                     "search_query": search or '',
                     "min_price": min_price,
@@ -285,9 +312,17 @@ async def consultants_page(
         
         try:
             with get_session() as session:
-                categories = session.exec(select(Category).order_by(Category.name)).all()
+                principal_categories = session.exec(
+                    select(Category).where(Category.id <= 8).order_by(Category.id)
+                ).all()
+                categories_with_children = []
+                for parent_cat in principal_categories:
+                    categories_with_children.append({
+                        'parent': parent_cat,
+                        'children': []
+                    })
         except:
-            categories = []
+            categories_with_children = []
         
         return request.app.state.templates.TemplateResponse(
             "consultants.html",
@@ -296,7 +331,8 @@ async def consultants_page(
                 "user": None,  # ⚠️ Mantenuto per compatibilità
                 "current_user": None,  # ✅ Aggiunto per navbar
                 "consultants": [],
-                "categories": categories,
+                "categories_with_children": categories_with_children,
+                "child_to_parent_map": {},
                 "selected_category": None,
                 "search_query": '',
                 "min_price": None,

@@ -16,7 +16,7 @@
         <header class="profile-header card">
             <!-- ✅ Foto Profilo -->
             {% if user.profile_picture and user.profile_picture != '/static/default-avatar.png' %}
-            <img src="{{ user.profile_picture }}" alt="{{ user.nome }}" class="profile-avatar-large">
+            <img data-src="{{ user.profile_picture }}" alt="{{ user.nome }}" class="profile-avatar-large">
             {% else %}
             <div class="profile-avatar-large">
                 {{ category.icon if category else '👤' }}

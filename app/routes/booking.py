@@ -7,6 +7,7 @@ from typing import Optional, List, Dict, Union
 from zoneinfo import ZoneInfo
 from pydantic import BaseModel
 import os
+import asyncio
 from app.database import engine
 from app.models import Booking, User, AvailabilityBlock, CallMessage
 from app.routes.auth import get_current_user
@@ -25,7 +26,15 @@ class ChatMessageRequest(BaseModel):
 # Timezone italiano
 ITALY_TZ = ZoneInfo("Europe/Rome")
 
-# ========== UTILITÀ ==========
+# Lock per sincronizzare join_booking per lo stesso booking
+# Evita race condition quando il client chiama join multiple volte
+_booking_locks: Dict[int, asyncio.Lock] = {}
+
+def get_booking_lock(booking_id: int) -> asyncio.Lock:
+    """Ottiene un lock univoco per il booking"""
+    if booking_id not in _booking_locks:
+        _booking_locks[booking_id] = asyncio.Lock()
+    return _booking_locks[booking_id]
 
 def parse_time_to_minutes(time_input: Union[str, time]) -> int:
     """Converte una stringa HH:MM o un oggetto time in minuti dalla mezzanotte"""
@@ -539,9 +548,12 @@ async def get_upcoming_bookings(request: Request):
 @router.post("/api/booking/{booking_id}/join")
 async def join_booking(booking_id: int, request: Request):
     """Segna che l'utente ha cliccato 'Partecipa' per un appuntamento"""
-    current_user = get_current_user(request)
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Non autenticato")
+    # Acquisisci il lock per questo booking per evitare race condition
+    lock = get_booking_lock(booking_id)
+    async with lock:
+        current_user = get_current_user(request)
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Non autenticato")
     
     with Session(engine) as session:
         booking = session.get(Booking, booking_id)
@@ -572,11 +584,78 @@ async def join_booking(booking_id: int, request: Request):
         client_joined = booking.client_joined_at is not None
         consultant_joined = booking.consultant_joined_at is not None
         
+        logger.info(f"🔍 Join check for booking {booking_id}: client_joined={client_joined}, consultant_joined={consultant_joined}, recording_status={booking.recording_status}")
+
+        if booking.recording_status == "failed" and (client_joined or consultant_joined):
+            logger.warning(
+                f"♻️ Previous recording attempt failed for booking {booking_id}; resetting state to allow retry"
+            )
+            booking.recording_status = "not_started"
+            booking.recording_sid = None
+            booking.recording_resource_id = None
+            booking.recording_started_at = None
+            booking.recording_filename = None
+            booking.updated_at = now
+            session.add(booking)
+            session.commit()
+            session.refresh(booking)
+            logger.info(f"✅ Recording state reset for booking {booking_id}; new attempt permitted")
+        
+        # 🎥 NUOVO: Avvia registrazione automatica se almeno uno ha joinato
+        # Se lo status è "completed" significa che gli utenti hanno riiniziato dopo aver chiuso
+        # → riavvia una nuova registrazione con un nuovo session counter
+        should_start_recording = (client_joined or consultant_joined) and booking.recording_status not in ("recording", "failed")
+        
+        # Se la registrazione era completata e qualcuno rejoin → incrementa session counter
+        if booking.recording_status == "completed" and (client_joined or consultant_joined):
+            logger.info(f"🔄 User rejoined after previous recording completed - starting new session")
+            booking.recording_session_count = (booking.recording_session_count or 0) + 1
+            booking.recording_status = None  # Reset status per far ripartire la registrazione
+            session.add(booking)
+            session.commit()
+            session.refresh(booking)
+        
+        logger.info(f"🎥 Should start recording? {should_start_recording} (status={booking.recording_status})")
+        
+        if should_start_recording:
+            try:
+                logger.info(f"🎯 [join_booking] Attempting to prepare recording...")
+                from app.utils.agora_token import generate_agora_token, ROLE_PUBLISHER
+                
+                recorder_uid = 0  # uid=0 per permettere a qualsiasi uid di registrare
+                channel_name = f"booking_{booking_id}"
+                
+                logger.info(f"🔧 Generating token for recorder (uid={recorder_uid}, channel={channel_name})...")
+                # Genera token per il recorder
+                recorder_token = generate_agora_token(channel_name, recorder_uid, ROLE_PUBLISHER, 7200)
+                logger.info(f"✓ Token generated successfully")
+                
+                # Salva token per quando il frontend è pronto
+                booking.recording_status = "ready"
+                booking.updated_at = now
+                session.add(booking)
+                session.commit()
+                session.refresh(booking)
+                
+                logger.info(f"✅ Recording prepared for booking {booking_id} - waiting for frontend signal")
+            except Exception as e:
+                logger.error(f"❌ Error preparing recording for booking {booking_id}: {e}", exc_info=True)
+                logger.error(f"❌ Exception type: {type(e).__name__}, Message: {str(e)}")
+                # Continua anche se la registrazione fallisce
+        else:
+            if not (client_joined or consultant_joined):
+                logger.info(f"ℹ️ Skipping recording start: neither client nor consultant have joined yet")
+            elif booking.recording_status == "recording":
+                logger.info(f"ℹ️ Skipping recording start: already recording")
+            elif booking.recording_status == "failed":
+                logger.info(f"ℹ️ Skipping recording start: previous recording failed")
+        
         return {
             "success": True,
             "has_joined": True,
             "other_joined": consultant_joined if is_client else client_joined,
-            "can_start_call": client_joined and consultant_joined
+            "can_start_call": client_joined and consultant_joined,
+            "recording_status": booking.recording_status
         }
 
 @router.get("/api/booking/{booking_id}/agora-token")
@@ -722,12 +801,11 @@ async def start_booking_recording(booking_id: int, request: Request):
             raise HTTPException(status_code=400, detail="Recording già avviato")
         
         # Genera token per il bot recorder (UID speciale)
-        from app.utils.agora_token import generate_agora_token
-        from agora_token import RtcTokenBuilder, Role_Publisher
+        from app.utils.agora_token import generate_agora_token, ROLE_PUBLISHER
         
-        recorder_uid = 999999  # UID fisso per il bot recorder
+        recorder_uid = 0  # UID fisso per il bot recorder
         channel_name = f"booking_{booking_id}"
-        recorder_token = generate_agora_token(channel_name, recorder_uid, Role_Publisher, 7200)
+        recorder_token = generate_agora_token(channel_name, recorder_uid, ROLE_PUBLISHER, 7200)
         
         # Avvia recording
         result = start_recording(channel_name, recorder_uid, recorder_token)
@@ -751,6 +829,83 @@ async def start_booking_recording(booking_id: int, request: Request):
             "message": "Registrazione avviata"
         }
 
+@router.post("/api/booking/{booking_id}/recording/start-now")
+async def start_recording_now(booking_id: int, request: Request):
+    """Endpoint che il frontend chiama quando è pronto a registrare"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia parte della prenotazione
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Se non è in uno stato di registrazione, non fare nulla
+        if booking.recording_status != "ready":
+            logger.info(f"⚠️ Recording not in 'ready' state for booking {booking_id} (current: {booking.recording_status})")
+            return {"success": False, "message": f"Recording not ready (status={booking.recording_status})"}
+        
+        try:
+            from app.utils.agora_recording import start_recording
+            from app.utils.agora_token import generate_agora_token, ROLE_PUBLISHER
+            
+            recorder_uid = 0
+            channel_name = f"booking_{booking_id}"
+            
+            logger.info(f"🎬 [start-now] Frontend is ready, starting recording for booking {booking_id}...")
+            
+            # Genera token per il recorder
+            recorder_token = generate_agora_token(channel_name, recorder_uid, ROLE_PUBLISHER, 7200)
+            
+            # Avvia registrazione
+            result = start_recording(channel_name, recorder_uid, recorder_token)
+            
+            if result:
+                now = datetime.utcnow()
+                timestamp_str = booking.created_at.strftime("%Y%m%d_%H%M%S")
+                session_num = booking.recording_session_count or 1
+                recording_name = f"booking_{booking_id}_{timestamp_str}_session{session_num}"
+                
+                logger.info(f"✅ Recording started successfully: {recording_name}")
+                
+                booking.recording_sid = result["sid"]
+                booking.recording_resource_id = result["resource_id"]
+                booking.recording_status = "recording"
+                booking.recording_started_at = now
+                booking.recording_filename = recording_name
+                booking.updated_at = now
+                
+                session.add(booking)
+                session.commit()
+                session.refresh(booking)
+                
+                return {
+                    "success": True,
+                    "message": "Recording started",
+                    "sid": result["sid"],
+                    "filename": recording_name
+                }
+            else:
+                logger.error(f"❌ Failed to start recording for booking {booking_id}")
+                booking.recording_status = "failed"
+                session.add(booking)
+                session.commit()
+                
+                return {"success": False, "message": "Failed to start recording"}
+        
+        except Exception as e:
+            logger.error(f"❌ Error in start_recording_now: {e}", exc_info=True)
+            booking.recording_status = "failed"
+            session.add(booking)
+            session.commit()
+            
+            raise HTTPException(status_code=500, detail=f"Error starting recording: {str(e)}")
+
 @router.post("/api/booking/{booking_id}/recording/stop")
 async def stop_booking_recording(booking_id: int, request: Request):
     """Ferma la registrazione cloud"""
@@ -762,7 +917,7 @@ async def stop_booking_recording(booking_id: int, request: Request):
             booking = session.get(Booking, booking_id)
             if booking and booking.recording_status == "recording":
                 # Ferma senza autenticazione (emergenza)
-                recorder_uid = 999999
+                recorder_uid = 0
                 channel_name = f"booking_{booking_id}"
                 
                 try:
@@ -814,7 +969,7 @@ async def stop_booking_recording(booking_id: int, request: Request):
             raise HTTPException(status_code=400, detail="Dati recording mancanti")
         
         # Ferma recording
-        recorder_uid = 999999
+        recorder_uid = 0
         channel_name = f"booking_{booking_id}"
         
         result = stop_recording(
@@ -1388,3 +1543,132 @@ async def get_call_messages(
     except Exception as e:
         logger.error(f"❌ Errore lettura messaggi call: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== AUTO RECORDING ENDPOINTS ==========
+
+@router.post("/api/booking/{booking_id}/leave")
+async def leave_booking(booking_id: int, request: Request):
+    """Segna che l'utente è uscito dalla call - ferma recording se nessuno rimane"""
+    print(f"\n🔔 [LEAVE] Function called for booking {booking_id}")
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    print(f"🔔 [LEAVE] Current user: {current_user.email}")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        # Verifica che l'utente sia parte della prenotazione
+        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+            raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Segna l'uscita dell'utente
+        is_client = booking.client_user_id == current_user.id
+        now = datetime.now()
+        
+        print(f"🔔 [LEAVE] Booking found: {booking_id}, is_client={is_client}, recording_status={booking.recording_status}")
+        logger.info(f"👋 User leaving booking {booking_id} (is_client={is_client})")
+        
+        if is_client:
+            booking.client_joined_at = None
+        else:
+            booking.consultant_joined_at = None
+        
+        booking.updated_at = now
+        
+        # Controlla se rimane qualcuno in call
+        client_still_in = booking.client_joined_at is not None
+        consultant_still_in = booking.consultant_joined_at is not None
+        anyone_in_call = client_still_in or consultant_still_in
+        
+        print(f"🔔 [LEAVE] After update - client_still_in={client_still_in}, consultant_still_in={consultant_still_in}, anyone_in_call={anyone_in_call}")
+        logger.info(f"   - Client still in: {client_still_in}, Consultant still in: {consultant_still_in}, Anyone in: {anyone_in_call}")
+        
+        # 🎥 Se nessuno rimane in call e la registrazione è attiva, ferma
+        if not anyone_in_call and booking.recording_status == "recording":
+            print(f"🔔 [LEAVE] ✅ SHOULD STOP RECORDING: anyone_in_call={anyone_in_call}, recording_status={booking.recording_status}")
+            logger.info(f"🎥 All users left - stopping recording for booking {booking_id}")
+            try:
+                from app.utils.agora_recording import stop_recording, get_recording_url
+                import asyncio
+                
+                recorder_uid = 0
+                channel_name = f"booking_{booking_id}"
+                
+                logger.info(
+                    "🎯 Recording stop context | booking=%s resource_id=%s sid=%s channel=%s",
+                    booking_id,
+                    booking.recording_resource_id,
+                    booking.recording_sid,
+                    channel_name,
+                )
+
+                wait_seconds = 15
+                print(
+                    f"🔔 [LEAVE] ⏳ Waiting {wait_seconds} seconds before stopping recording (let Agora save to S3)..."
+                )
+                logger.info(f"⏳ Waiting {wait_seconds} seconds for Agora to flush recording to S3...")
+                await asyncio.sleep(wait_seconds)
+
+                print(
+                    f"🔔 [LEAVE] Calling stop_recording with SID={booking.recording_sid}, ResourceID={booking.recording_resource_id}"
+                )
+                logger.info(
+                    "🎥 Stopping recording for booking %s after wait of %ss",
+                    booking_id,
+                    wait_seconds,
+                )
+                
+                result = stop_recording(
+                    booking.recording_resource_id,
+                    booking.recording_sid,
+                    channel_name,
+                    recorder_uid
+                )
+                
+                print(f"🔔 [LEAVE] stop_recording result: {result}")
+                
+                if result:
+                    file_name = result["file_name"]
+                    recording_url = get_recording_url(file_name)
+                    
+                    booking.recording_url = recording_url
+                    booking.recording_duration = result.get("mix_duration", 0)
+                    booking.recording_status = "completed"
+                    booking.recording_completed_at = now
+                    
+                    logger.info(f"✅ Recording stopped and saved: {recording_url}")
+                else:
+                    print(f"🔔 [LEAVE] ⚠️ Recording stop returned no result")
+                    logger.warning(f"⚠️ Recording stop returned no result")
+                    booking.recording_status = "failed"
+                    
+            except Exception as e:
+                print(f"🔔 [LEAVE] ❌ Error: {e}")
+                logger.error(f"❌ Error stopping recording for booking {booking_id}: {e}", exc_info=True)
+                booking.recording_status = "failed"
+        else:
+            print(f"🔔 [LEAVE] ⚠️ NOT stopping recording: anyone_in_call={anyone_in_call}, recording_status={booking.recording_status}")
+            if anyone_in_call:
+                logger.info(f"ℹ️ User left but others still in call - keeping recording active")
+            else:
+                logger.info(f"ℹ️ Recording not active (status={booking.recording_status}) - nothing to stop")
+        
+        session.add(booking)
+        session.commit()
+        session.refresh(booking)
+        
+        print(f"🔔 [LEAVE] Booking saved - final recording_status={booking.recording_status}")
+        
+        return {
+            "success": True,
+            "has_left": True,
+            "client_in_call": client_still_in,
+            "consultant_in_call": consultant_still_in,
+            "still_has_participants": anyone_in_call,
+            "recording_status": booking.recording_status
+        }

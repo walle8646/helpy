@@ -334,12 +334,15 @@
         width: 90%;
         max-height: 80vh;
         overflow-y: auto;
+        display: flex;
+        flex-direction: column;
     }
 
     .copy-modal h3 {
         color: #333;
         margin-bottom: 20px;
         font-size: 1.8em;
+        flex-shrink: 0;
     }
 
     .copy-instructions {
@@ -348,10 +351,40 @@
         border-radius: 8px;
         margin-bottom: 20px;
         color: #856404;
+        flex-shrink: 0;
     }
 
     .copy-calendar {
         margin: 20px 0;
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+    .copy-calendar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .copy-calendar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .copy-calendar::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+
+    .copy-calendar::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 15px;
+        justify-content: flex-end;
+        margin-top: 20px;
+        flex-shrink: 0;
     }
 
     .copy-calendar-grid {
@@ -431,10 +464,18 @@
         cursor: pointer;
     }
 
-    .modal-actions {
-        display: flex;
-        gap: 15px;
-        justify-content: flex-end;
+    .copy-day-slots {
+        font-size: 0.65em;
+        color: #666;
+        margin-top: 2px;
+        line-height: 1.2;
+    }
+
+    .copy-day-slot {
+        background: #e7f3ff;
+        padding: 1px 3px;
+        border-radius: 2px;
+        margin: 1px 0;
     }
 
     @keyframes fadeIn {
@@ -843,9 +884,17 @@ function renderSchedule() {
 
 function renderTimeBlocks() {
     const container = document.getElementById('timeBlocks');
-    if (!container) return;
+    console.log('🔄 renderTimeBlocks() called');
+    console.log('Container trovato:', !!container);
+    console.log('timeBlocks.length:', timeBlocks.length);
+    
+    if (!container) {
+        console.error('❌ Container #timeBlocks non trovato!');
+        return;
+    }
     
     if (timeBlocks.length === 0) {
+        console.log('📭 Array vuoto, mostrando messaggio di stato vuoto');
         container.innerHTML = `
             <div class="empty-state" style="padding: 40px 20px;">
                 <i class="fas fa-clock"></i>
@@ -856,6 +905,7 @@ function renderTimeBlocks() {
         return;
     }
     
+    console.log('✅ Renderizzando', timeBlocks.length, 'time blocks');
     container.innerHTML = timeBlocks.map((block, index) => `
         <div class="time-block">
             <input type="time" class="time-input" value="${block.start_time}" 
@@ -863,7 +913,7 @@ function renderTimeBlocks() {
             <span style="font-size: 1.2em; color: #999;">→</span>
             <input type="time" class="time-input" value="${block.end_time}"
                    onchange="updateBlock(${index}, 'end_time', this.value)" />
-            <button class="btn btn-danger" onclick="removeBlock(${index})">
+            <button class="btn btn-danger" onclick="deleteBlock(${block.id || -1}, ${index})">
                 <i class="fas fa-trash"></i>
             </button>
         </div>
@@ -896,17 +946,59 @@ function updateBlock(index, field, value) {
     timeBlocks[index][field] = value;
 }
 
-function removeBlock(index) {
-    timeBlocks.splice(index, 1);
-    renderTimeBlocks();
+function deleteBlock(blockId, index) {
+    if (blockId === -1) {
+        // Blocco non salvato: elimina solo dalla riga
+        console.log(`❌ Eliminando blocco non salvato all'indice ${index}`);
+        timeBlocks.splice(index, 1);
+        renderTimeBlocks();
+    } else {
+        // Blocco salvato: elimina dal backend E dalla riga
+        console.log(`🗑️ Tentativo di eliminare block con ID ${blockId}`);
+        
+        fetch(`/api/availability/block/${blockId}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (response.ok) {
+                console.log('✅ Block eliminato dal backend');
+                // Trova l'indice e elimina dal frontend
+                const idx = timeBlocks.findIndex(b => b.id === blockId);
+                if (idx !== -1) {
+                    timeBlocks.splice(idx, 1);
+                    
+                    // Aggiorna availabilityData
+                    const dateStr = formatDate(selectedDate);
+                    if (timeBlocks.length === 0) {
+                        delete availabilityData[dateStr];
+                        console.log('🗑️ Data rimossa da availabilityData, il puntino verde sparirà');
+                    } else {
+                        availabilityData[dateStr] = timeBlocks;
+                    }
+                    
+                    // Aggiorna il calendario e la view
+                    renderCalendar();
+                    renderTimeBlocks();
+                    updateCopyButtonVisibility();
+                }
+            } else {
+                console.error('❌ Errore eliminazione dal backend');
+                alert('Errore: impossibile eliminare il blocco');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Errore richiesta DELETE:', error);
+            alert('Errore di connessione');
+        });
+    }
 }
 
 async function saveAvailability() {
-    if (!selectedDate || timeBlocks.length === 0) {
-        alert('Aggiungi almeno una fascia oraria prima di salvare');
+    if (!selectedDate) {
+        alert('Seleziona un giorno dal calendario');
         return;
     }
-    
+
     const dateStr = formatDate(selectedDate);
     const formData = new FormData();
     formData.append('date', dateStr);
@@ -921,24 +1013,22 @@ async function saveAvailability() {
         const data = await response.json();
         
         if (data.success) {
-            // ✅ Aggiungi classe saved per animazione
-            const allBlocks = document.querySelectorAll('.time-block');
-            allBlocks.forEach(block => {
-                block.classList.add('saved');
-            });
-            
-            // Rimuovi classe dopo l'animazione
-            setTimeout(() => {
-                allBlocks.forEach(block => {
-                    block.classList.remove('saved');
-                });
-            }, 1500);
-            
-            showSuccess('✅ Disponibilità salvata con successo!');
-            availabilityData[dateStr] = timeBlocks;
-            renderCalendar(); // Aggiorna calendario con bollino verde
-            renderWeeklySummary(); // ✅ Aggiorna riepilogo settimanale
-            updateCopyButtonVisibility(); // ✅ Mostra bottone copia dopo salvataggio
+            if (timeBlocks.length > 0) {
+                const allBlocks = document.querySelectorAll('.time-block');
+                allBlocks.forEach(block => block.classList.add('saved'));
+                setTimeout(() => {
+                    allBlocks.forEach(block => block.classList.remove('saved'));
+                }, 1500);
+                showSuccess('✅ Disponibilità salvata con successo!');
+                availabilityData[dateStr] = [...timeBlocks];
+            } else {
+                showSuccess('✅ Disponibilità rimossa per il giorno selezionato');
+                delete availabilityData[dateStr];
+            }
+
+            renderCalendar();
+            renderWeeklySummary();
+            updateCopyButtonVisibility();
         } else {
             alert('Errore nel salvataggio');
         }
@@ -1016,14 +1106,33 @@ function renderCopyCalendar() {
         gridContainer.appendChild(emptyDay);
     }
     
-    // Giorni del mese
+    // Giorni del mese (senza async per ora)
     for (let day = 1; day <= lastDay.getDate(); day++) {
         const dayElement = document.createElement('div');
         dayElement.className = 'copy-day';
-        dayElement.textContent = day;
         
         const date = new Date(year, month, day);
         const dateStr = formatDate(date);
+        
+        // Crea il contenitore per il numero del giorno
+        const dayNumberDiv = document.createElement('div');
+        dayNumberDiv.style.fontSize = '1em';
+        dayNumberDiv.textContent = day;
+        dayElement.appendChild(dayNumberDiv);
+        
+        // Aggiungi le fasce orarie se esistono (da availabilityData già caricato)
+        const blocks = availabilityData[dateStr];
+        if (blocks && blocks.length > 0) {
+            const slotsDiv = document.createElement('div');
+            slotsDiv.className = 'copy-day-slots';
+            blocks.forEach(block => {
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'copy-day-slot';
+                slotDiv.textContent = `${block.start_time}-${block.end_time}`;
+                slotsDiv.appendChild(slotDiv);
+            });
+            dayElement.appendChild(slotsDiv);
+        }
         
         // Disabilita date passate e data sorgente
         if (date < today || dateStr === sourceDateStr) {

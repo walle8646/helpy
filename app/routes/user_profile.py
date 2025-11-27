@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Request, Form, UploadFile, File
+from fastapi import APIRouter, Request, Form, UploadFile, File, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
-from app.models import User, Category
+from app.models import User, Category, CategoryHierarchy
 from sqlmodel import select
 from app.routes.auth import verify_token
 from app.logger_config import logger
@@ -11,6 +11,7 @@ import os
 import hashlib
 from PIL import Image
 import io
+import json
 
 router = APIRouter()
 
@@ -120,6 +121,35 @@ async def get_liked_questions(request: Request):
             status_code=500
         )
 
+@router.get("/api/profile/subcategories/{category_id}")
+async def get_subcategories(category_id: int):
+    """Get subcategories for a principal category"""
+    try:
+        with get_session() as session:
+            hierarchy_entries = session.exec(
+                select(CategoryHierarchy)
+                .where(CategoryHierarchy.parent_category_id == category_id)
+                .order_by(CategoryHierarchy.position)
+            ).all()
+            
+            subcategories = []
+            for entry in hierarchy_entries:
+                cat = session.get(Category, entry.child_category_id)
+                if cat:
+                    subcategories.append({
+                        "id": cat.id,
+                        "name": cat.name,
+                        "icon": cat.icon
+                    })
+            
+            return {"subcategories": subcategories}
+    except Exception as e:
+        logger.error(f"Error getting subcategories: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore nel recupero delle sottocategorie"},
+            status_code=500
+        )
+
 @router.post("/api/profile/update")
 async def update_profile(
     request: Request,
@@ -130,7 +160,8 @@ async def update_profile(
     category_id: Optional[int] = Form(None),
     aree_interesse: str = Form(None),
     prezzo_consulenza: Optional[int] = Form(None),
-    is_anonymous: Optional[bool] = Form(None)  # ✅ NUOVO: flag anonimato
+    is_anonymous: Optional[bool] = Form(None),  # ✅ NUOVO: flag anonimato
+    selected_subcategories: str = Form(None)  # ✅ NUOVO: JSON array di subcategory IDs
 ):
     """Aggiorna profilo utente"""
     try:
@@ -165,6 +196,9 @@ async def update_profile(
             if is_anonymous is not None:  # ✅ NUOVO: aggiorna flag anonimato
                 db_user.is_anonymous = is_anonymous
                 logger.info(f"{'🔒' if is_anonymous else '👤'} User {db_user.id} set anonymous mode: {is_anonymous}")
+            if selected_subcategories is not None:  # ✅ NUOVO: salva JSON array
+                db_user.selected_subcategories = selected_subcategories
+                logger.info(f"✅ Subcategories updated for user: {db_user.id} - {selected_subcategories}")
             
             session.add(db_user)
             session.commit()
@@ -244,5 +278,161 @@ async def update_profile(
         logger.error(f"Error updating profile: {e}", exc_info=True)
         return JSONResponse(
             {"error": "Errore durante l'aggiornamento"},
+            status_code=500
+        )
+
+
+@router.post("/api/upload-profile-picture")
+async def upload_profile_picture(request: Request, file: UploadFile = File(...)):
+    """Upload immagine profilo su S3"""
+    try:
+        user = verify_token(request)
+        
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        # Verifica che sia un'immagine
+        if file.content_type not in ["image/jpeg", "image/png", "image/webp", "image/gif"]:
+            return JSONResponse({"error": "Formato file non supportato"}, status_code=400)
+        
+        # Leggi il file
+        contents = await file.read()
+        
+        if len(contents) > 5 * 1024 * 1024:  # Max 5MB
+            return JSONResponse({"error": "File troppo grande (max 5MB)"}, status_code=400)
+        
+        # Importa boto3 per S3
+        import boto3
+        from datetime import datetime
+        
+        # Configura AWS S3
+        aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        s3_bucket = os.getenv("S3_BUCKET_NAME", "helpy-images")
+        s3_region = os.getenv("AWS_REGION", "eu-west-1")
+        
+        logger.info(f"🔍 DEBUG Upload - Access Key: {aws_access_key[:10] if aws_access_key else 'NONE'}...")
+        logger.info(f"🔍 DEBUG Upload - Secret Key: {aws_secret_key[:10] if aws_secret_key else 'NONE'}...")
+        logger.info(f"🔍 DEBUG Upload - Bucket: {s3_bucket}")
+        logger.info(f"🔍 DEBUG Upload - Region: {s3_region}")
+        
+        if not aws_access_key or not aws_secret_key:
+            # Fallback: salva localmente se AWS non è configurato
+            logger.warning("⚠️ AWS credentials not configured, saving locally")
+            return save_profile_picture_locally(user, contents)
+        
+        try:
+            logger.info(f"🔍 DEBUG - Creating S3 client...")
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_key,
+                region_name=s3_region
+            )
+            logger.info(f"✅ S3 client created successfully")
+            
+            # Genera nome unico per il file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_extension = file.filename.split(".")[-1].lower()
+            s3_key = f"profile-pictures/{user.id}_{timestamp}.{file_extension}"
+            
+            logger.info(f"🔍 DEBUG - Uploading to S3: {s3_bucket}/{s3_key}")
+            # Upload su S3
+            s3_client.put_object(
+                Bucket=s3_bucket,
+                Key=s3_key,
+                Body=contents,
+                ContentType=file.content_type,
+                CacheControl="max-age=31536000"  # Cache per 1 anno
+            )
+            logger.info(f"✅ File uploaded successfully to S3")
+            
+            # Genera URL pubblico (o signed URL se bucket è privato)
+            try:
+                # Prova a generare URL pubblico
+                s3_url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{s3_key}"
+                
+                # Verifica se il file è accessibile
+                try:
+                    s3_client.head_object(Bucket=s3_bucket, Key=s3_key)
+                    logger.info(f"✅ File uploaded to S3: {s3_url}")
+                except:
+                    # Se non è accessibile, genera signed URL
+                    s3_url = s3_client.generate_presigned_url(
+                        'get_object',
+                        Params={'Bucket': s3_bucket, 'Key': s3_key},
+                        ExpiresIn=31536000  # 1 anno in secondi
+                    )
+                    logger.info(f"✅ File uploaded to S3 (signed URL): {s3_url}")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not generate URL: {e}")
+                s3_url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{s3_key}"
+            
+            # Salva URL nel database
+            with get_session() as session:
+                db_user = session.get(User, user.id)
+                db_user.profile_picture = s3_url
+                session.add(db_user)
+                session.commit()
+                logger.info(f"✅ Profile picture updated for user {user.id}")
+            
+            return JSONResponse({
+                "success": True,
+                "url": s3_url,
+                "message": "Immagine caricata con successo!"
+            })
+        
+        except Exception as s3_error:
+            logger.error(f"❌ S3 upload error: {s3_error}", exc_info=True)
+            # Fallback a salvataggio locale
+            return save_profile_picture_locally(user, contents)
+    
+    except Exception as e:
+        logger.error(f"❌ Error uploading profile picture: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore durante l'upload"},
+            status_code=500
+        )
+
+
+def save_profile_picture_locally(user, file_contents):
+    """Salva immagine profilo localmente come fallback"""
+    try:
+        from datetime import datetime
+        from pathlib import Path
+        
+        upload_dir = Path("uploads/profile_pictures")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Genera nome unico
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{user.id}_{timestamp}.jpg"
+        file_path = upload_dir / filename
+        
+        # Salva file
+        with open(file_path, "wb") as f:
+            f.write(file_contents)
+        
+        # URL relativo
+        url = f"/uploads/profile_pictures/{filename}"
+        
+        # Aggiorna database
+        with get_session() as session:
+            db_user = session.get(User, user.id)
+            db_user.profile_picture = url
+            session.add(db_user)
+            session.commit()
+            logger.info(f"✅ Profile picture saved locally for user {user.id}: {url}")
+        
+        return JSONResponse({
+            "success": True,
+            "url": url,
+            "message": "Immagine caricata con successo!"
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ Error saving profile picture locally: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore durante il salvataggio dell'immagine"},
             status_code=500
         )

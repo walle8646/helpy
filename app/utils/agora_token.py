@@ -1,9 +1,12 @@
 """
-Agora RTC Token Generator
-Genera token sicuri per le video call con Agora.io
+Agora RTC Token Generator e Access Token per Cloud Recording
+Genera token sicuri per le video call e cloud recording con Agora.io
 """
 import os
 import time
+import hmac
+import hashlib
+import base64
 from agora_token_builder import RtcTokenBuilder
 from dotenv import load_dotenv
 
@@ -85,3 +88,48 @@ def generate_booking_call_token(booking_id: int, user_id: int) -> dict:
         role=ROLE_PUBLISHER,  # Entrambi possono pubblicare video/audio
         expiration_seconds=expiration_seconds
     )
+
+
+def generate_access_token(expiration_seconds: int = 3600) -> str:
+    """
+    Genera un Access Token per Agora Cloud Recording API.
+    
+    L'Access Token è diverso dal RTC Token ed è utilizzato per:
+    - Cloud Recording API (acquire, start, stop)
+    - Non è necessario specificare channel o uid
+    - Valida solo le credenziali API (App ID)
+    
+    Args:
+        expiration_seconds: Durata token in secondi (default 1 ora)
+    
+    Returns:
+        str con l'Access Token
+    
+    Reference:
+    https://docs.agora.io/en/cloud-recording/reference/cloud-recording-api?platform=RESTful#authorization
+    """
+    if not AGORA_APP_ID or not AGORA_APP_CERTIFICATE:
+        raise ValueError("AGORA_APP_ID and AGORA_APP_CERTIFICATE must be set in .env")
+    
+    # Calcola timestamp di scadenza
+    current_timestamp = int(time.time())
+    expire_timestamp = current_timestamp + expiration_seconds
+    
+    # Format: appId + expire_timestamp
+    message_to_sign = f"{AGORA_APP_ID}{expire_timestamp}"
+    
+    # Firma con HMAC-SHA256 usando App Certificate
+    signature = hmac.new(
+        AGORA_APP_CERTIFICATE.encode('utf-8'),
+        message_to_sign.encode('utf-8'),
+        hashlib.sha256
+    ).digest()
+    
+    # Encode in base64
+    signature_b64 = base64.b64encode(signature).decode('utf-8')
+    
+    # Format finale: version + signature_b64 + expire_timestamp
+    # Format Agora: base64(signature):expire_timestamp
+    access_token = f"{signature_b64}:{expire_timestamp}"
+    
+    return access_token

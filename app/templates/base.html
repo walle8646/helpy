@@ -917,6 +917,18 @@
         updateUnreadCount();
         notificationsInterval = setInterval(updateUnreadCount, 10000);
         {% endif %}
+
+        // 🔒 Nascondi URL S3 dalle immagini profilo - Carica da data-src
+        // Questo rende invisibili gli URL firmati di S3 nel sorgente HTML
+        document.addEventListener('DOMContentLoaded', function() {
+            const images = document.querySelectorAll('img[data-src]');
+            images.forEach(img => {
+                if (img.dataset.src) {
+                    img.src = img.dataset.src;
+                    img.removeAttribute('data-src');
+                }
+            });
+        });
     </script>
     
     <!-- JavaScript Specifici per Pagina -->

@@ -806,27 +806,30 @@
     }
     
     async function stopRecording() {
+        console.log('📹 [STOP_REC] stopRecording() called');
         try {
             const response = await fetch(`/api/booking/${bookingId}/recording/stop`, {
                 method: 'POST'
             });
+            console.log('📹 [STOP_REC] Response status:', response.status);
             
             if (response.ok) {
                 const data = await response.json();
-                console.log('✅ Recording completato:', data.recording_url);
+                console.log('✅ [STOP_REC] Recording completato:', data.recording_url);
                 return true;
             } else {
                 const error = await response.json();
+                console.log('📹 [STOP_REC] Error response:', error);
                 // Se il recording non era attivo, l'altro utente l'ha già fermato
                 if (error.detail === "Nessun recording attivo") {
-                    console.log('ℹ️ Recording già fermato (dall\'altro utente)');
+                    console.log('ℹ️ [STOP_REC] Recording già fermato (dall\'altro utente)');
                     return true;
                 }
-                console.error('❌ Errore stop recording:', error.detail);
+                console.error('❌ [STOP_REC] Errore stop recording:', error.detail);
                 return false;
             }
         } catch (error) {
-            console.error('❌ Errore stop recording:', error);
+            console.error('❌ [STOP_REC] Errore fetch:', error);
             return false;
         }
     }
@@ -911,6 +914,23 @@
             
             console.log(`✅ Call attiva - tempo rimasto: ${statusData.remaining_seconds} secondi`);
             
+            // 🔔 Prima di unirti ad Agora, segna che hai joinato la booking
+            console.log(`🔔 Marking user as joined for booking ${bookingId}...`);
+            try {
+                const joinResponse = await fetch(`/api/booking/${bookingId}/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (joinResponse.ok) {
+                    const joinData = await joinResponse.json();
+                    console.log(`✅ User joined booking - recording_status: ${joinData.recording_status}`);
+                } else {
+                    console.warn(`⚠️ Failed to mark user as joined: ${joinResponse.status}`);
+                }
+            } catch (e) {
+                console.error('❌ Error marking user as joined:', e);
+            }
+            
             // Get Agora token from backend
             const response = await fetch(`/api/booking/${bookingId}/agora-token`);
             if (!response.ok) {
@@ -958,6 +978,24 @@
             
             // Publish local tracks
             await client.publish([localTracks.audio, localTracks.video]);
+            console.log('✅ Published local tracks');
+            
+            // 🎬 Notify backend that we're ready to start recording
+            console.log('🎬 [init] Ready to start recording - notifying backend...');
+            try {
+                const recordingStartResponse = await fetch(`/api/booking/${bookingId}/recording/start-now`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const recordingData = await recordingStartResponse.json();
+                if (recordingStartResponse.ok) {
+                    console.log('✅ [init] Recording started by backend:', recordingData.filename);
+                } else {
+                    console.warn('⚠️ [init] Recording start failed:', recordingData.message);
+                }
+            } catch (e) {
+                console.error('❌ [init] Error notifying recording start:', e);
+            }
             
             // Start call timer
             startCallTimer();
@@ -969,8 +1007,9 @@
             await loadChatMessages();
             startChatPolling();
             
-            // Avvia registrazione automaticamente
-            await startRecording();
+            // ⚠️ Recording è ora auto-avviato dal backend quando entrambi gli utenti si uniscono
+            // Non è più necessario chiamare startRecording() dal frontend
+            // await startRecording();
             
             loadingOverlay.style.display = 'none';
             
@@ -1145,27 +1184,36 @@
     
     // Leave call
     async function leaveCall() {
+        console.log('🔔 [LEAVE] leaveCall() called');
+        
         // Stop screen share polling
+        console.log('🔔 [LEAVE] Stopping screen share polling...');
         stopScreenSharePolling();
         
         // Stop chat polling
+        console.log('🔔 [LEAVE] Stopping chat polling...');
         stopChatPolling();
         
         // Stop recording
-        await stopRecording();
+        console.log('🔔 [LEAVE] Calling stopRecording()...');
+        const recordingResult = await stopRecording();
+        console.log('🔔 [LEAVE] stopRecording() returned:', recordingResult);
         
         // Stop timer
         if (timerInterval) {
+            console.log('🔔 [LEAVE] Clearing timer...');
             clearInterval(timerInterval);
         }
         
         // Stop screen share if active
         if (screenTrack) {
+            console.log('🔔 [LEAVE] Stopping screen track...');
             screenTrack.stop();
             screenTrack.close();
             screenTrack = null;
         }
         
+        console.log('🔔 [LEAVE] Stopping local tracks...');
         for (let trackName in localTracks) {
             const track = localTracks[trackName];
             if (track) {
@@ -1175,7 +1223,27 @@
         }
         
         if (client) {
+            console.log('🔔 [LEAVE] Leaving Agora channel...');
             await client.leave();
+            console.log('🔔 [LEAVE] Left Agora channel');
+        }
+        
+        // 🔔 Notify backend that user is leaving the booking
+        console.log(`🔔 [LEAVE] Notifying backend that user is leaving booking ${bookingId}...`);
+        try {
+            const leaveResponse = await fetch(`/api/booking/${bookingId}/leave`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            console.log(`🔔 [LEAVE] Leave response status: ${leaveResponse.status}`);
+            if (leaveResponse.ok) {
+                const leaveData = await leaveResponse.json();
+                console.log(`✅ [LEAVE] User left booking - still_has_participants: ${leaveData.still_has_participants}`);
+            } else {
+                console.warn(`⚠️ [LEAVE] Failed to notify leave: ${leaveResponse.status}`);
+            }
+        } catch (e) {
+            console.error('❌ [LEAVE] Error notifying leave:', e);
         }
     }
     

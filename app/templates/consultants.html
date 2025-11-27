@@ -45,15 +45,36 @@
                         Tutte le categorie
                     </a>
                 </li>
-                {% for cat in categories %}
-                <li>
-                    <a href="/consultants?category={{ cat.id }}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" 
-                       class="{% if selected_category == cat.id %}active{% endif %}"
-                       style="border-left: 4px solid {{ cat.color }};">
-                        <span class="category-icon">{{ cat.icon }}</span>
-                        {{ cat.name }}
-                    </a>
-                </li>
+                {% for item in categories_with_children %}
+                    <!-- Categoria Principale -->
+                    <li>
+                        <a href="/consultants?category={{ item.parent.id }}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" 
+                           class="category-parent {% if selected_category == item.parent.id %}active{% endif %}"
+                           style="border-left: 4px solid {{ item.parent.color }};">
+                            <span class="category-icon">{{ item.parent.icon }}</span>
+                            {{ item.parent.name }}
+                        </a>
+                        
+                        <!-- Sottocategorie - Mostrate se:
+                             1. La categoria principale è selezionata, OPPURE
+                             2. Una sua sottocategoria è selezionata
+                        -->
+                        {% set selected_child_parent = child_to_parent_map.get(selected_category, None) %}
+                        {% if item.children and (selected_category == item.parent.id or selected_child_parent == item.parent.id) %}
+                        <ul class="subcategory-filters">
+                            {% for child in item.children %}
+                            <li>
+                                <a href="/consultants?category={{ child.id }}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" 
+                                   class="{% if selected_category == child.id %}active{% endif %}"
+                                   style="border-left: 4px solid {{ child.color }};">
+                                    <span class="category-icon">{{ child.icon }}</span>
+                                    {{ child.name }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </li>
                 {% endfor %}
             </ul>
 

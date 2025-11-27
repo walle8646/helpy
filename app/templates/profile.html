@@ -214,7 +214,7 @@
         <header class="profile-header card">
             <div class="profile-avatar-container">
                 {% if user.profile_picture %}
-                <img src="{{ user.profile_picture }}" alt="Profile" class="profile-avatar-large" id="profileImage">
+                <img data-src="{{ user.profile_picture }}" alt="Profile" class="profile-avatar-large" id="profileImage">
                 {% else %}
                 <div class="profile-avatar-large" id="profileImage">👤</div>
                 {% endif %}
@@ -253,7 +253,7 @@
 
                 <div class="form-group">
                     <label>Categoria</label>
-                    <select name="category_id" style="padding:12px; border:1px solid #ddd; border-radius:6px; font-size:1rem;">
+                    <select id="categorySelect" name="category_id" style="padding:12px; border:1px solid #ddd; border-radius:6px; font-size:1rem;">
                         <option value="">Nessuna categoria</option>
                         {% for cat in categories %}
                         <option value="{{ cat.id }}" {% if user.category_id == cat.id %}selected{% endif %}>
@@ -262,6 +262,16 @@
                         {% endfor %}
                     </select>
                     <small style="color:#888; margin-top:4px; display:block;">Seleziona la categoria che meglio rappresenta la tua expertise</small>
+                </div>
+                
+                <!-- Sottocategorie - Appaiono al cambio categoria -->
+                <div id="subcategoriesContainer" class="form-group" style="display:none;">
+                    <label>Sottocategorie (opzionale)</label>
+                    <div id="subcategoriesList" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                        <!-- Riempito dinamicamente da JavaScript -->
+                    </div>
+                    <small style="color:#888; margin-top:4px; display:block;">Seleziona una o più sottocategorie relative alla tua categoria principale</small>
+                    <input type="hidden" id="selectedSubcategories" name="selected_subcategories" value="">
                 </div>
                 
                 <div class="form-group">
@@ -1081,6 +1091,73 @@
         }
     }
     
+    // ========== SUBCATEGORIES SELECTOR ==========
+    const categorySelect = document.getElementById('categorySelect');
+    const subcategoriesContainer = document.getElementById('subcategoriesContainer');
+    const subcategoriesList = document.getElementById('subcategoriesList');
+    const selectedSubcategoriesInput = document.getElementById('selectedSubcategories');
+    
+    if (categorySelect) {
+        categorySelect.addEventListener('change', async (e) => {
+            const categoryId = e.target.value;
+            
+            if (!categoryId || categoryId <= 8) {
+                // Categoria principale (ID 1-8) - carica le sottocategorie
+                if (categoryId && categoryId <= 8) {
+                    try {
+                        const response = await fetch(`/api/profile/subcategories/${categoryId}`);
+                        const data = await response.json();
+                        
+                        if (data.subcategories && data.subcategories.length > 0) {
+                            // Riempì con le checkbox
+                            subcategoriesList.innerHTML = data.subcategories.map(sub => `
+                                <label style="display:flex; gap:8px; padding:8px; align-items:center;">
+                                    <input type="checkbox" value="${sub.id}" class="subcategory-checkbox">
+                                    <span>${sub.icon} ${sub.name}</span>
+                                </label>
+                            `).join('');
+                            
+                            subcategoriesContainer.style.display = 'block';
+                        } else {
+                            subcategoriesContainer.style.display = 'none';
+                        }
+                    } catch (error) {
+                        console.error('Error loading subcategories:', error);
+                        subcategoriesContainer.style.display = 'none';
+                    }
+                } else {
+                    subcategoriesContainer.style.display = 'none';
+                }
+            } else {
+                // Categoria secondaria - nasconde il container
+                subcategoriesContainer.style.display = 'none';
+            }
+        });
+        
+        // Carica le subcategories al caricamento della pagina se una categoria è già selezionata
+        const initialCategoryId = categorySelect.value;
+        if (initialCategoryId && initialCategoryId <= 8) {
+            const changeEvent = new Event('change');
+            categorySelect.dispatchEvent(changeEvent);
+        }
+    }
+    
+    // Aggiungi alla form submission: raccogliere gli IDs delle subcategories selezionate
+    const originalFormSubmit = profileForm.onsubmit;
+    profileForm.addEventListener('submit', (e) => {
+        // Raccogli le subcategories selezionate
+        const selectedCheckboxes = document.querySelectorAll('.subcategory-checkbox:checked');
+        const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+        
+        // Salva nel campo hidden come JSON
+        if (selectedIds.length > 0) {
+            selectedSubcategoriesInput.value = JSON.stringify(selectedIds);
+            console.log('📌 Subcategories selezionate:', selectedIds);
+        } else {
+            selectedSubcategoriesInput.value = '';
+        }
+    });
+
     // Carica gli appuntamenti e le domande amate all'avvio
     loadUpcomingAppointments();
     loadLikedQuestions();

@@ -1059,7 +1059,7 @@
                     <!-- Header -->
                     <div class="question-header">
                         <img 
-                            src="{{ item.author.profile_picture or '/static/default-avatar.png' }}" 
+                            data-src="{{ item.author.profile_picture or '/static/default-avatar.png' }}" 
                             alt="{{ item.author|display_name }}"
                             class="author-avatar"
                         >
@@ -1210,7 +1210,7 @@
                             <a href="/consultant/{{ consultant.id }}" class="consultant-card-mini">
                                 {% if consultant.profile_picture %}
                                 <img 
-                                    src="{{ consultant.profile_picture }}" 
+                                    data-src="{{ consultant.profile_picture }}" 
                                     alt="{{ consultant.nome }}"
                                     class="consultant-avatar-mini"
                                 >
@@ -1272,7 +1272,7 @@
                     <a href="/user/{{ consultant.id }}" class="top-helpyer-card">
                         {% if consultant.profile_picture %}
                         <img 
-                            src="{{ consultant.profile_picture }}" 
+                            data-src="{{ consultant.profile_picture }}" 
                             alt="{{ consultant.nome }}"
                             class="top-helpyer-avatar"
                         >
