@@ -663,6 +663,32 @@
         font-size: 1.2rem;
     }
     
+    /* Sottocategorie nel sidebar community - stessi stili di consultants */
+    .category-list-vertical .category-list-vertical {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        border-left: 2px solid #e0e0e0;
+        padding-left: 0;
+    }
+    
+    .category-list-vertical .category-list-vertical .category-item-vertical {
+        background: transparent;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        margin-bottom: 0;
+    }
+    
+    .category-list-vertical .category-list-vertical .category-item-vertical:hover {
+        background: #f5f5f5;
+    }
+    
+    .category-list-vertical .category-list-vertical .category-item-vertical.active {
+        background: #fff3e0;
+        color: #e65100;
+        font-weight: 500;
+    }
+    
     /* Rimuovi la vecchia stats-bar */
     .stats-bar {
         display: none;
@@ -842,6 +868,26 @@
         margin-left: 4px;
     }
     
+    .rating-stars {
+        font-size: 0.85rem;
+        letter-spacing: 2px;
+        margin-bottom: 4px;
+        display: block;
+        filter: drop-shadow(0 2px 4px rgba(255, 160, 0, 0.3));
+    }
+    
+    .consulenze-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 0;
+        box-shadow: 0 2px 6px rgba(102, 126, 234, 0.25);
+    }
+    
     .how-it-works-box {
         background: linear-gradient(135deg, #f8f9ff 0%, #fff5f8 100%);
         padding: 16px;
@@ -1005,31 +1051,49 @@
 
 <div class="container" style="max-width: 1400px; margin-top: 16px; margin-bottom: 40px;">
     <div class="row" style="display: flex; gap: 0;">
-        <!-- SIDEBAR SINISTRA (25%) - Categorie -->
-        <div class="col-md-3" style="flex: 0 0 25%; max-width: 25%; padding-right: 15px;">
+        <!-- SIDEBAR SINISTRA (20%) - Categorie -->
+        <div class="col-md-2" style="flex: 0 0 20%; max-width: 20%; padding-right: 15px;">
             <div class="sidebar-left">
                 
                 <!-- Categorie -->
                 <div class="sidebar-categories">
                     <h3 class="sidebar-section-title"><i class="fas fa-folder"></i> Categorie</h3>
                     <ul class="category-list-vertical">
-                        <li class="category-item-vertical {% if not selected_category %}active{% endif %}" onclick="filterCategory(null)">
+                        <li class="category-item-vertical {% if not selected_category %}active{% endif %}" onclick="filterCategory(null)" style="border-left: 4px solid transparent;">
                             <span class="category-icon">📋</span>
                             <span>Tutte le categorie</span>
                         </li>
-                        {% for category in categories %}
-                        <li class="category-item-vertical {% if selected_category == category.id %}active{% endif %}" onclick="filterCategory({{ category.id }})">
-                            <span class="category-icon">{{ category.icon }}</span>
-                            <span>{{ category.name }}</span>
-                        </li>
+                        
+                        {% for item in categories_with_children %}
+                            <!-- Categoria Principale -->
+                            <li onclick="filterCategory({{ item.parent.id }})" class="category-item-vertical category-parent {% if selected_category == item.parent.id %}active{% endif %}" style="border-left: 4px solid {{ item.parent.color }}; margin-top: 8px;">
+                                <span class="category-icon">{{ item.parent.icon }}</span>
+                                <span>{{ item.parent.name }}</span>
+                            </li>
+                            
+                            <!-- Sottocategorie - Mostrate se:
+                                 1. La categoria principale è selezionata, OPPURE
+                                 2. Una sua sottocategoria è selezionata
+                            -->
+                            {% set selected_child_parent = child_to_parent_map.get(selected_category, None) %}
+                            {% if item.children and (selected_category == item.parent.id or selected_child_parent == item.parent.id) %}
+                            <ul class="category-list-vertical" style="margin-left: 20px;">
+                                {% for child in item.children %}
+                                <li onclick="filterCategory({{ child.id }})" class="category-item-vertical {% if selected_category == child.id %}active{% endif %}" style="border-left: 4px solid {{ child.color }}; font-size: 0.9rem; padding: 10px;">
+                                    <span class="category-icon">{{ child.icon }}</span>
+                                    <span>{{ child.name }}</span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
                         {% endfor %}
                     </ul>
                 </div>
             </div>
         </div>
         
-        <!-- CONTENUTO PRINCIPALE CENTRO (50%) - Domande -->
-        <div class="col-md-6" style="flex: 0 0 50%; max-width: 50%; padding: 0 15px;">
+        <!-- CONTENUTO PRINCIPALE CENTRO (65%) - Domande -->
+        <div class="col-md-6" style="flex: 0 0 65%; max-width: 65%; padding: 0 15px;">
             <!-- Search Bar sopra il titolo -->
             <div class="search-bar-community" style="margin-bottom: 20px;">
                 <input 
@@ -1059,7 +1123,7 @@
                     <!-- Header -->
                     <div class="question-header">
                         <img 
-                            data-src="{{ item.author.profile_picture or '/static/default-avatar.png' }}" 
+                            data-src="{% if item.author.is_anonymous %}/static/default-avatar.png{% else %}{{ item.author.profile_picture or '/static/default-avatar.png' }}{% endif %}" 
                             alt="{{ item.author|display_name }}"
                             class="author-avatar"
                         >
@@ -1119,14 +1183,14 @@
                     
                     <!-- Bottone Messaggia o Compila Profilo (controlla se l'utente LOGGATO è verificato) -->
                     {% if user and item.author.id != user.id %}
-                        {% if user.is_verified %}
-                        <!-- Utente LOGGATO verificato: può messaggiare -->
+                        {% if user.is_verified and not item.author.is_anonymous %}
+                        <!-- Utente LOGGATO verificato e autore non anonimo: può messaggiare -->
                         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                             <button class="btn-message-verified btn-contact-author"
                                data-question-id="{{ item.question.id }}"
                                data-author-id="{{ item.author.id }}"
-                               data-author-name="{{ item.author.nome }} {{ item.author.cognome }}"
-                               data-author-pic="{{ item.author.profile_picture_url }}"
+                               data-author-name="{{ item.author|display_name }}"
+                               data-author-pic="{{ item.author.profile_picture or '/static/default-avatar.png' }}"
                                style="display: inline-flex; 
                                       align-items: center; 
                                       gap: 8px; 
@@ -1152,7 +1216,18 @@
                                 <i class="fas fa-heart"></i> Segui e Richiedi
                             </button>
                         </div>
-                        {% else %}
+                        {% elif user.is_verified and item.author.is_anonymous %}
+                        <!-- Autore anonimo: mostra solo il bottone Segui -->
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 12px;">
+                            <button 
+                                class="btn-follow-question" 
+                                data-question-id="{{ item.question.id }}"
+                                onclick="toggleFollowQuestion({{ item.question.id }})"
+                                title="Segui questa domanda">
+                                <i class="fas fa-heart"></i> Segui e Richiedi
+                            </button>
+                        </div>
+                        {% elif not user.is_verified %}
                         <!-- Utente LOGGATO non verificato: deve completare il profilo -->
                         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                             <a href="/profile" 
@@ -1260,8 +1335,8 @@
         </div>
         <!-- FINE CONTENUTO PRINCIPALE -->
         
-        <!-- SIDEBAR DESTRA (25%) - Top Helpyers -->
-        <div class="col-md-3" style="flex: 0 0 25%; max-width: 25%; padding-left: 15px;">
+        <!-- SIDEBAR DESTRA (15%) - Top Helpyers -->
+        <div class="col-md-3" style="flex: 0 0 15%; max-width: 15%; padding-left: 15px;">
             <div class="sidebar-right">
                 <h3 class="sidebar-section-title" style="margin-bottom: 20px;">
                     <i class="fas fa-trophy" style="color: #ffa000;"></i> Top Helpyers
@@ -1286,34 +1361,22 @@
                             <div class="top-helpyer-name">{{ consultant.nome }}</div>
                             <div class="top-helpyer-rating">
                                 {% if consultant.bollini >= 5 %}
-                                    ⭐⭐⭐⭐⭐
+                                    <div class="rating-stars">⭐⭐⭐⭐⭐</div>
                                 {% elif consultant.bollini == 4 %}
-                                    ⭐⭐⭐⭐
+                                    <div class="rating-stars">⭐⭐⭐⭐</div>
                                 {% elif consultant.bollini == 3 %}
-                                    ⭐⭐⭐
+                                    <div class="rating-stars">⭐⭐⭐</div>
                                 {% elif consultant.bollini == 2 %}
-                                    ⭐⭐
+                                    <div class="rating-stars">⭐⭐</div>
                                 {% elif consultant.bollini == 1 %}
-                                    ⭐
+                                    <div class="rating-stars">⭐</div>
                                 {% endif %}
-                                <span>{{ consultant.consulenze_vendute }} consulenze</span>
+                                <span class="consulenze-badge">{{ consultant.consulenze_vendute }} consulenze</span>
                             </div>
                         </div>
                     </a>
                     {% endfor %}
                 {% endif %}
-                
-                <!-- Come funziona Helpy -->
-                <div class="how-it-works-box">
-                    <h4 style="font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #333;">
-                        Come funziona Helpy
-                    </h4>
-                    <ol style="padding-left: 20px; margin: 0; color: #666; font-size: 0.9rem; line-height: 1.8;">
-                        <li>Cerca un Helpyer</li>
-                        <li>Richiedi una consulenza</li>
-                        <li>Ricevi una risposta</li>
-                    </ol>
-                </div>
             </div>
         </div>
     </div>
@@ -1355,21 +1418,41 @@
                 <label class="form-label">Descrizione dettagliata</label>
                 <textarea 
                     class="form-textarea" 
+                    id="descriptionTextarea"
                     name="description" 
                     placeholder="Spiega in dettaglio di cosa hai bisogno..."
                     required
-                    minlength="20"
+                    minlength="150"
                 ></textarea>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <small style="color:#888;">Minimo 150 caratteri</small>
+                    <small style="color:#666; font-weight: 500;">
+                        <span id="charCount">0</span>/150
+                    </small>
+                </div>
+                <div id="charError" style="color: #dc3545; font-size: 0.875rem; margin-top: 6px; display: none;">
+                    ⚠️ La descrizione deve avere almeno 150 caratteri
+                </div>
             </div>
             
             <div class="form-group">
-                <label class="form-label">Categoria</label>
-                <select class="form-select" name="category_id">
+                <label class="form-label">Categoria Principale</label>
+                <select class="form-select" id="primaryCategorySelect" name="primary_category_id" required>
                     <option value="">Seleziona una categoria...</option>
                     {% for category in categories %}
+                    {% if category.is_principal %}
                     <option value="{{ category.id }}">{{ category.icon }} {{ category.name }}</option>
+                    {% endif %}
                     {% endfor %}
                 </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Sottocategoria</label>
+                <select class="form-select" id="subcategorySelect" name="category_id" required>
+                    <option value="">Seleziona una sottocategoria...</option>
+                </select>
+                <small style="color:#888; margin-top:4px; display:block;">Seleziona prima una categoria principale</small>
             </div>
             
             <div class="form-group">
@@ -1389,14 +1472,160 @@
     </div>
 </div>
 
+<!-- Modal Confermazione Modalità Anonima -->
+<div class="modal" id="anonymousConfirmModal">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h2 class="modal-title">🔒 Modalità Anonima</h2>
+            <button class="modal-close" onclick="closeAnonymousModal()">&times;</button>
+        </div>
+        
+        <div style="padding: 20px;">
+            <p style="margin: 0 0 16px 0; color: #333; font-size: 0.95rem;">
+                Desideri pubblicare questa domanda in <strong>modalità anonima</strong>?
+            </p>
+            
+            <div style="background: #f8f9fa; border-left: 4px solid #667eea; padding: 12px; margin: 16px 0; border-radius: 4px;">
+                <p style="margin: 0; font-size: 0.9rem; color: #555;">
+                    ✓ Il tuo nome <strong>non sarà visibile</strong> agli altri utenti<br>
+                    ✓ Apparirai come <strong>"Utente #{{ user.id }}"</strong><br>
+                    × <strong>Non potrai fare o ricevere consultazioni</strong> mentre sei in modalità anonima
+                </p>
+            </div>
+            
+            <label style="display: flex; align-items: center; margin: 16px 0; cursor: pointer;">
+                <input 
+                    type="checkbox" 
+                    id="anonymousModeCheckbox" 
+                    style="width: 18px; height: 18px; cursor: pointer; margin-right: 10px;"
+                >
+                <span style="color: #333; font-size: 0.95rem;">
+                    Sì, voglio pubblicare in modalità anonima
+                </span>
+            </label>
+            
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <button 
+                    class="submit-button" 
+                    style="flex: 1; margin: 0; background: #6c757d;"
+                    onclick="closeAnonymousModal()"
+                >
+                    Annulla
+                </button>
+                <button 
+                    class="submit-button" 
+                    style="flex: 1; margin: 0;"
+                    onclick="confirmAnonymousSubmit()"
+                >
+                    Conferma
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 function openAskModal() {
     document.getElementById('askModal').classList.add('active');
+    // Reset i select quando si apre il modal
+    document.getElementById('primaryCategorySelect').value = '';
+    document.getElementById('subcategorySelect').value = '';
+    document.getElementById('subcategorySelect').innerHTML = '<option value="">Seleziona una sottocategoria...</option>';
+    
+    // Reset descrizione e conteggio
+    document.getElementById('descriptionTextarea').value = '';
+    document.getElementById('charCount').textContent = '0';
+    document.getElementById('charError').style.display = 'none';
 }
 
 function closeAskModal() {
     document.getElementById('askModal').classList.remove('active');
 }
+
+function openAnonymousModal() {
+    document.getElementById('anonymousConfirmModal').classList.add('active');
+    document.getElementById('anonymousModeCheckbox').checked = false;
+}
+
+function closeAnonymousModal() {
+    document.getElementById('anonymousConfirmModal').classList.remove('active');
+}
+
+// Variabile globale per tracciare la domanda in sospeso
+let pendingQuestionData = null;
+
+async function confirmAnonymousSubmit() {
+    if (!pendingQuestionData) return;
+    
+    const wantAnonymous = document.getElementById('anonymousModeCheckbox').checked;
+    
+    if (wantAnonymous) {
+        // Se l'utente vuole essere anonimo, chiama l'endpoint per impostare il flag
+        try {
+            const response = await fetch('/api/user/set-anonymous', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ is_anonymous: true })
+            });
+            
+            if (!response.ok) {
+                console.error('Failed to set anonymous mode');
+            }
+        } catch (error) {
+            console.error('Error setting anonymous mode:', error);
+        }
+    }
+    
+    // Procedi con la sottomissione della domanda
+    closeAnonymousModal();
+    submitQuestionFinal();
+}
+
+// ========== CONTEGGIO CARATTERI DESCRIZIONE ==========
+document.getElementById('descriptionTextarea')?.addEventListener('input', function() {
+    const count = this.value.length;
+    document.getElementById('charCount').textContent = count;
+    
+    // Cambia colore del conteggio se sotto 150
+    const charCountSpan = document.getElementById('charCount').parentElement;
+    if (count < 150) {
+        charCountSpan.style.color = '#dc3545';
+        charCountSpan.style.fontWeight = '600';
+    } else {
+        charCountSpan.style.color = '#28a745';
+        charCountSpan.style.fontWeight = '500';
+    }
+});
+
+// ========== CARICA SOTTOCATEGORIE ==========
+document.getElementById('primaryCategorySelect').addEventListener('change', async (e) => {
+    const categoryId = e.target.value;
+    const subcategorySelect = document.getElementById('subcategorySelect');
+    
+    if (!categoryId) {
+        subcategorySelect.innerHTML = '<option value="">Seleziona una sottocategoria...</option>';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/profile/subcategories/${categoryId}`);
+        const data = await response.json();
+        
+        if (data.subcategories && data.subcategories.length > 0) {
+            subcategorySelect.innerHTML = '<option value="">Nessuna sottocategoria</option>' + 
+                data.subcategories.map(sub => 
+                    `<option value="${sub.id}">${sub.icon} ${sub.name}</option>`
+                ).join('');
+        } else {
+            subcategorySelect.innerHTML = '<option value="">Nessuna sottocategoria</option>';
+        }
+    } catch (error) {
+        console.error('Errore nel caricamento sottocategorie:', error);
+        subcategorySelect.innerHTML = '<option value="">Errore nel caricamento</option>';
+    }
+});
 
 function filterCategory(categoryId) {
     const url = new URL(window.location.href);
@@ -1428,12 +1657,40 @@ function searchCommunity() {
 async function submitQuestion(e) {
     e.preventDefault();
     
-    const formData = new FormData(e.target);
+    const description = document.getElementById('descriptionTextarea').value.trim();
+    const charError = document.getElementById('charError');
+    const subcategorySelect = document.getElementById('subcategorySelect');
+    
+    // Validazione minimo 150 caratteri
+    if (description.length < 150) {
+        charError.style.display = 'block';
+        document.getElementById('descriptionTextarea').focus();
+        return;
+    }
+    
+    charError.style.display = 'none';
+    
+    // Validazione sottocategoria obbligatoria
+    if (!subcategorySelect.value || subcategorySelect.value === '') {
+        alert('⚠️ Devi selezionare una sottocategoria');
+        subcategorySelect.focus();
+        return;
+    }
+    
+    // Salva i dati del form per la sottomissione successiva
+    pendingQuestionData = new FormData(e.target);
+    
+    // Mostra il modal di conferma modalità anonima
+    openAnonymousModal();
+}
+
+async function submitQuestionFinal() {
+    if (!pendingQuestionData) return;
     
     try {
         const response = await fetch('/api/community/ask', {
             method: 'POST',
-            body: formData
+            body: pendingQuestionData
         });
         
         const data = await response.json();

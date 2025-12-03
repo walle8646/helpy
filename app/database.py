@@ -32,7 +32,8 @@ def create_db_and_tables():
     logger.info("Creating database and tables")
     # Import modelli per registrarli
     from app.models import (
-        User, Category, Consultation, 
+        User, Category, CategoryHierarchy,
+        Consultation, 
         Conversation, Message,
         CommunityQuestion,  # ✅ Solo CommunityQuestion, senza CommunityAnswer
         AvailabilityBlock,  # ✅ Gestione disponibilità

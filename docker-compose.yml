@@ -4,11 +4,17 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./app:/app/app  # ✅ Questo deve montare la cartella app locale
+      - ./app:/app/app
       - ./uploads:/app/uploads
       - ./dev.db:/app/dev.db
     env_file:
       - .env
-    environment:
-      - DATABASE_URL=sqlite:///./dev.db
-      - LOG_LEVEL=DEBUG
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge

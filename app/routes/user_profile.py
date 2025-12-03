@@ -33,8 +33,8 @@ async def user_profile(request: Request):
                 request.session.clear()
                 return RedirectResponse("/login", status_code=307)
             
-            categories = session.exec(select(Category)).all()
-            logger.info(f"✅ Loaded {len(categories)} categories")
+            categories = session.exec(select(Category).where(Category.is_principal == True).order_by(Category.id)).all()
+            logger.info(f"✅ Loaded {len(categories)} principal categories")
             
             # ✅ AGGIUNGI cognome
             user_data = {
@@ -50,6 +50,7 @@ async def user_profile(request: Request):
                 "prezzo_consulenza": fresh_user.prezzo_consulenza or 0,
                 "bollini": fresh_user.bollini or 0,
                 "confirmed": fresh_user.confirmed,
+                "is_anonymous": fresh_user.is_anonymous,  # 🔒 AGGIUNGI il flag anonimato
                 "created_at": fresh_user.created_at.strftime("%d/%m/%Y") if fresh_user.created_at else "N/A"
             }
             
@@ -194,6 +195,9 @@ async def update_profile(
             if prezzo_consulenza is not None:
                 db_user.prezzo_consulenza = prezzo_consulenza
             if is_anonymous is not None:  # ✅ NUOVO: aggiorna flag anonimato
+                # Converti la stringa "true"/"false" a booleano
+                if isinstance(is_anonymous, str):
+                    is_anonymous = is_anonymous.lower() == 'true'
                 db_user.is_anonymous = is_anonymous
                 logger.info(f"{'🔒' if is_anonymous else '👤'} User {db_user.id} set anonymous mode: {is_anonymous}")
             if selected_subcategories is not None:  # ✅ NUOVO: salva JSON array
@@ -434,5 +438,46 @@ def save_profile_picture_locally(user, file_contents):
         logger.error(f"❌ Error saving profile picture locally: {e}", exc_info=True)
         return JSONResponse(
             {"error": "Errore durante il salvataggio dell'immagine"},
+            status_code=500
+        )
+
+
+@router.post("/api/user/set-anonymous")
+async def set_anonymous_mode(request: Request):
+    """Imposta la modalità anonima dell'utente"""
+    try:
+        user = verify_token(request)
+        
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        # Leggi il body della richiesta
+        body = await request.json()
+        is_anonymous = body.get("is_anonymous", False)
+        
+        with get_session() as session:
+            db_user = session.get(User, user.id)
+            
+            if not db_user:
+                return JSONResponse({"error": "Utente non trovato"}, status_code=404)
+            
+            # Aggiorna il flag anonimato
+            db_user.is_anonymous = is_anonymous
+            session.add(db_user)
+            session.commit()
+            session.refresh(db_user)
+            
+            logger.info(f"🔒 User {db_user.id} set anonymous mode: {is_anonymous}")
+            
+            return JSONResponse({
+                "success": True,
+                "is_anonymous": db_user.is_anonymous,
+                "message": "Modalità anonima aggiornata con successo"
+            })
+    
+    except Exception as e:
+        logger.error(f"❌ Error setting anonymous mode: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore durante l'aggiornamento della modalità anonima"},
             status_code=500
         )

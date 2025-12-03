@@ -148,7 +148,7 @@ async def consultants_page(
         with get_session() as session:
             # ========== CARICA CATEGORIE PRINCIPALI ==========
             principal_categories = session.exec(
-                select(Category).where(Category.id <= 8).order_by(Category.id)
+                select(Category).where(Category.is_principal == True).order_by(Category.id)
             ).all()
             
             # ========== COSTRUISCI STRUTTURA CATEGORIE CON SOTTOCATEGORIE ==========
@@ -313,7 +313,7 @@ async def consultants_page(
         try:
             with get_session() as session:
                 principal_categories = session.exec(
-                    select(Category).where(Category.id <= 8).order_by(Category.id)
+                    select(Category).where(Category.is_principal == True).order_by(Category.id)
                 ).all()
                 categories_with_children = []
                 for parent_cat in principal_categories:

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import os
 
 from app.database import get_session
-from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, CommunityQuestionFollow, QuestionStatus
+from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, CommunityQuestionFollow, QuestionStatus, CategoryHierarchy
 from app.routes.auth import verify_token
 from app.utils_user import get_display_name
 from loguru import logger
@@ -34,19 +34,57 @@ async def community_page(
             logger.warning(f"⚠️ Community - No user logged in. Session: {dict(request.session)}")
         
         with get_session() as session:
-            # ========== CARICA CATEGORIE ==========
-            categories = session.exec(
-                select(Category).order_by(Category.name)
+            # ========== CARICA CATEGORIE PRINCIPALI ==========
+            principal_categories = session.exec(
+                select(Category).where(Category.is_principal == True).order_by(Category.id)
             ).all()
             
+            # ========== COSTRUISCI STRUTTURA CATEGORIE CON SOTTOCATEGORIE ==========
+            categories_with_children = []
+            child_to_parent_map = {}  # Mappa: child_id -> parent_id
+            
+            for parent_cat in principal_categories:
+                # Carica le sottocategorie di questa categoria
+                hierarchy_entries = session.exec(
+                    select(CategoryHierarchy)
+                    .where(CategoryHierarchy.parent_category_id == parent_cat.id)
+                    .order_by(CategoryHierarchy.position)
+                ).all()
+                
+                # Carica i dati completi delle sottocategorie
+                children = []
+                for hierarchy in hierarchy_entries:
+                    child_cat = session.get(Category, hierarchy.child_category_id)
+                    if child_cat:
+                        children.append(child_cat)
+                        # Popola la mappa
+                        child_to_parent_map[child_cat.id] = parent_cat.id
+                
+                categories_with_children.append({
+                    'parent': parent_cat,
+                    'children': children
+                })
+            
+            # Mantieni anche la lista delle categorie per compatibilità
+            categories = principal_categories
+            
             # ========== BASE QUERY ==========
-            query_stmt = select(CommunityQuestion).order_by(
+            query_stmt = select(CommunityQuestion).where(
+                CommunityQuestion.validation == True  # 🆕 Mostra solo domande validate
+            ).order_by(
                 CommunityQuestion.created_at.desc()
             )
             
             # ========== FILTRO CATEGORIA ==========
             if category:
-                query_stmt = query_stmt.where(CommunityQuestion.category_id == category)
+                # Verifica se la categoria selezionata è principale o subcategoria
+                selected_cat = session.get(Category, category)
+                if selected_cat and selected_cat.is_principal:
+                    # Se è principale, filtra per primary_category_id
+                    query_stmt = query_stmt.where(CommunityQuestion.primary_category_id == category)
+                else:
+                    # Se è subcategoria, filtra per category_id
+                    query_stmt = query_stmt.where(CommunityQuestion.category_id == category)
             
             # ========== FILTRO STATUS ==========
             if status and status in ['open', 'in_progress', 'closed']:
@@ -66,7 +104,12 @@ async def community_page(
             count_query = select(func.count(CommunityQuestion.id))
             
             if category:
-                count_query = count_query.where(CommunityQuestion.category_id == category)
+                # Usa la stessa logica di filtro della query principale
+                selected_cat = session.get(Category, category)
+                if selected_cat and selected_cat.is_principal:
+                    count_query = count_query.where(CommunityQuestion.primary_category_id == category)
+                else:
+                    count_query = count_query.where(CommunityQuestion.category_id == category)
             
             if status:
                 count_query = count_query.where(CommunityQuestion.status == status)
@@ -160,13 +203,29 @@ async def community_page(
                 f"{f', search: {search}' if search else ''}"
             )
             
-            # ========== TOP CONSULTANTS ==========
-            top_consultants = session.exec(
-                select(User)
-                .where(User.bollini > 0)
-                .order_by(User.bollini.desc())
-                .limit(3)
-            ).all()
+            # ========== TOP CONSULTANTS (Filtrati per categoria se selezionata) ==========
+            if category:
+                # Filtra consulenti che hanno la categoria selezionata come principale o in selected_subcategories
+                top_consultants = session.exec(
+                    select(User)
+                    .where(
+                        or_(
+                            User.category_id == category,  # Categoria principale
+                            User.selected_subcategories.contains(str(category))  # Tra le subcategorie
+                        )
+                    )
+                    .where(User.bollini > 0)
+                    .order_by(User.bollini.desc(), User.consulenze_vendute.desc())
+                    .limit(4)
+                ).all()
+            else:
+                # Se non c'è categoria selezionata, mostra i migliori di tutte
+                top_consultants = session.exec(
+                    select(User)
+                    .where(User.bollini > 0)
+                    .order_by(User.bollini.desc(), User.consulenze_vendute.desc())
+                    .limit(4)
+                ).all()
             
             # ========== CONTROLLO LIMITE RICHIESTE ==========
             can_create_question = True
@@ -211,6 +270,8 @@ async def community_page(
                     "current_user": current_user,  # ✅ Aggiunto per navbar
                     "questions": enriched_questions,
                     "categories": categories,
+                    "categories_with_children": categories_with_children,  # ✅ Per sidebar categorie
+                    "child_to_parent_map": child_to_parent_map,  # ✅ Per espandere quando subcategoria selezionata
                     "selected_category": category,
                     "search_query": search or '',
                     "selected_status": status,
@@ -255,7 +316,8 @@ async def api_ask_question(
     request: Request,
     title: str = Form(...),
     description: str = Form(...),
-    category_id: Optional[int] = Form(None)
+    primary_category_id: Optional[int] = Form(None),  # ✅ Categoria principale
+    category_id: Optional[int] = Form(None)  # ✅ Sottocategoria
 ):
     """API per creare nuova domanda"""
     
@@ -288,7 +350,8 @@ async def api_ask_question(
                 user_id=current_user.id,
                 title=title,
                 description=description,  # ✅ Usa description invece di content
-                category_id=category_id,
+                primary_category_id=primary_category_id,  # ✅ Salva categoria principale
+                category_id=category_id,  # ✅ Salva subcategoria
                 status=QuestionStatus.OPEN
             )
             

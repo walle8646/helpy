@@ -489,7 +489,7 @@
         </div>
     </div>
     
-    <!-- Bottom Row: Slot selezionato e Note -->
+    <!-- Bottom Row: Slot selezionato, Note e Descrizione -->
     <div class="bottom-row">
         <!-- Slot Selezionato -->
         <div class="booking-section">
@@ -500,10 +500,27 @@
             </div>
         </div>
         
-        <!-- Note -->
+        <!-- Note e Descrizione -->
         <div class="booking-section notes-section">
             <h3><i class="fas fa-sticky-note"></i> Note (opzionale)</h3>
-            <textarea id="clientNotes" placeholder="Scrivi qui eventuali note o richieste per il consulente..."></textarea>
+            <textarea id="clientNotes" placeholder="Scrivi qui eventuali note per il consulente..."></textarea>
+        </div>
+    </div>
+    
+    <!-- Descrizione Consulenza (Obbligatoria) -->
+    <div class="booking-section">
+        <h3><i class="fas fa-file-alt"></i> Descrizione della Consulenza <span style="color: #ff4757;">*</span></h3>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+            Descrivi in dettaglio quello che vuoi discutere durante la consulenza. Questo aiuta il consulente a prepararsi meglio e a fornirti un servizio più efficace.
+        </p>
+        <textarea 
+            id="consultationDescription" 
+            placeholder="Es: Voglio discutere di come ottimizzare il mio CV e strategie di ricerca lavoro nel settore IT. Ho 5 anni di esperienza..."
+            style="width: 100%; min-height: 150px; padding: 1rem; border: 2px solid #e0e0e0; border-radius: 8px; font-family: inherit; resize: vertical;"
+            required
+        ></textarea>
+        <div id="descriptionError" style="color: #ff4757; font-size: 0.9rem; margin-top: 0.5rem; display: none;">
+            La descrizione della consulenza è obbligatoria
         </div>
     </div>
     
@@ -907,6 +924,17 @@
     document.getElementById('confirmBookingBtn').addEventListener('click', async function() {
         if (!selectedSlot || !selectedDate) return;
         
+        // Valida che la descrizione sia compilata
+        const description = document.getElementById('consultationDescription').value.trim();
+        if (!description) {
+            document.getElementById('descriptionError').style.display = 'block';
+            document.getElementById('consultationDescription').focus();
+            return;
+        }
+        
+        // Nascondi errore se presente
+        document.getElementById('descriptionError').style.display = 'none';
+        
         this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Prenotazione in corso...';
         
@@ -921,6 +949,7 @@
             duration_minutes: selectedDuration,
             availability_block_id: selectedSlot.availability_block_id,
             client_notes: document.getElementById('clientNotes').value,
+            description: description,  // ✅ Aggiungi descrizione obbligatoria
             price: parseFloat(totalPrice.toFixed(2))  // Prezzo calcolato in base alla durata
         };
         

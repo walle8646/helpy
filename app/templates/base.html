@@ -21,8 +21,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px 48px;
-            background: white;
+            padding: 8px 48px;
+            background: linear-gradient(135deg, #f3e8ff 0%, #e879f9 50%, #667eea 100%);
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             position: fixed;
             top: 0;
@@ -58,6 +58,95 @@
             background-clip: text;
         }
         
+        /* === SEARCH BAR === */
+        .search-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            max-width: 400px;
+        }
+        
+        .search-container {
+            position: relative;
+            width: 100%;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 8px 16px 8px 36px;
+            border: none;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+            color: #333;
+        }
+        
+        .search-input::placeholder {
+            color: #999;
+        }
+        
+        .search-input:focus {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 14px;
+        }
+        
+        .search-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: none;
+            z-index: 1001;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .search-dropdown.show {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .search-option {
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .search-option:last-child {
+            border-bottom: none;
+        }
+        
+        .search-option:hover {
+            background: #f5f5f5;
+            color: #667eea;
+        }
+        
+        .search-option i {
+            font-size: 16px;
+            color: #667eea;
+        }
+        
         /* Right: Link semplici in riga */
         .navbar-links {
             display: flex;
@@ -77,6 +166,93 @@
         
         .navbar-link:hover {
             color: #667eea;
+        }
+        
+        /* === USER PROFILE DROPDOWN === */
+        .user-profile-dropdown {
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar-profile-pic {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #667eea;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .navbar-profile-pic:hover {
+            transform: scale(1.05);
+            border-color: #764ba2;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .user-menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+            min-width: 160px;
+            margin-top: 8px;
+            display: none;
+            z-index: 1000;
+            overflow: hidden;
+            animation: slideDown 0.2s ease;
+        }
+
+        .user-menu-dropdown.active {
+            display: block;
+        }
+
+        .user-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            color: #333;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .user-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-menu-item:hover {
+            background: #f9f9f9;
+            color: #667eea;
+            padding-left: 18px;
+        }
+
+        .user-menu-item.logout-item:hover {
+            background: #fff5f5;
+            color: #e74c3c;
+        }
+
+        .user-menu-item i {
+            width: 16px;
+            text-align: center;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         /* Bottone registrazione con gradient */
@@ -114,25 +290,24 @@
         .notifications-icon {
             position: relative;
             cursor: pointer;
-            font-size: 15px;
-            color: white;
+            font-size: 18px;
+            color: #000;
             padding: 8px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 50%;
             width: 36px;
             height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
             transition: all 0.3s ease;
-            margin-left: 12px;
-            margin-bottom: 4px;
+            background: transparent;
+            border: 2px solid transparent;
         }
         
         .notifications-icon:hover {
-            transform: translateY(-2px) scale(1.05);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.3);
+            border-color: transparent;
         }
         
         .chat-reopen-text {
@@ -142,20 +317,47 @@
             transform: translateX(-50%);
             font-size: 9px;
             font-weight: 600;
-            color: white;
-            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: #000;
+            background: transparent;
             padding: 2px 7px;
             border-radius: 6px;
-            cursor: pointer;
             white-space: nowrap;
+            z-index: 10;
+            cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 6px rgba(52, 152, 219, 0.3);
+            box-shadow: none;
         }
-        
+
         .chat-reopen-text:hover {
-            background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+            background: transparent;
             transform: translateX(-50%) translateY(-1px);
-            box-shadow: 0 3px 8px rgba(52, 152, 219, 0.4);
+            box-shadow: none;
+        }
+
+        /* Chat Button */
+        .chat-button {
+            background: transparent;
+            color: #000;
+            border: 2px solid transparent;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            width: 32px;
+            height: 32px;
+        }
+
+        .chat-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .chat-button:active {
+            transform: scale(0.98);
         }
         
         .notifications-badge {
@@ -495,6 +697,30 @@
             </a>
         </div>
         
+        <!-- Search Bar al Centro -->
+        <div class="search-wrapper">
+            <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
+                <input 
+                    type="text" 
+                    id="globalSearch" 
+                    class="search-input" 
+                    placeholder="Cerca un Helpy o una consulenza..."
+                    autocomplete="off"
+                >
+                <div class="search-dropdown" id="searchDropdown">
+                    <div class="search-option" onclick="searchConsultants()">
+                        <i class="fas fa-user-tie"></i>
+                        <span>Cerca tra i Consulenti</span>
+                    </div>
+                    <div class="search-option" onclick="searchCommunity()">
+                        <i class="fas fa-comments"></i>
+                        <span>Cerca nella Community</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Right: Link semplici in fila -->
         <div class="navbar-links">
             <!-- Trova Consulenti con Dropdown -->
@@ -539,22 +765,40 @@
             </a>
             
             {% if current_user %}
-                <!-- Profilo Utente -->
-                <a href="/profile" class="navbar-link">
-                    <span style="font-size: 18px;">👤</span>
-                    <span class="navbar-link-text">{{ current_user.nome or current_user.email.split('@')[0] }}</span>
-                </a>
-                
-                <!-- Logout -->
-                <a href="/logout" class="register-btn logout-btn">
-                    Logout
-                </a>
-                
                 <!-- Icona Notifiche con testo Chat sotto -->
                 <div class="notifications-icon" id="notificationsIcon" onclick="toggleNotifications()">
                     <i class="fas fa-bell"></i>
                     <span class="notifications-badge" id="notificationsBadge" style="display: none;">0</span>
-                    <span class="chat-reopen-text" onclick="event.stopPropagation(); reopenChatWidget()">Chat</span>
+                </div>
+                
+                <!-- Chat Button -->
+                <button class="chat-button" onclick="reopenChatWidget()" title="Apri chat">
+                    <i class="fas fa-comments"></i>
+                </button>
+                
+                <!-- Divisore -->
+                <div style="width: 1px; height: 20px; background: #e0e0e0; margin: 0 4px;"></div>
+                
+                <!-- User Profile Picture Dropdown -->
+                <div class="user-profile-dropdown" onclick="toggleUserMenu(event)">
+                    <img 
+                        src="{{ current_user.profile_picture or '/static/default-avatar.png' }}" 
+                        alt="{{ current_user.nome or 'Profile' }}" 
+                        class="navbar-profile-pic"
+                        onerror="this.src='/static/default-avatar.png'"
+                    >
+                    
+                    <!-- Dropdown Menu -->
+                    <div class="user-menu-dropdown" id="userMenuDropdown">
+                        <a href="/profile" class="user-menu-item">
+                            <i class="fas fa-user"></i>
+                            <span>Profilo</span>
+                        </a>
+                        <a href="/logout" class="user-menu-item logout-item">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </a>
+                    </div>
                 </div>
             {% else %}
                 <!-- Accedi -->
@@ -659,6 +903,22 @@
         let lastNotificationCount = 0;
         
         // Toggle dropdown notifiche
+        function toggleUserMenu(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('userMenuDropdown');
+            dropdown.classList.toggle('active');
+        }
+
+        // Chiudi il menu quando si clicca fuori
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('userMenuDropdown');
+            const profileDropdown = document.querySelector('.user-profile-dropdown');
+            
+            if (dropdown && profileDropdown && !profileDropdown.contains(event.target)) {
+                dropdown.classList.remove('active');
+            }
+        });
+
         function toggleNotifications() {
             const dropdown = document.getElementById('notificationsDropdown');
             const isVisible = dropdown.classList.contains('show');
@@ -929,6 +1189,44 @@
                 }
             });
         });
+
+        /* === GLOBAL SEARCH BAR === */
+        const globalSearch = document.getElementById('globalSearch');
+        const searchDropdown = document.getElementById('searchDropdown');
+        let searchQuery = '';
+
+        // Mostra/nascondi dropdown quando scrivi
+        globalSearch.addEventListener('input', function(e) {
+            searchQuery = e.target.value.trim();
+            
+            // Mostra dropdown se hanno superato 4 caratteri
+            if (searchQuery.length > 4) {
+                searchDropdown.classList.add('show');
+            } else {
+                searchDropdown.classList.remove('show');
+            }
+        });
+
+        // Nascondi dropdown quando clicchi fuori
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.search-container')) {
+                searchDropdown.classList.remove('show');
+            }
+        });
+
+        // Funzione per cercare tra i consulenti
+        function searchConsultants() {
+            if (searchQuery.length > 0) {
+                window.location.href = `/consultants?search=${encodeURIComponent(searchQuery)}`;
+            }
+        }
+
+        // Funzione per cercare nella community
+        function searchCommunity() {
+            if (searchQuery.length > 0) {
+                window.location.href = `/community?search=${encodeURIComponent(searchQuery)}`;
+            }
+        }
     </script>
     
     <!-- JavaScript Specifici per Pagina -->

@@ -9,18 +9,18 @@ from app.logger_config import logger
 
 def get_all_categories():
     """
-    Carica solo le 8 categorie principali dal database.
+    Carica solo le categorie principali dal database.
     Usata per popolare il dropdown nel menu header.
     
     Returns:
-        List[Category]: Lista delle 8 categorie principali (id <= 8)
+        List[Category]: Lista delle categorie principali (is_principal = True)
     """
     try:
         with Session(engine) as session:
-            # Carica solo le categorie principali (id da 1 a 8)
+            # Carica solo le categorie principali
             categories = session.exec(
                 select(Category)
-                .where(Category.id <= 8)
+                .where(Category.is_principal == True)
                 .order_by(Category.id)
             ).all()
             return categories

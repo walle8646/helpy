@@ -18,6 +18,7 @@ class Category(SQLModel, table=True):
     description: Optional[str] = Field(default=None)
     target: Optional[str] = Field(default=None)
     color: Optional[str] = Field(default="#4CAF50")
+    is_principal: bool = Field(default=False, index=True)  # ✅ True se è categoria principale
 
 class CategoryHierarchy(SQLModel, table=True):
     """Relazione gerarchica molti-a-molti tra categorie (principale e sottocategorie)"""
@@ -71,6 +72,7 @@ class Consultation(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id")
     consultant_id: int = Field(foreign_key="user.id")
     status: str = Field(default="pending")
+    description: Optional[str] = Field(default=None, max_length=2000)  # ✅ Dettagli della consulenza richiesta dal cliente
     scheduled_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -121,12 +123,14 @@ class CommunityQuestion(SQLModel, table=True):
     
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
-    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+    primary_category_id: Optional[int] = Field(default=None, foreign_key="category.id", index=True)  # ✅ Categoria principale
+    category_id: Optional[int] = Field(default=None, foreign_key="category.id", index=True)  # ✅ Sottocategoria
     title: str = Field(max_length=200)
     description: str = Field(max_length=5000)
     status: str = Field(default=QuestionStatus.OPEN)
     views: int = Field(default=0)  # Ora rappresenta quanti utenti UNICI hanno cliccato "Messaggia"
     upvotes: int = Field(default=0)
+    validation: bool = Field(default=False, index=True)  # 🆕 Flag di validazione - se False, la domanda non è visibile
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -223,6 +227,7 @@ class Booking(SQLModel, table=True):
     
     meeting_link: Optional[str] = None  # Link Zoom/Google Meet
     client_notes: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=2000)  # 🆕 Descrizione della consulenza richiesta dal cliente
     consultant_notes: Optional[str] = None
     
     # Join tracking - quando client/consultant cliccano "Partecipa"

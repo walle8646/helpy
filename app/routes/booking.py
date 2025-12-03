@@ -173,6 +173,13 @@ async def booking_page(
             "error": "Devi effettuare il login per prenotare una consulenza"
         })
     
+    # Verifica che l'utente non sia in modalità anonima
+    if current_user.is_anonymous:
+        raise HTTPException(
+            status_code=403, 
+            detail="Non puoi prenotare una consulenza mentre sei in modalità anonima. Disattiva la modalità anonima dal tuo profilo per procedere."
+        )
+    
     with Session(engine) as session:
         # Prendi i dati del consulente
         consultant = session.get(User, consultant_id)
@@ -297,6 +304,13 @@ async def create_booking(
     if not current_user:
         raise HTTPException(status_code=401, detail="Non autenticato")
     
+    # 🆕 Verifica che l'utente non sia in modalità anonima
+    if current_user.is_anonymous:
+        raise HTTPException(
+            status_code=403, 
+            detail="Non puoi prenotare una consulenza mentre sei in modalità anonima. Disattiva la modalità anonima dal tuo profilo per procedere."
+        )
+    
     # Validazione dati
     consultant_id = booking_data.get('consultant_user_id')
     booking_date_str = booking_data.get('booking_date')
@@ -305,11 +319,16 @@ async def create_booking(
     duration_minutes = booking_data.get('duration_minutes')
     availability_block_id = booking_data.get('availability_block_id')
     client_notes = booking_data.get('client_notes', '')
+    description = booking_data.get('description', '')  # 🆕 Descrizione della consulenza
     price = booking_data.get('price')  # Prezzo calcolato dal frontend
     
     # Validazioni
     if not all([consultant_id, booking_date_str, start_time, end_time, duration_minutes, price]):
         raise HTTPException(status_code=400, detail="Campi obbligatori mancanti")
+    
+    # Validazione descrizione (obbligatoria)
+    if not description or not description.strip():
+        raise HTTPException(status_code=400, detail="Descrizione della consulenza obbligatoria")
     
     if duration_minutes not in [30, 60, 90, 120]:
         raise HTTPException(status_code=400, detail="Durata non valida")
@@ -388,7 +407,8 @@ async def create_booking(
                     'end_time': end_time,
                     'duration_minutes': str(duration_minutes),
                     'availability_block_id': str(availability_block_id) if availability_block_id else '',
-                    'client_notes': client_notes
+                    'client_notes': client_notes,
+                    'description': description  # 🆕 Aggiungi la descrizione ai metadata
                 }
             )
             

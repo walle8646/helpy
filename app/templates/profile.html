@@ -455,6 +455,15 @@
         errorDiv.style.display = 'none';
         
         const formData = new FormData(profileForm);
+        
+        // 🔒 Gestisci il checkbox is_anonymous correttamente
+        const isAnonymousCheckbox = profileForm.querySelector('input[name="is_anonymous"]');
+        if (isAnonymousCheckbox) {
+            // Rimuovi il valore "true" e manda "true" o "false" come stringa
+            formData.delete('is_anonymous');
+            formData.append('is_anonymous', isAnonymousCheckbox.checked ? 'true' : 'false');
+        }
+        
         const params = new URLSearchParams(formData);
         
         console.log('Dati inviati:', Object.fromEntries(params));

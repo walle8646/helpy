@@ -99,11 +99,13 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
     duration_minutes = int(metadata.get('duration_minutes'))
     availability_block_id = metadata.get('availability_block_id')
     client_notes = metadata.get('client_notes', '')
+    description = metadata.get('description', '')  # 🆕 Estrai la descrizione
     
     logger.info(f"👤 Direct booking details:")
     logger.info(f"   Client: {client_user_id}, Consultant: {consultant_user_id}")
     logger.info(f"   Date: {booking_date_str}, Time: {start_time}-{end_time}")
     logger.info(f"   Duration: {duration_minutes} min, Block ID: {availability_block_id}")
+    logger.info(f"   Description: {description[:50]}..." if len(description) > 50 else f"   Description: {description}")  # Log primo 50 chars
     
     with Session(engine) as db_session:
         # Check if booking already exists
@@ -141,7 +143,8 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
             payment_method="stripe",
             stripe_checkout_session_id=session_id,
             stripe_payment_intent_id=payment_intent_id,
-            client_notes=client_notes or f"Prenotazione diretta"
+            client_notes=client_notes or f"Prenotazione diretta",
+            description=description  # 🆕 Salva la descrizione nel database
         )
         
         db_session.add(new_booking)
