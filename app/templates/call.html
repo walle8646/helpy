@@ -417,7 +417,55 @@
     .chat-message:not(.own) .chat-message-text {
         background: #2d3748;
     }
-    
+
+    /* Chat Attachments in Messages */
+    .chat-message-attachments {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+        max-width: 85%;
+    }
+
+    .chat-attachment {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(102, 126, 234, 0.15);
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        border: 1px solid rgba(102, 126, 234, 0.3);
+    }
+
+    .chat-attachment i {
+        color: #667eea;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .chat-attachment a {
+        color: #667eea;
+        text-decoration: none;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.2s;
+    }
+
+    .chat-attachment a:hover {
+        color: #8b9bff;
+        text-decoration: underline;
+    }
+
+    .attachment-size {
+        color: #718096;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+    }
+
     .chat-input-area {
         padding: 10px;
         border-top: 1px solid #667eea;
@@ -470,6 +518,114 @@
     .chat-send-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+    }
+
+    /* Chat Attach Button */
+    .chat-attach-btn {
+        background: transparent;
+        border: none;
+        color: #667eea;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .chat-attach-btn:hover {
+        background: rgba(102, 126, 234, 0.1);
+        color: #8b9bff;
+    }
+
+    .chat-attach-btn:active {
+        transform: scale(0.95);
+    }
+
+    /* Chat Attachments Preview */
+    .chat-attachments-preview {
+        background: rgba(102, 126, 234, 0.05);
+        border-top: 1px solid #667eea;
+        padding: 10px 12px;
+        max-height: 150px;
+        overflow-y: auto;
+    }
+
+    .attachments-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .attachment-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(102, 126, 234, 0.1);
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: #cbd5e0;
+    }
+
+    .attachment-item-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .attachment-item-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .attachment-item-size {
+        color: #718096;
+        font-size: 0.8rem;
+    }
+
+    .attachment-item-remove {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .attachment-item-remove:hover {
+        color: #ff5555;
+        transform: scale(1.1);
+    }
+
+    .attachments-clear {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .clear-attachments-btn {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid #ef4444;
+        color: #ef4444;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+
+    .clear-attachments-btn:hover {
+        background: rgba(239, 68, 68, 0.3);
     }
     
     .chat-toggle {
@@ -716,9 +872,33 @@
             placeholder="Scrivi un messaggio..." 
             autocomplete="off"
         />
+        
+        <!-- Input nascosto per file -->
+        <input 
+            type="file" 
+            id="chatFileInput" 
+            style="display: none;" 
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+            multiple
+        />
+        
+        <!-- Pulsante Allegati -->
+        <button class="chat-attach-btn" id="chatAttachBtn" title="Allega file">
+            <i class="fas fa-paperclip"></i>
+        </button>
+        
+        <!-- Pulsante Invia -->
         <button class="chat-send-btn" id="chatSendBtn" title="Invia">
             <i class="fas fa-paper-plane"></i>
         </button>
+    </div>
+    
+    <!-- Anteprima file allegati -->
+    <div class="chat-attachments-preview" id="chatAttachmentsPreview" style="display: none;">
+        <div class="attachments-list" id="attachmentsList"></div>
+        <div class="attachments-clear">
+            <button class="clear-attachments-btn" id="clearAttachmentsBtn">Cancella tutti</button>
+        </div>
     </div>
 </div>
 
@@ -773,10 +953,85 @@
         sendBtn: document.getElementById('chatSendBtn'),
         closeBtn: document.getElementById('chatCloseBtn'),
         badge: document.getElementById('chatBadge'),
+        attachBtn: document.getElementById('chatAttachBtn'),
+        fileInput: document.getElementById('chatFileInput'),
+        attachmentsPreview: document.getElementById('chatAttachmentsPreview'),
+        attachmentsList: document.getElementById('attachmentsList'),
+        clearAttachmentsBtn: document.getElementById('clearAttachmentsBtn'),
         messagesCache: [],
         unreadCount: 0,
-        isSending: false  // Flag per evitare invii multipli
+        isSending: false,  // Flag per evitare invii multipli
+        attachments: []    // Array per gli allegati selezionati
     };
+    
+    // Gestione allegati
+    function updateAttachmentsPreview() {
+        if (chatUI.attachments.length === 0) {
+            chatUI.attachmentsPreview.style.display = 'none';
+            chatUI.attachmentsList.innerHTML = '';
+            return;
+        }
+        
+        chatUI.attachmentsPreview.style.display = 'block';
+        chatUI.attachmentsList.innerHTML = chatUI.attachments.map((file, idx) => `
+            <div class="attachment-item">
+                <div class="attachment-item-info">
+                    <i class="fas fa-file"></i>
+                    <span class="attachment-item-name" title="${file.name}">${file.name}</span>
+                    <span class="attachment-item-size">${(file.size / 1024).toFixed(1)}KB</span>
+                </div>
+                <button class="attachment-item-remove" onclick="removeAttachment(${idx})" title="Rimuovi">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+    
+    function removeAttachment(index) {
+        chatUI.attachments.splice(index, 1);
+        updateAttachmentsPreview();
+    }
+    
+    function clearAllAttachments() {
+        chatUI.attachments = [];
+        chatUI.fileInput.value = '';
+        updateAttachmentsPreview();
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    
+    // Event listeners per allegati
+    chatUI.attachBtn.addEventListener('click', () => {
+        chatUI.fileInput.click();
+    });
+    
+    chatUI.fileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        const maxFileSize = 50 * 1024 * 1024; // 50MB
+        
+        files.forEach(file => {
+            if (file.size > maxFileSize) {
+                alert(`File ${file.name} è troppo grande (max 50MB)`);
+                return;
+            }
+            
+            // Evita duplicati
+            if (!chatUI.attachments.some(f => f.name === file.name && f.size === file.size)) {
+                chatUI.attachments.push(file);
+            }
+        });
+        
+        updateAttachmentsPreview();
+        chatUI.fileInput.value = ''; // Reset per permettere lo stesso file una volta rimosso
+    });
+    
+    chatUI.clearAttachmentsBtn.addEventListener('click', clearAllAttachments);
     
     // Start/Stop Recording functions
     async function startRecording() {
@@ -1421,11 +1676,35 @@
         
         const messageDiv = document.createElement('div');
         messageDiv.className = `chat-message ${isOwn ? 'own' : ''}`;
-        messageDiv.innerHTML = `
+        
+        let html = `
             <span class="chat-message-sender">${message.user_name}</span>
             <span class="chat-message-text">${escapeHtml(message.message)}</span>
         `;
         
+        // Aggiungi allegati se presenti
+        if (message.attachments && message.attachments.length > 0) {
+            html += '<div class="chat-message-attachments">';
+            message.attachments.forEach(att => {
+                // Estrai il nome file dal percorso
+                const filename = att.file_path.split('/').pop() || att.filename;
+                const encodedFilename = encodeURIComponent(filename);
+                const downloadUrl = `/api/booking/${bookingId}/chat/download/${encodedFilename}`;
+                
+                html += `
+                    <div class="chat-attachment">
+                        <i class="fas fa-file"></i>
+                        <a href="${downloadUrl}" download="${att.filename}" title="${att.filename}">
+                            ${att.filename}
+                        </a>
+                        <span class="attachment-size">${formatFileSize(att.file_size)}</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+        
+        messageDiv.innerHTML = html;
         chatUI.msgPanel.appendChild(messageDiv);
         
         // Scrolla in basso
@@ -1461,7 +1740,7 @@
     }
     
     /**
-     * Invia un messaggio di chat
+     * Invia un messaggio di chat con allegati
      */
     async function sendChatMessage() {
         // Protezione: evita invii multipli in rapida successione
@@ -1471,17 +1750,35 @@
         }
         
         const messageText = chatUI.input.value.trim();
-        if (!messageText) return;
+        const hasAttachments = chatUI.attachments.length > 0;
+        
+        if (!messageText && !hasAttachments) return;
         
         chatUI.isSending = true;
         chatUI.sendBtn.disabled = true;
         chatUI.input.disabled = true;
         
         try {
+            // Usa FormData se ci sono allegati, altrimenti usa JSON
+            let body, headers;
+            
+            if (hasAttachments) {
+                const formData = new FormData();
+                formData.append('message', messageText);
+                chatUI.attachments.forEach((file, idx) => {
+                    formData.append(`attachment_${idx}`, file);
+                });
+                body = formData;
+                headers = {}; // FormData aggiunge automaticamente il Content-Type corretto
+            } else {
+                body = JSON.stringify({ message: messageText });
+                headers = { 'Content-Type': 'application/json' };
+            }
+            
             const response = await fetch(`/api/booking/${bookingId}/chat/send`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: messageText })
+                headers: headers,
+                body: body
             });
             
             if (response.ok) {
@@ -1490,6 +1787,7 @@
                 // Marca il messaggio come visualizzato per evitare che il polling lo mostri di nuovo
                 displayedMessageIds.add(message.id);
                 chatUI.input.value = '';
+                clearAllAttachments();
                 console.log('💬 Messaggio inviato:', messageText);
             } else {
                 const error = await response.json();

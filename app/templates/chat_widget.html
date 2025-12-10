@@ -1,5 +1,10 @@
 <!-- Chat Widget - Messaggistica dinamica in basso a destra -->
 <style>
+    /* Hide the colored chat button from chat_widget - we use the header button instead */
+    #chatButton {
+        display: none !important;
+    }
+    
     /* Chat Widget Container */
     .chat-widget {
         position: fixed;
@@ -9,7 +14,7 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     
-    /* Chat Button (minimized state) */
+    /* Chat Button (minimized state) - This is kept for reference but not used in UI */
     .chat-button {
         width: 60px;
         height: 60px;
@@ -812,6 +817,9 @@
         notificationQueue: [],
         userClosedWidget: localStorage.getItem('chatWidget_userClosed') === 'true' // ✅ Recupera da localStorage
     };
+    
+    // ✅ Rendi disponibile globalmente per altre funzioni
+    window.chatWidget = chatWidget;
     
     // DOM Elements
     const chatButton = document.getElementById('chatButton');

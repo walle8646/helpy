@@ -265,6 +265,7 @@ class CallMessage(SQLModel, table=True):
     booking_id: int = Field(foreign_key="booking.id", index=True)
     user_id: int = Field(foreign_key="user.id", index=True)
     message: str
+    attachments: Optional[str] = Field(default=None)  # JSON string con lista di allegati {filename, file_path, file_size, file_type}
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
 

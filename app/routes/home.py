@@ -49,7 +49,8 @@ async def home(request: Request):
                     "request": request,
                     "categories": categories,
                     "consultants": consultants,
-                    "current_user": current_user,  # ✅ Cambiato da user a current_user
+                    "user": current_user,
+                    "current_user": current_user,
                     "hero_img_url": "https://i.imgur.com/YourImage.png"
                 }
             )
@@ -62,7 +63,8 @@ async def home(request: Request):
                     "request": request,
                     "categories": [],
                     "consultants": [],
-                    "current_user": current_user,  # ✅ Cambiato da user a current_user
+                    "user": current_user,
+                    "current_user": current_user,
                     "error": "Errore nel caricamento della pagina"
                 }
             )

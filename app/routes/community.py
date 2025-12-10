@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Form, Query, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import select, func, or_, and_
+from sqlalchemy import cast, String
 from typing import Optional
 from datetime import datetime, timedelta
 import os
@@ -211,7 +212,7 @@ async def community_page(
                     .where(
                         or_(
                             User.category_id == category,  # Categoria principale
-                            User.selected_subcategories.contains(str(category))  # Tra le subcategorie
+                            cast(User.selected_subcategories, String).like(f'%{category}%')  # Tra le subcategorie
                         )
                     )
                     .where(User.bollini > 0)
@@ -286,7 +287,7 @@ async def community_page(
             )
     
     except Exception as e:
-        logger.error(f"❌ Error loading community page: {e}", exc_info=True)
+        logger.error(f"❌ Error loading community page: {str(e)}", exc_info=True)
         
         try:
             with get_session() as session:

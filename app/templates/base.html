@@ -336,28 +336,36 @@
 
         /* Chat Button */
         .chat-button {
-            background: transparent;
-            color: #000;
-            border: 2px solid transparent;
-            padding: 4px 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            width: 32px;
-            height: 32px;
+            background: transparent !important;
+            color: #000 !important;
+            border: 2px solid transparent !important;
+            padding: 4px 8px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 20px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.3s ease !important;
+            width: 32px !important;
+            height: 32px !important;
+            box-shadow: none !important;
+            position: relative !important;
         }
 
         .chat-button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.3) !important;
+            transform: scale(1.1) !important;
+            box-shadow: none !important;
         }
 
         .chat-button:active {
-            transform: scale(0.98);
+            transform: scale(0.98) !important;
+        }
+        
+        .chat-button i {
+            color: #000 !important;
+            font-size: 20px !important;
         }
         
         .notifications-badge {
@@ -890,7 +898,7 @@
     </footer>
 
     <!-- Chat Widget (incluso globalmente) -->
-    {% if user %}
+    {% if current_user %}
         {% include "chat_widget.html" %}
     {% endif %}
 
@@ -937,8 +945,14 @@
             
             // Controlla se il widget esiste
             const chatWidget = document.getElementById('chatWidget');
+            console.log('📍 chatWidget elemento:', chatWidget);
+            console.log('📍 chatWindow elemento:', document.getElementById('chatWindow'));
+            console.log('📍 chatButton elemento:', document.getElementById('chatButton'));
+            
             if (!chatWidget) {
-                console.warn('⚠️ Widget chat non trovato');
+                console.warn('⚠️ Widget chat non trovato - checking all elements');
+                console.log('📋 Numero elementi nel DOM:', document.querySelectorAll('*').length);
+                console.log('📋 Tutti gli elementi con id:', document.querySelectorAll('[id]').length);
                 return;
             }
             

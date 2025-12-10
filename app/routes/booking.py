@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, Form, File
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
@@ -1469,12 +1469,20 @@ async def get_call_status_extended(
 @router.post("/api/booking/{booking_id}/chat/send")
 async def send_call_message(
     booking_id: int,
-    body: ChatMessageRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    message: str = Form(default=""),
+    attachment_0: Optional[UploadFile] = File(default=None),
+    attachment_1: Optional[UploadFile] = File(default=None),
+    attachment_2: Optional[UploadFile] = File(default=None),
+    attachment_3: Optional[UploadFile] = File(default=None),
+    attachment_4: Optional[UploadFile] = File(default=None)
 ):
-    """Invia un messaggio durante la call"""
+    """Invia un messaggio durante la call con allegati opzionali"""
     
     try:
+        import json
+        from pathlib import Path
+        
         with Session(engine) as session:
             # Verifica che il booking esista e che l'utente sia parte della call
             booking = session.exec(
@@ -1488,11 +1496,51 @@ async def send_call_message(
             if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
                 raise HTTPException(status_code=403, detail="Non autorizzato")
             
+            # Crea la cartella per gli allegati se non esiste
+            uploads_dir = Path("uploads/call_attachments")
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Raccogli i file da tutti i parametri attachment_X
+            files_list = [
+                attachment_0, attachment_1, attachment_2, 
+                attachment_3, attachment_4
+            ]
+            files_list = [f for f in files_list if f is not None]
+            
+            # Salva gli allegati
+            attachments_data = []
+            if files_list:
+                for file in files_list:
+                    if file.filename:
+                        # Genera un nome file unico
+                        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+                        unique_filename = f"{booking_id}_{current_user.id}_{timestamp}_{file.filename}"
+                        file_path = uploads_dir / unique_filename
+                        
+                        # Salva il file
+                        contents = await file.read()
+                        file_size = len(contents)
+                        
+                        # Limita a 50MB
+                        if file_size > 50 * 1024 * 1024:
+                            raise HTTPException(status_code=413, detail=f"File {file.filename} troppo grande (max 50MB)")
+                        
+                        with open(file_path, "wb") as f:
+                            f.write(contents)
+                        
+                        attachments_data.append({
+                            "filename": file.filename,
+                            "file_path": str(file_path),
+                            "file_size": file_size,
+                            "file_type": file.content_type
+                        })
+            
             # Crea il messaggio
             call_msg = CallMessage(
                 booking_id=booking_id,
                 user_id=current_user.id,
-                message=body.message.strip()
+                message=message.strip(),
+                attachments=json.dumps(attachments_data) if attachments_data else None
             )
             session.add(call_msg)
             session.commit()
@@ -1501,13 +1549,14 @@ async def send_call_message(
             # Ottieni l'utente per il nome
             user = session.exec(select(User).where(User.id == current_user.id)).first()
             
-            logger.info(f"💬 Messaggio call inviato nel booking {booking_id} da {user.nome} {user.cognome}")
+            logger.info(f"💬 Messaggio call inviato nel booking {booking_id} da {user.nome} {user.cognome} con {len(attachments_data)} allegati")
             
             return {
                 "id": call_msg.id,
                 "user_id": call_msg.user_id,
                 "user_name": f"{user.nome} {user.cognome}" if user.nome and user.cognome else user.email,
                 "message": call_msg.message,
+                "attachments": json.loads(call_msg.attachments) if call_msg.attachments else [],
                 "created_at": call_msg.created_at.isoformat()
             }
     except HTTPException:
@@ -1525,6 +1574,8 @@ async def get_call_messages(
     """Ottiene tutti i messaggi della call"""
     
     try:
+        import json
+        
         with Session(engine) as session:
             # Verifica che il booking esista e che l'utente sia parte della call
             booking = session.exec(
@@ -1545,15 +1596,17 @@ async def get_call_messages(
                 .order_by(CallMessage.created_at)
             ).all()
             
-            # Costruisci la risposta con info dell'utente
+            # Costruisci la risposta con info dell'utente e allegati
             messages_data = []
             for msg in messages:
                 user = session.exec(select(User).where(User.id == msg.user_id)).first()
+                attachments = json.loads(msg.attachments) if msg.attachments else []
                 messages_data.append({
                     "id": msg.id,
                     "user_id": msg.user_id,
                     "user_name": f"{user.nome} {user.cognome}" if user.nome and user.cognome else user.email,
                     "message": msg.message,
+                    "attachments": attachments,
                     "created_at": msg.created_at.isoformat()
                 })
             
@@ -1562,6 +1615,59 @@ async def get_call_messages(
         raise
     except Exception as e:
         logger.error(f"❌ Errore lettura messaggi call: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/booking/{booking_id}/chat/download/{file_id}")
+async def download_chat_attachment(
+    booking_id: int,
+    file_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Scarica un allegato da un messaggio della call"""
+    
+    try:
+        from fastapi.responses import FileResponse
+        from pathlib import Path
+        import urllib.parse
+        
+        with Session(engine) as session:
+            # Verifica che il booking esista e che l'utente sia parte della call
+            booking = session.exec(
+                select(Booking).where(Booking.id == booking_id)
+            ).first()
+            
+            if not booking:
+                raise HTTPException(status_code=404, detail="Booking non trovato")
+            
+            # Verifica che l'utente sia il client o il consultant
+            if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+                raise HTTPException(status_code=403, detail="Non autorizzato")
+            
+            # Decodifica il file_id (è il nome file encodato)
+            filename = urllib.parse.unquote(file_id)
+            file_path = Path("uploads/call_attachments") / filename
+            
+            # Verifica che il file esista e sia dentro la cartella giusta
+            if not file_path.exists():
+                raise HTTPException(status_code=404, detail="File non trovato")
+            
+            # Verifica che il percorso sia sicuro (evita path traversal)
+            if not str(file_path.resolve()).startswith(str(Path("uploads/call_attachments").resolve())):
+                raise HTTPException(status_code=403, detail="Accesso negato")
+            
+            logger.info(f"📥 Download allegato: {filename} dal booking {booking_id} da {current_user.nome}")
+            
+            return FileResponse(
+                path=file_path,
+                filename=filename,
+                media_type="application/octet-stream"
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Errore download allegato: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
