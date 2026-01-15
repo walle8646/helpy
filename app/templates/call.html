@@ -1261,6 +1261,7 @@
             // ✅ Carica messaggi precedenti e avvia polling chat
             await loadChatMessages();
             startChatPolling();
+            setupAttachmentDownloads();
             
             // ⚠️ Recording è ora auto-avviato dal backend quando entrambi gli utenti si uniscono
             // Non è più necessario chiamare startRecording() dal frontend
@@ -1432,7 +1433,11 @@
     // End call
     endCallBtn.addEventListener('click', async () => {
         if (confirm('Sei sicuro di voler terminare la chiamata?')) {
-            await leaveCall();
+            try {
+                await leaveCall();
+            } catch (error) {
+                console.error('❌ Error during leaveCall:', error);
+            }
             window.location.href = '/profile';
         }
     });
@@ -1665,6 +1670,34 @@
     // ========== CHAT FUNCTIONS ==========
     
     /**
+     * Gestisce il download degli allegati senza bloccare l'UI
+     */
+    function setupAttachmentDownloads() {
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('download-attachment')) {
+                e.preventDefault();
+                const filename = e.target.getAttribute('data-filename');
+                const name = e.target.getAttribute('data-name');
+                
+                const downloadUrl = `/api/booking/${bookingId}/chat/download/${filename}`;
+                
+                // Crea un iframe nascosto per il download (non blocca)
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = downloadUrl;
+                document.body.appendChild(iframe);
+                
+                // Rimuovi l'iframe dopo il download
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                }, 1000);
+                
+                console.log(`📥 Download avviato: ${name}`);
+            }
+        });
+    }
+    
+    /**
      * Visualizza un messaggio nella chat
      */
     function displayChatMessage(message, isOwn) {
@@ -1689,12 +1722,11 @@
                 // Estrai il nome file dal percorso
                 const filename = att.file_path.split('/').pop() || att.filename;
                 const encodedFilename = encodeURIComponent(filename);
-                const downloadUrl = `/api/booking/${bookingId}/chat/download/${encodedFilename}`;
                 
                 html += `
                     <div class="chat-attachment">
                         <i class="fas fa-file"></i>
-                        <a href="${downloadUrl}" download="${att.filename}" title="${att.filename}">
+                        <a class="download-attachment" data-filename="${encodedFilename}" data-name="${att.filename}" title="${att.filename}">
                             ${att.filename}
                         </a>
                         <span class="attachment-size">${formatFileSize(att.file_size)}</span>
