@@ -294,16 +294,35 @@
 
     /* ========== HOW IT WORKS SECTION ========== */
     .how-section {
-        background: #f9f9f9;
-        padding: 45px 20px;
+        background: linear-gradient(135deg, #f1f8f0 0%, #e8f5e9 100%);
+        padding: 60px 20px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .how-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(76, 175, 80, 0.1) 0%, transparent 70%);
+        border-radius: 50%;
     }
 
     .how-title {
         text-align: center;
-        font-size: 32px;
+        font-size: 36px;
         font-weight: 800;
         color: #1a1a1a;
-        margin-bottom: 40px;
+        margin-bottom: 50px;
+        position: relative;
+        z-index: 1;
+        background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
     .how-grid {
@@ -311,7 +330,20 @@
         margin: 0 auto;
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 30px;
+        gap: 40px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .how-grid::before {
+        content: '';
+        position: absolute;
+        top: 60px;
+        left: 15%;
+        right: 15%;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #4caf50 20%, #4caf50 80%, transparent);
+        z-index: 0;
     }
 
     .how-item {
@@ -319,24 +351,74 @@
         flex-direction: column;
         align-items: center;
         text-align: center;
+        background: white;
+        padding: 35px 25px;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.08);
+        transition: all 0.3s ease;
+        position: relative;
+        border: 2px solid transparent;
+    }
+
+    .how-item:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 30px rgba(76, 175, 80, 0.15);
+        border-color: #4caf50;
+        background: linear-gradient(135deg, #f1f8f0 0%, white 100%);
+    }
+
+    .how-item::before {
+        content: attr(data-step);
+        position: absolute;
+        top: -18px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
     }
 
     .how-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
+        font-size: 52px;
+        margin-bottom: 20px;
+        margin-top: 12px;
+        color: #4caf50;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 70px;
+        height: 70px;
+        background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(46, 125, 50, 0.05) 100%);
+        border-radius: 50%;
+        transition: all 0.3s ease;
+    }
+
+    .how-item:hover .how-icon {
+        color: #2e7d32;
+        background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(46, 125, 50, 0.1) 100%);
+        transform: scale(1.1) rotate(5deg);
     }
 
     .how-item-title {
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 700;
-        color: #1a1a1a;
-        margin-bottom: 10px;
+        color: #2e7d32;
+        margin-bottom: 12px;
     }
 
     .how-item-desc {
-        font-size: 13px;
-        color: #666;
-        line-height: 1.5;
+        font-size: 14px;
+        color: #555;
+        line-height: 1.6;
+        font-weight: 500;
     }
 
     @media (max-width: 968px) {
@@ -349,12 +431,26 @@
             gap: 24px;
         }
 
+        .how-grid::before {
+            display: none;
+        }
+
         .cta-card {
             padding: 24px 20px;
         }
 
         .how-title {
-            font-size: 26px;
+            font-size: 28px;
+        }
+
+        .how-item {
+            padding: 25px 20px;
+        }
+
+        .how-item::before {
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
         }
     }
 
@@ -542,21 +638,24 @@
     <h2 class="how-title">Come Funziona Helpy</h2>
     
     <div class="how-grid">
-        <div class="how-item">
+        <div class="how-item" data-step="1️⃣">
+            <div class="how-icon"><i class="fas fa-magnifying-glass"></i></div>
             <h3 class="how-item-title">Trova Consulenti</h3>
             <p class="how-item-desc">
                 Esplora un'ampia gamma di esperti in diversi settori pronti ad aiutarti.
             </p>
         </div>
         
-        <div class="how-item">
+        <div class="how-item" data-step="2️⃣">
+            <div class="how-icon"><i class="fas fa-pen-to-square"></i></div>
             <h3 class="how-item-title">Richiedi una Consulenza</h3>
             <p class="how-item-desc">
                 Descrivi le tue esigenze a trovare l'esperto che faccia al caso tuo.
             </p>
         </div>
         
-        <div class="how-item">
+        <div class="how-item" data-step="3️⃣">
+            <div class="how-icon"><i class="fas fa-handshake"></i></div>
             <h3 class="how-item-title">Ricevi Supporto Personalizzato</h3>
             <p class="how-item-desc">
                 Prenota una sessione e ottieni consigli su misura tramite videocall.
