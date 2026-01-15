@@ -294,8 +294,8 @@
 
     /* ========== HOW IT WORKS SECTION ========== */
     .how-section {
-        background: linear-gradient(135deg, #f1f8f0 0%, #e8f5e9 100%);
-        padding: 60px 20px;
+        background: linear-gradient(135deg, #fefdf9 0%, #fff8f0 50%, #f1f8f0 100%);
+        padding: 45px 20px;
         position: relative;
         overflow: hidden;
     }
@@ -303,20 +303,20 @@
     .how-section::before {
         content: '';
         position: absolute;
-        top: -50%;
-        right: -10%;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(76, 175, 80, 0.1) 0%, transparent 70%);
+        top: -30%;
+        right: -5%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(76, 175, 80, 0.08) 0%, transparent 70%);
         border-radius: 50%;
     }
 
     .how-title {
         text-align: center;
-        font-size: 36px;
+        font-size: 32px;
         font-weight: 800;
         color: #1a1a1a;
-        margin-bottom: 50px;
+        margin-bottom: 35px;
         position: relative;
         z-index: 1;
         background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
@@ -330,7 +330,7 @@
         margin: 0 auto;
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 40px;
+        gap: 28px;
         position: relative;
         z-index: 1;
     }
@@ -338,11 +338,11 @@
     .how-grid::before {
         content: '';
         position: absolute;
-        top: 60px;
+        top: 50px;
         left: 15%;
         right: 15%;
-        height: 3px;
-        background: linear-gradient(90deg, transparent, #4caf50 20%, #4caf50 80%, transparent);
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(76, 175, 80, 0.3) 20%, rgba(76, 175, 80, 0.3) 80%, transparent);
         z-index: 0;
     }
 
@@ -351,60 +351,40 @@
         flex-direction: column;
         align-items: center;
         text-align: center;
-        background: white;
-        padding: 35px 25px;
-        border-radius: 16px;
-        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.08);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(241, 248, 240, 0.7) 100%);
+        padding: 28px 20px;
+        border-radius: 14px;
+        box-shadow: 0 3px 12px rgba(76, 175, 80, 0.06);
         transition: all 0.3s ease;
         position: relative;
-        border: 2px solid transparent;
+        border: 1px solid rgba(76, 175, 80, 0.1);
+        backdrop-filter: blur(10px);
     }
 
     .how-item:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 12px 30px rgba(76, 175, 80, 0.15);
-        border-color: #4caf50;
-        background: linear-gradient(135deg, #f1f8f0 0%, white 100%);
-    }
-
-    .how-item::before {
-        content: attr(data-step);
-        position: absolute;
-        top: -18px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 50px;
-        height: 50px;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
-        color: white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-        font-weight: 700;
-        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        transform: translateY(-6px);
+        box-shadow: 0 10px 25px rgba(76, 175, 80, 0.12);
+        border-color: rgba(76, 175, 80, 0.3);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 248, 240, 0.8) 100%);
     }
 
     .how-icon {
-        font-size: 52px;
-        margin-bottom: 20px;
-        margin-top: 12px;
-        color: #4caf50;
+        font-size: 48px;
+        margin-bottom: 16px;
+        margin-top: 8px;
+        background: linear-gradient(135deg, #4caf50 0%, #7cc974 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 70px;
-        height: 70px;
-        background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(46, 125, 50, 0.05) 100%);
-        border-radius: 50%;
         transition: all 0.3s ease;
     }
 
     .how-item:hover .how-icon {
-        color: #2e7d32;
-        background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(46, 125, 50, 0.1) 100%);
-        transform: scale(1.1) rotate(5deg);
+        transform: scale(1.15) rotate(8deg);
+        filter: drop-shadow(0 4px 8px rgba(76, 175, 80, 0.2));
     }
 
     .how-item-title {
@@ -428,7 +408,7 @@
 
         .how-grid {
             grid-template-columns: 1fr;
-            gap: 24px;
+            gap: 18px;
         }
 
         .how-grid::before {
@@ -440,17 +420,12 @@
         }
 
         .how-title {
-            font-size: 28px;
+            font-size: 26px;
+            margin-bottom: 25px;
         }
 
         .how-item {
-            padding: 25px 20px;
-        }
-
-        .how-item::before {
-            width: 40px;
-            height: 40px;
-            font-size: 18px;
+            padding: 20px 16px;
         }
     }
 
@@ -638,7 +613,7 @@
     <h2 class="how-title">Come Funziona Helpy</h2>
     
     <div class="how-grid">
-        <div class="how-item" data-step="1️⃣">
+        <div class="how-item">
             <div class="how-icon"><i class="fas fa-magnifying-glass"></i></div>
             <h3 class="how-item-title">Trova Consulenti</h3>
             <p class="how-item-desc">
@@ -646,7 +621,7 @@
             </p>
         </div>
         
-        <div class="how-item" data-step="2️⃣">
+        <div class="how-item">
             <div class="how-icon"><i class="fas fa-pen-to-square"></i></div>
             <h3 class="how-item-title">Richiedi una Consulenza</h3>
             <p class="how-item-desc">
@@ -654,7 +629,7 @@
             </p>
         </div>
         
-        <div class="how-item" data-step="3️⃣">
+        <div class="how-item">
             <div class="how-icon"><i class="fas fa-handshake"></i></div>
             <h3 class="how-item-title">Ricevi Supporto Personalizzato</h3>
             <p class="how-item-desc">
