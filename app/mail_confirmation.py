@@ -30,7 +30,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         html_body = f'''
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
             <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #667eea; margin: 0;">✨ Helpy</h1>
+                <h1 style="color: #4caf50; margin: 0;">✨ Helpy</h1>
             </div>
             
             <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -45,7 +45,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
                 </p>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                    <div style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px;">
+                    <div style="display: inline-block; background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px;">
                         {code}
                     </div>
                 </div>

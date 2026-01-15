@@ -63,7 +63,7 @@
         width: 250px;
         height: 180px;
         z-index: 50;
-        border: 3px solid #667eea;
+        border: 3px solid #4caf50;
         border-radius: 12px;
         grid-column: auto;
         grid-row: auto;
@@ -102,7 +102,7 @@
         width: 250px;
         height: 180px;
         z-index: 50;
-        border: 3px solid #667eea;
+        border: 3px solid #4caf50;
         border-radius: 12px;
         grid-column: auto;
         grid-row: auto;
@@ -194,7 +194,7 @@
     }
     
     .control-btn.mic.active {
-        background: #667eea;
+        background: #4caf50;
     }
     
     .control-btn.camera {
@@ -202,7 +202,7 @@
     }
     
     .control-btn.camera.active {
-        background: #667eea;
+        background: #4caf50;
     }
     
     .control-btn.end-call {
@@ -327,18 +327,18 @@
         width: 300px;
         height: 400px;
         background: rgba(20, 20, 40, 0.95);
-        border: 2px solid #667eea;
+        border: 2px solid #4caf50;
         border-radius: 12px;
         display: flex;
         flex-direction: column;
         z-index: 40;
         backdrop-filter: blur(10px);
-        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+        box-shadow: 0 8px 32px rgba(76, 175, 80, 0.2);
     }
     
     .chat-header {
         padding: 12px 16px;
-        border-bottom: 1px solid #667eea;
+        border-bottom: 1px solid #4caf50;
         font-weight: 600;
         color: white;
         display: flex;
@@ -355,13 +355,13 @@
     }
     
     .chat-header i {
-        color: #667eea;
+        color: #4caf50;
     }
     
     .chat-toggle-btn {
         background: none;
         border: none;
-        color: #667eea;
+        color: #4caf50;
         cursor: pointer;
         font-size: 1.2rem;
         padding: 0;
@@ -371,7 +371,7 @@
     }
     
     .chat-toggle-btn:hover {
-        color: #8b9bff;
+        color: #7cc974;
     }
     
     .chat-messages {
@@ -400,7 +400,7 @@
     }
     
     .chat-message-text {
-        background: #667eea;
+        background: #4caf50;
         color: white;
         padding: 8px 12px;
         border-radius: 12px;
@@ -411,7 +411,7 @@
     }
     
     .chat-message.own .chat-message-text {
-        background: #667eea;
+        background: #4caf50;
     }
     
     .chat-message:not(.own) .chat-message-text {
@@ -431,21 +431,21 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        background: rgba(102, 126, 234, 0.15);
+        background: rgba(76, 175, 80, 0.15);
         padding: 10px 12px;
         border-radius: 8px;
         font-size: 0.9rem;
-        border: 1px solid rgba(102, 126, 234, 0.3);
+        border: 1px solid rgba(76, 175, 80, 0.3);
     }
 
     .chat-attachment i {
-        color: #667eea;
+        color: #4caf50;
         font-size: 1rem;
         flex-shrink: 0;
     }
 
     .chat-attachment a {
-        color: #667eea;
+        color: #4caf50;
         text-decoration: none;
         flex: 1;
         min-width: 0;
@@ -456,7 +456,7 @@
     }
 
     .chat-attachment a:hover {
-        color: #8b9bff;
+        color: #7cc974;
         text-decoration: underline;
     }
 
@@ -468,7 +468,7 @@
 
     .chat-input-area {
         padding: 10px;
-        border-top: 1px solid #667eea;
+        border-top: 1px solid #4caf50;
         display: flex;
         gap: 8px;
         background: rgba(102, 126, 234, 0.05);
@@ -477,7 +477,7 @@
     .chat-input {
         flex: 1;
         background: #1a1a2e;
-        border: 1px solid #667eea;
+        border: 1px solid #4caf50;
         border-radius: 8px;
         color: white;
         padding: 8px 12px;
@@ -491,12 +491,12 @@
     }
     
     .chat-input:focus {
-        border-color: #8b9bff;
-        box-shadow: 0 0 8px rgba(102, 126, 234, 0.3);
+        border-color: #7cc974;
+        box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
     }
     
     .chat-send-btn {
-        background: #667eea;
+        background: #4caf50;
         border: none;
         color: white;
         padding: 8px 12px;
@@ -511,7 +511,7 @@
     }
     
     .chat-send-btn:hover {
-        background: #8b9bff;
+        background: #7cc974;
         transform: translateY(-2px);
     }
     
@@ -524,7 +524,7 @@
     .chat-attach-btn {
         background: transparent;
         border: none;
-        color: #667eea;
+        color: #4caf50;
         padding: 8px 12px;
         border-radius: 8px;
         cursor: pointer;
@@ -536,8 +536,8 @@
     }
 
     .chat-attach-btn:hover {
-        background: rgba(102, 126, 234, 0.1);
-        color: #8b9bff;
+        background: rgba(76, 175, 80, 0.1);
+        color: #7cc974;
     }
 
     .chat-attach-btn:active {
@@ -546,8 +546,8 @@
 
     /* Chat Attachments Preview */
     .chat-attachments-preview {
-        background: rgba(102, 126, 234, 0.05);
-        border-top: 1px solid #667eea;
+        background: rgba(76, 175, 80, 0.05);
+        border-top: 1px solid #4caf50;
         padding: 10px 12px;
         max-height: 150px;
         overflow-y: auto;
@@ -634,7 +634,7 @@
         right: 20px;
         width: 50px;
         height: 50px;
-        background: #667eea;
+        background: #4caf50;
         border: none;
         border-radius: 50%;
         color: white;
@@ -644,12 +644,12 @@
         align-items: center;
         justify-content: center;
         z-index: 39;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
         transition: all 0.3s;
     }
     
     .chat-toggle:hover {
-        background: #8b9bff;
+        background: #7cc974;
         transform: scale(1.1);
     }
     
@@ -681,17 +681,17 @@
     }
     
     .chat-messages::-webkit-scrollbar-track {
-        background: rgba(102, 126, 234, 0.1);
+        background: rgba(76, 175, 80, 0.1);
         border-radius: 10px;
     }
     
     .chat-messages::-webkit-scrollbar-thumb {
-        background: #667eea;
+        background: #4caf50;
         border-radius: 10px;
     }
     
     .chat-messages::-webkit-scrollbar-thumb:hover {
-        background: #8b9bff;
+        background: #7cc974;
     }
     
     /* Toast Notification */
@@ -699,11 +699,11 @@
         position: fixed;
         bottom: 30px;
         right: 30px;
-        background: #667eea;
+        background: #4caf50;
         color: white;
         padding: 16px 24px;
         border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 8px 24px rgba(76, 175, 80, 0.3);
         display: flex;
         align-items: center;
         gap: 12px;

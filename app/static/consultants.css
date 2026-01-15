@@ -1,6 +1,6 @@
 /* Search Hero */
 .search-hero {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
     padding: 60px 20px;
     color: white;
     text-align: center;
@@ -33,7 +33,7 @@
 .search-btn {
     padding: 18px 40px;
     background: white;
-    color: #667eea;
+    color: #4caf50;
     border: none;
     border-radius: 50px;
     font-size: 1.1em;
@@ -195,13 +195,13 @@
 }
 
 .consultant-avatar-default {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 3em;
-    border: 3px solid #667eea;
+    border: 3px solid #4caf50;
 }
 
 .consultant-card h3 {
@@ -254,7 +254,7 @@
 .btn-consult {
     width: 100%;
     padding: 14px;
-    background: #007bff;
+    background: #4caf50;
     color: white;
     border: none;
     border-radius: 8px;
@@ -266,7 +266,7 @@
 }
 
 .btn-consult:hover {
-    background: #0056b3;
+    background: #2e7d32;
     transform: translateY(-2px);
 }
 
@@ -314,7 +314,7 @@
     left: 14px;
     top: 50%;
     transform: translateY(-50%);
-    color: #667eea;
+    color: #4caf50;
     font-weight: 700;
     font-size: 1.1em;
     pointer-events: none;
@@ -335,8 +335,8 @@
 
 .price-input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: #4caf50;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
 .price-input::placeholder {
@@ -347,7 +347,7 @@
 .btn-apply-price {
     width: 100%;
     padding: 13px 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -356,7 +356,7 @@
     cursor: pointer;
     transition: all 0.3s;
     margin-bottom: 10px;
-    box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 3px 12px rgba(76, 175, 80, 0.3);
 }
 
 .btn-apply-price:disabled {
@@ -368,7 +368,7 @@
 
 .btn-apply-price:not(:disabled):hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
 }
 
 .btn-apply-price:not(:disabled):active {
@@ -421,11 +421,11 @@
 }
 
 .price-tag:hover {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
     color: white;
-    border-color: #667eea;
+    border-color: #4caf50;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.25);
 }
 
 /* Suggerimenti ricerca */
@@ -458,7 +458,7 @@
 
 .search-tag:hover {
     background: white;
-    color: #667eea;
+    color: #4caf50;
     transform: translateY(-2px);
 }
 

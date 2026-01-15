@@ -11,7 +11,7 @@
     }
     
     .consultant-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
         color: white;
         padding: 2rem;
         border-radius: 12px;
@@ -41,7 +41,7 @@
     
     .price-badge {
         background: white;
-        color: #667eea;
+        color: #4caf50;
         padding: 0.5rem 1.5rem;
         border-radius: 25px;
         font-weight: bold;
@@ -84,7 +84,7 @@
     .booking-section h3 {
         margin-top: 0;
         color: #333;
-        border-bottom: 2px solid #667eea;
+        border-bottom: 2px solid #4caf50;
         padding-bottom: 0.5rem;
     }
     
@@ -106,13 +106,13 @@
     }
     
     .duration-option:hover {
-        border-color: #667eea;
+        border-color: #4caf50;
         background: #f5f7ff;
     }
     
     .duration-option.selected {
-        border-color: #667eea;
-        background: #667eea;
+        border-color: #4caf50;
+        background: #4caf50;
         color: white;
     }
     
@@ -161,19 +161,19 @@
     
     .calendar-day:hover:not(.disabled):not(.other-month) {
         background: #f5f7ff;
-        border-color: #667eea;
+        border-color: #4caf50;
         transform: scale(1.05);
     }
     
     .calendar-day.in-selected-week {
         background: #e8ecff;
-        border-color: #667eea;
+        border-color: #4caf50;
     }
     
     .calendar-day.week-start {
-        background: #667eea;
+        background: #4caf50;
         color: white;
-        border-color: #667eea;
+        border-color: #4caf50;
         font-weight: bold;
     }
     
@@ -231,13 +231,13 @@
     }
     
     .slot-item:hover {
-        border-color: #667eea;
+        border-color: #4caf50;
         background: #f5f7ff;
     }
     
     .slot-item.selected {
-        border-color: #667eea;
-        background: #667eea;
+        border-color: #4caf50;
+        background: #4caf50;
         color: white;
     }
     
@@ -276,10 +276,10 @@
     .day-header {
         text-align: center;
         font-weight: bold;
-        color: #667eea;
+        color: #4caf50;
         margin-bottom: 0.5rem;
         padding-bottom: 0.5rem;
-        border-bottom: 2px solid #667eea;
+        border-bottom: 2px solid #4caf50;
     }
     
     .day-date {
@@ -304,15 +304,15 @@
     }
     
     .day-slot:hover {
-        background: #667eea;
+        background: #4caf50;
         color: white;
-        border-color: #667eea;
+        border-color: #4caf50;
     }
     
     .day-slot.selected {
-        background: #667eea;
+        background: #4caf50;
         color: white;
-        border-color: #667eea;
+        border-color: #4caf50;
     }
     
     .no-availability {
@@ -352,13 +352,13 @@
         border-bottom: none;
         font-weight: bold;
         font-size: 1.2rem;
-        color: #667eea;
+        color: #4caf50;
     }
     
     .btn-book {
         width: 100%;
         padding: 1.25rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
         color: white;
         border: none;
         border-radius: 8px;
@@ -388,7 +388,7 @@
     }
     
     .calendar-nav button {
-        background: #667eea;
+        background: #4caf50;
         color: white;
         border: none;
         padding: 0.5rem 1rem;
@@ -890,7 +890,7 @@
                 <p style="margin: 0.5rem 0;"><strong>Orario:</strong> ${slot.start_time} - ${slot.end_time}</p>
                 <p style="margin: 0.5rem 0;"><strong>Durata:</strong> ${selectedDuration} minuti</p>
                 <hr style="margin: 1rem 0;">
-                <p style="margin: 0.5rem 0; font-size: 1.2rem;"><strong>Totale:</strong> <span style="color: #667eea;">€ ${((pricePerHour / 60) * selectedDuration).toFixed(2)}</span></p>
+                <p style="margin: 0.5rem 0; font-size: 1.2rem;"><strong>Totale:</strong> <span style="color: #4caf50;">€ ${((pricePerHour / 60) * selectedDuration).toFixed(2)}</span></p>
             </div>
         `;
         
