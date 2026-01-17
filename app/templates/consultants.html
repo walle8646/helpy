@@ -19,49 +19,87 @@
                     value="{{ search_query }}"
                     class="search-input"
                 >
+                <!-- Hidden inputs per mantenere gli altri filtri -->
+                {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}">{% endif %}
+                {% if min_price %}<input type="hidden" name="min_price" value="{{ min_price }}">{% endif %}
+                {% if max_price %}<input type="hidden" name="max_price" value="{{ max_price }}">{% endif %}
                 <button type="submit" class="search-btn">Cerca</button>
             </form>
             
             <!-- 🔥 Suggerimenti ricerca rapida -->
             <div class="search-suggestions">
                 <span class="suggestion-label">Ricerche popolari:</span>
-                <a href="/consultants?search=finanziamenti" class="search-tag">💰 Finanziamenti</a>
-                <a href="/consultants?search=cambio lavoro" class="search-tag">👔 Cambio Lavoro</a>
-                <a href="/consultants?search=social media" class="search-tag">📱 Social Media</a>
-                <a href="/consultants?search=startup" class="search-tag">🚀 Startup</a>
-                <a href="/consultants?search=investimenti" class="search-tag">📈 Investimenti</a>
+                <a href="/consultants?search=finanziamenti{% if selected_category %}&category={{ selected_category }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}" class="search-tag">💰 Finanziamenti</a>
+                <a href="/consultants?search=cambio lavoro{% if selected_category %}&category={{ selected_category }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}" class="search-tag">👔 Cambio Lavoro</a>
+                <a href="/consultants?search=social media{% if selected_category %}&category={{ selected_category }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}" class="search-tag">📱 Social Media</a>
+                <a href="/consultants?search=startup{% if selected_category %}&category={{ selected_category }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}" class="search-tag">🚀 Startup</a>
+                <a href="/consultants?search=investimenti{% if selected_category %}&category={{ selected_category }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}" class="search-tag">📈 Investimenti</a>
             </div>
         </div>
     </section>
 
     <!-- Main Content -->
     <div class="consultants-container">
+        <!-- Filtri Attivi -->
+        {% if search_query or selected_category or min_price or max_price %}
+        <div class="active-filters-container">
+            <div class="active-filters">
+                <span class="filters-label">Filtri attivi:</span>
+                
+                {% if search_query %}
+                <a href="/consultants{% if selected_category %}?category={{ selected_category }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}" class="filter-tag">
+                    🔍 {{ search_query }}
+                    <span class="tag-remove">✕</span>
+                </a>
+                {% endif %}
+                
+                {% if selected_category %}
+                <a href="/consultants{% if search_query %}?search={{ search_query }}{% endif %}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}" class="filter-tag">
+                    📁 Categoria
+                    <span class="tag-remove">✕</span>
+                </a>
+                {% endif %}
+                
+                {% if min_price or max_price %}
+                <a href="/consultants{% if search_query %}?search={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}" class="filter-tag">
+                    💰 €{{ min_price or '0' }} - €{{ max_price or '∞' }}
+                    <span class="tag-remove">✕</span>
+                </a>
+                {% endif %}
+                
+                <a href="/consultants" class="filter-clear">Ripristina filtri</a>
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- Sidebar Filtri -->
         <aside class="filters-sidebar">
             <h3>Categorie</h3>
             <ul class="category-filters">
                 <li>
-                    <a href="/consultants" class="{% if not selected_category %}active{% endif %}">
+                    <a href="/consultants{% if search_query %}?search={{ search_query }}{% endif %}{% if min_price or max_price %}{% if search_query %}&{% else %}?{% endif %}min_price={{ min_price }}&max_price={{ max_price }}{% endif %}" class="{% if not selected_category %}active{% endif %}">
                         Tutte le categorie
                     </a>
                 </li>
                 {% for item in categories_with_children %}
                     <!-- Categoria Principale -->
                     <li>
-                        <a href="/consultants?category={{ item.parent.id }}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" 
-                           class="category-parent {% if selected_category == item.parent.id %}active{% endif %}"
-                           style="border-left: 4px solid {{ item.parent.color }};">
-                            <span class="category-icon">{{ item.parent.icon }}</span>
-                            {{ item.parent.name }}
-                        </a>
+                        <div class="category-parent-wrapper">
+                            <a href="/consultants?category={{ item.parent.id }}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" 
+                               class="category-parent {% if selected_category == item.parent.id %}active{% endif %}"
+                               style="border-left: 4px solid {{ item.parent.color }};">
+                                <span class="category-icon">{{ item.parent.icon }}</span>
+                                {{ item.parent.name }}
+                            </a>
+                            {% if item.children %}
+                            <button class="category-toggle-btn" data-category-id="{{ item.parent.id }}" type="button">▼</button>
+                            {% endif %}
+                        </div>
                         
-                        <!-- Sottocategorie - Mostrate se:
-                             1. La categoria principale è selezionata, OPPURE
-                             2. Una sua sottocategoria è selezionata
-                        -->
+                        <!-- Sottocategorie - Sempre presenti, nascoste di default -->
                         {% set selected_child_parent = child_to_parent_map.get(selected_category, None) %}
-                        {% if item.children and (selected_category == item.parent.id or selected_child_parent == item.parent.id) %}
-                        <ul class="subcategory-filters">
+                        {% if item.children %}
+                        <ul class="subcategory-filters" data-parent-id="{{ item.parent.id }}" data-expanded="{% if selected_category == item.parent.id or selected_child_parent == item.parent.id %}true{% else %}false{% endif %}">
                             {% for child in item.children %}
                             <li>
                                 <a href="/consultants?category={{ child.id }}{% if min_price %}&min_price={{ min_price }}{% endif %}{% if max_price %}&max_price={{ max_price }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" 
@@ -284,5 +322,28 @@
 
     // Check iniziale
     checkPriceInputs();
+    
+    // 🔥 Toggle Sottocategorie
+    document.querySelectorAll('.category-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const categoryId = btn.dataset.categoryId;
+            const subcategoryList = document.querySelector(`.subcategory-filters[data-parent-id="${categoryId}"]`);
+            
+            if (subcategoryList) {
+                // Toggle visibility e rotate button
+                const isExpanded = subcategoryList.dataset.expanded === 'true';
+                subcategoryList.dataset.expanded = !isExpanded;
+                
+                if (isExpanded) {
+                    btn.classList.add('collapsed');
+                } else {
+                    btn.classList.remove('collapsed');
+                }
+            }
+        });
+    });
 </script>
 {% endblock %}

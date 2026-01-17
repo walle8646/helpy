@@ -646,6 +646,7 @@
         transition: all 0.2s ease;
         font-size: 0.95rem;
         color: #555;
+        list-style: none;
     }
     
     .category-item-vertical:hover {
@@ -654,22 +655,56 @@
     }
     
     .category-item-vertical.active {
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
-        color: white;
+        background: #e8f5e8;
+        color: #2e7d32;
         font-weight: 600;
+    }
+    
+    .category-item-vertical a {
+        text-decoration: none;
+        color: inherit;
     }
     
     .category-item-vertical .category-icon {
         font-size: 1.2rem;
     }
     
-    /* Sottocategorie nel sidebar community - stessi stili di consultants */
+    /* Toggle button per sottocategorie */
+    .category-toggle-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #2e7d32;
+        font-size: 12px;
+        transition: transform 0.3s ease;
+        font-weight: bold;
+    }
+    
+    .category-toggle-btn[data-expanded="false"] {
+        transform: rotate(-90deg);
+    }
+    
+    .category-toggle-btn:hover {
+        color: #4caf50;
+    }
+    
+    /* Sottocategorie nel sidebar community */
     .category-list-vertical .category-list-vertical {
         list-style: none;
         padding: 0;
         margin: 0;
         border-left: 2px solid #e0e0e0;
         padding-left: 0;
+    }
+    
+    .subcategory-filters {
+        max-height: 1000px;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
     }
     
     .category-list-vertical .category-list-vertical .category-item-vertical {
@@ -684,9 +719,55 @@
     }
     
     .category-list-vertical .category-list-vertical .category-item-vertical.active {
-        background: #fff3e0;
-        color: #e65100;
+        background: #e8f5e8;
+        color: #2e7d32;
         font-weight: 500;
+    }
+    
+    /* Active Filters Container */
+    .active-filters-container {
+        background: #e8f5e8;
+        border: 1px solid #2e7d32;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .filter-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: white;
+        border: 1px solid #2e7d32;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 0.9rem;
+        color: #2e7d32;
+        font-weight: 500;
+    }
+    
+    .filter-tag i {
+        font-size: 0.85rem;
+    }
+    
+    .filter-clear {
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        color: #2e7d32;
+        text-decoration: none;
+        font-weight: bold;
+        margin-left: 4px;
+        transition: color 0.2s;
+    }
+    
+    .filter-clear:hover {
+        color: #d32f2f;
     }
     
     /* Rimuovi la vecchia stats-bar */
@@ -1059,33 +1140,44 @@
                 <div class="sidebar-categories">
                     <h3 class="sidebar-section-title"><i class="fas fa-folder"></i> Categorie</h3>
                     <ul class="category-list-vertical">
-                        <li class="category-item-vertical {% if not selected_category %}active{% endif %}" onclick="filterCategory(null)" style="border-left: 4px solid transparent;">
-                            <span class="category-icon">📋</span>
-                            <span>Tutte le categorie</span>
+                        <li class="category-item-vertical {% if not selected_category %}active{% endif %}" style="border-left: 4px solid transparent;">
+                            <a href="/community{% if search_query %}?search={{ search_query }}{% endif %}" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; width: 100%;">
+                                <span class="category-icon">📋</span>
+                                <span>Tutte le categorie</span>
+                            </a>
                         </li>
                         
                         {% for item in categories_with_children %}
-                            <!-- Categoria Principale -->
-                            <li onclick="filterCategory({{ item.parent.id }})" class="category-item-vertical category-parent {% if selected_category == item.parent.id %}active{% endif %}" style="border-left: 4px solid {{ item.parent.color }}; margin-top: 8px;">
-                                <span class="category-icon">{{ item.parent.icon }}</span>
-                                <span>{{ item.parent.name }}</span>
-                            </li>
-                            
-                            <!-- Sottocategorie - Mostrate se:
-                                 1. La categoria principale è selezionata, OPPURE
-                                 2. Una sua sottocategoria è selezionata
-                            -->
+                            <!-- Categoria Principale con Toggle -->
                             {% set selected_child_parent = child_to_parent_map.get(selected_category, None) %}
-                            {% if item.children and (selected_category == item.parent.id or selected_child_parent == item.parent.id) %}
-                            <ul class="category-list-vertical" style="margin-left: 20px;">
-                                {% for child in item.children %}
-                                <li onclick="filterCategory({{ child.id }})" class="category-item-vertical {% if selected_category == child.id %}active{% endif %}" style="border-left: 4px solid {{ child.color }}; font-size: 0.9rem; padding: 10px;">
-                                    <span class="category-icon">{{ child.icon }}</span>
-                                    <span>{{ child.name }}</span>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                            {% endif %}
+                            {% set is_expanded = (selected_category == item.parent.id or selected_child_parent == item.parent.id) %}
+                            <div class="category-parent-wrapper" style="margin-top: 8px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                                    <li class="category-item-vertical category-parent {% if selected_category == item.parent.id %}active{% endif %}" style="border-left: 4px solid #2e7d32; flex: 1; margin: 0;">
+                                        <a href="/community?category={{ item.parent.id }}{% if search_query %}&search={{ search_query }}{% endif %}" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; width: 100%;">
+                                            <span class="category-icon">{{ item.parent.icon }}</span>
+                                            <span>{{ item.parent.name }}</span>
+                                        </a>
+                                    </li>
+                                    {% if item.children %}
+                                    <button class="category-toggle-btn" data-category-id="{{ item.parent.id }}" data-expanded="{{ is_expanded|lower }}" style="background: none; border: none; cursor: pointer; padding: 8px 12px; display: flex; align-items: center; justify-content: center; color: #2e7d32; font-size: 12px; transition: transform 0.3s ease;">▼</button>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Sottocategorie -->
+                                {% if item.children %}
+                                <ul class="category-list-vertical subcategory-filters" data-expanded="{{ is_expanded|lower }}" style="margin-left: 20px; max-height: {% if is_expanded %}1000px{% else %}0{% endif %}; overflow: hidden; transition: max-height 0.3s ease;">
+                                    {% for child in item.children %}
+                                    <li class="category-item-vertical {% if selected_category == child.id %}active{% endif %}" style="border-left: 4px solid #2e7d32; font-size: 0.9rem; padding: 10px 12px; margin: 0;">
+                                        <a href="/community?category={{ child.id }}{% if search_query %}&search={{ search_query }}{% endif %}" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; width: 100%;">
+                                            <span class="category-icon">{{ child.icon }}</span>
+                                            <span>{{ child.name }}</span>
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
+                            </div>
                         {% endfor %}
                     </ul>
                 </div>
@@ -1106,6 +1198,31 @@
                     <i class="fas fa-search"></i> Cerca
                 </button>
             </div>
+            
+            <!-- Active Filters Display -->
+            {% if search_query or selected_category %}
+            <div class="active-filters-container">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+                    {% if search_query %}
+                    <div class="filter-tag">
+                        <i class="fas fa-search"></i> {{ search_query }}
+                        <a href="/community{% if selected_category %}?category={{ selected_category }}{% endif %}" class="filter-clear">✕</a>
+                    </div>
+                    {% endif %}
+                    {% if selected_category %}
+                    <div class="filter-tag">
+                        <i class="fas fa-folder"></i> {{ categories|selectattr('id', 'equalto', selected_category)|map(attribute='name')|first }}
+                        <a href="/community{% if search_query %}?search={{ search_query }}{% endif %}" class="filter-clear">✕</a>
+                    </div>
+                    {% endif %}
+                    {% if search_query and selected_category %}
+                    <a href="/community" class="filter-tag" style="background: #fff3cd; border-color: #ffc107; cursor: pointer;">
+                        Cancella tutti
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
             
             <h2 style="margin-bottom: 24px; font-size: 1.75rem; color: #333;">
                 {% if selected_category %}
@@ -1639,6 +1756,31 @@ function filterCategory(categoryId) {
     url.searchParams.delete('page'); // Reset pagina
     window.location.href = url.toString();
 }
+
+// Toggle subcategories on button click
+document.querySelectorAll('.category-toggle-btn').forEach(button => {
+    button.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const categoryId = this.dataset.categoryId;
+        const subcategoryList = this.closest('.category-parent-wrapper').querySelector('.subcategory-filters');
+        const isExpanded = this.dataset.expanded === 'true';
+        
+        if (subcategoryList) {
+            if (isExpanded) {
+                // Collapse
+                subcategoryList.style.maxHeight = '0';
+                this.dataset.expanded = 'false';
+                this.style.transform = 'rotate(-90deg)';
+            } else {
+                // Expand
+                subcategoryList.style.maxHeight = '1000px';
+                this.dataset.expanded = 'true';
+                this.style.transform = 'rotate(0deg)';
+            }
+        }
+    });
+});
 
 function searchCommunity() {
     const query = document.getElementById('community-search').value;

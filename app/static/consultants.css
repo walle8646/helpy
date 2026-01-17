@@ -58,6 +58,68 @@
     padding: 0 20px;
 }
 
+/* Filtri Attivi */
+.active-filters-container {
+    grid-column: 1 / -1;
+    margin-bottom: 20px;
+}
+
+.active-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #e8f5e8;
+    border-radius: 8px;
+    border-left: 4px solid #2e7d32;
+}
+
+.filters-label {
+    font-weight: 600;
+    color: #2e7d32;
+    margin-right: 8px;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: white;
+    color: #2e7d32;
+    border-radius: 20px;
+    border: 1px solid #2e7d32;
+    text-decoration: none;
+    font-size: 0.9em;
+    transition: all 0.2s;
+}
+
+.filter-tag:hover {
+    background: #2e7d32;
+    color: white;
+}
+
+.tag-remove {
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.filter-clear {
+    padding: 6px 14px;
+    background: #2e7d32;
+    color: white;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 0.9em;
+    transition: all 0.2s;
+    margin-left: auto;
+}
+
+.filter-clear:hover {
+    background: #1b5e20;
+}
+
 /* Sidebar Filtri */
 .filters-sidebar {
     position: sticky;
@@ -80,6 +142,12 @@
     margin-bottom: 8px;
 }
 
+.category-parent-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
 .category-filters a {
     display: flex !important;
     align-items: center;
@@ -90,10 +158,31 @@
     border-radius: 8px;
     transition: all 0.2s;
     border-left: 4px solid #2e7d32 !important;
+    flex: 1;
 }
 
 .category-filters a:hover {
     background: #f5f5f5;
+}
+
+.category-toggle-btn {
+    padding: 12px 8px;
+    background: none;
+    border: none;
+    color: #2e7d32;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: 700;
+    transition: transform 0.2s;
+    border-radius: 0 8px 8px 0;
+}
+
+.category-toggle-btn:hover {
+    background: #f5f5f5;
+}
+
+.category-toggle-btn.collapsed {
+    transform: rotate(-90deg);
 }
 
 .category-filters a.active {
@@ -109,6 +198,13 @@
     margin: 8px 0 8px 20px;
     border-left: 2px solid #e0e0e0;
     padding-left: 12px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.subcategory-filters[data-expanded="true"] {
+    max-height: 1000px;
 }
 
 .subcategory-filters li {
