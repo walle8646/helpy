@@ -268,6 +268,7 @@ async def consultants_page(
                     'nome': user.nome,
                     'cognome': user.cognome,
                     'professione': user.professione,
+                    'descrizione': user.descrizione,
                     'profile_picture': user.profile_picture,
                     'prezzo_consulenza': user.prezzo_consulenza,
                     'bollini': user.bollini,

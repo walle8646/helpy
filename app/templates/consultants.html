@@ -131,42 +131,60 @@
             <div class="consultants-grid">
                 {% for item in consultants %}
                 <div class="consultant-card">
-                    <a href="/user/{{ item.id }}" class="card-link">
-                        <!-- Avatar -->
-                        {% if item.profile_picture %}
-                        <img src="{{ item.profile_picture }}" alt="{{ item.nome }}" class="consultant-avatar">
-                        {% else %}
-                        <div class="consultant-avatar-default">
-                            {{ item.category.icon if item.category else '👤' }}
+                    <!-- Contenuto principale -->
+                    <div class="card-content">
+                        <!-- Foto a sinistra con categoria sotto -->
+                        <div class="consultant-photo-section">
+                            <a href="/user/{{ item.id }}" class="consultant-photo-link">
+                                {% if item.profile_picture %}
+                                <img src="{{ item.profile_picture }}" alt="{{ item.nome }}" class="consultant-avatar">
+                                {% else %}
+                                <div class="consultant-avatar-default">
+                                    {{ item.category.icon if item.category else '👤' }}
+                                </div>
+                                {% endif %}
+                            </a>
+                            
+                            <!-- Categoria sotto la foto -->
+                            {% if item.category %}
+                            <span class="category-badge">{{ item.category.icon }} {{ item.category.name }}</span>
+                            {% endif %}
                         </div>
-                        {% endif %}
+                        
+                        <!-- Info a destra -->
+                        <a href="/user/{{ item.id }}" class="card-link">
+                            <!-- Nome -->
+                            <h3 class="consultant-name">{{ item.nome }} {{ item.cognome or '' }}</h3>
+                            
+                            <!-- Professione subito sotto il nome -->
+                            <p class="profession">{{ item.professione or 'Consulente' }}</p>
+                            
+                            <!-- Descrizione -->
+                            {% if item.descrizione %}
+                            <p class="consultant-description">{{ item.descrizione[:200] }}{% if item.descrizione|length > 200 %}...{% endif %}</p>
+                            {% endif %}
 
-                        <!-- Info -->
-                        <h3>{{ item.nome }} {{ item.cognome or '' }}</h3>
-                        <p class="profession">{{ item.professione or 'Consulente' }}</p>
-
-                        <!-- Categoria -->
-                        {% if item.category %}
-                        <span class="category-badge" style="background: {{ item.category.color }}20; color: {{ item.category.color }};">
-                            {{ item.category.icon }} {{ item.category.name }}
-                        </span>
-                        {% endif %}
-
-                        <!-- Stats -->
-                        <div class="consultant-stats">
-                            <span class="rating">⭐ {{ item.bollini }}</span>
-                            <span class="reviews">{{ item.consulenze_vendute }} recensioni</span>
-                        </div>
-
-                        <!-- Prezzo -->
+                            <!-- Rating e recensioni alla fine -->
+                            <div class="consultant-stats">
+                                <span class="rating">⭐ {{ item.bollini }}</span>
+                                <span class="reviews">({{ item.consulenze_vendute }} recensioni)</span>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <!-- Footer con prezzo e pulsante -->
+                    <div class="card-footer">
                         {% if item.prezzo_consulenza %}
-                        <div class="price">A partire da: <strong>€{{ item.prezzo_consulenza }}</strong></div>
+                        <div class="price-section">
+                            <span class="price-label">A partire da</span>
+                            <span class="price-value">€{{ item.prezzo_consulenza }}</span>
+                        </div>
                         {% endif %}
-                    </a>
-
-                    <a href="/book/{{ item.id }}" class="btn-consult">
-                        <i class="fas fa-calendar-check"></i> Prenota Consulenza
-                    </a>
+                        
+                        <a href="/book/{{ item.id }}" class="btn-consult">
+                            <i class="fas fa-calendar-check"></i> Prenota Consulenza
+                        </a>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
