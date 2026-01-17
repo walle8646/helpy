@@ -321,9 +321,11 @@ async def upload_profile_picture(request: Request, file: UploadFile = File(...))
         logger.info(f"🔍 DEBUG Upload - Region: {s3_region}")
         
         if not aws_access_key or not aws_secret_key:
-            # Fallback: salva localmente se AWS non è configurato
-            logger.warning("⚠️ AWS credentials not configured, saving locally")
-            return save_profile_picture_locally(user, contents)
+            # Errore: AWS deve essere configurato
+            logger.error("❌ AWS credentials NOT configured - S3 is REQUIRED")
+            return JSONResponse({
+                "error": "Errore di configurazione server: AWS S3 non disponibile"
+            }, status_code=500)
         
         try:
             logger.info(f"🔍 DEBUG - Creating S3 client...")
