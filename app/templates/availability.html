@@ -999,6 +999,15 @@ async function saveAvailability() {
         return;
     }
 
+    // ✅ Valida che end_time > start_time per ogni blocco
+    for (let i = 0; i < timeBlocks.length; i++) {
+        const block = timeBlocks[i];
+        if (block.start_time >= block.end_time) {
+            alert(`❌ Blocco ${i + 1}: L'orario di fine deve essere maggiore dell'orario di inizio`);
+            return;
+        }
+    }
+
     const dateStr = formatDate(selectedDate);
     const formData = new FormData();
     formData.append('date', dateStr);

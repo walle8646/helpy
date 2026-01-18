@@ -292,13 +292,8 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Prezzo Consulenza (€)</label>
+                    <label>Prezzo della Consulenza Orario (€)</label>
                     <input type="number" name="prezzo_consulenza" value="{{ user.prezzo_consulenza or 150 }}" min="0" step="10">
-                </div>
-
-                <div class="form-group">
-                    <label>Durata Consulenza (minuti)</label>
-                    <input type="number" name="durata_consulenza" value="{{ user.durata_consulenza or 60 }}" min="15" step="15">
                 </div>
                 
                 <!-- 🔒 Modalità Anonima -->
@@ -343,17 +338,37 @@
         </section>
 
         <!-- Areas of Interest -->
+        {% if aree_interesse_list %}
         <section class="card">
-            <h2>Aree di Interesse</h2>
-            {% if aree_interesse_list %}
+            <h2>🎯 Aree di Interesse</h2>
             <ul>
                 {% for area in aree_interesse_list %}
-                <li>{{ area.strip() }}</li>
+                <li>{{ area }}</li>
                 {% endfor %}
             </ul>
-            {% else %}
-            <p style="color:#888;">Nessuna area di interesse specificata. Modifica il profilo per aggiungerne.</p>
-            {% endif %}
+        </section>
+        {% endif %}
+        
+        <!-- Prezzo della Consulenza Orario -->
+        {% if user.prezzo_consulenza %}
+        <section class="card">
+            <h2>💰 Prezzo della Consulenza Orario</h2>
+            <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid #2e7d32;">
+                <div style="font-size: 2.5em; color: #2e7d32;">💵</div>
+                <div>
+                    <p style="margin: 0; font-size: 1.5rem; font-weight: 600; color: #2e7d32;">€{{ user.prezzo_consulenza }}<span style="font-size: 0.8rem; color: #555;"> / ora</span></p>
+                    <small style="color: #666;">Prezzo orario per la consulenza</small>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+        
+        <!-- User Questions Section -->
+        <section class="card" id="userQuestionsSection" style="display:none;">
+            <h2>💬 Le tue Domande nella Community</h2>
+            <div id="userQuestionsContainer" class="liked-questions-grid">
+                <p style="color:#888; text-align: center; grid-column: 1 / -1;">Caricamento...</p>
+            </div>
         </section>
         
         <!-- Reviews Section -->
@@ -395,16 +410,16 @@
             <h3>Account</h3>
             <div class="account-info">
                 <p><strong>Email:</strong><br>{{ user.email }}</p>
-                <p><strong>Status:</strong><br>
-                    {% if user.confirmed == 1 %}
-                    <span style="color:#28a745;">✓ Verificato</span>
+                <p><strong>Membro dal:</strong><br>{{ user.created_at if user.created_at else 'N/A' }}</p>
+                <p><strong>Consulente Verificato:</strong><br>
+                    {% if user.is_verified %}
+                    <span style="color:#28a745; font-size: 1.5em;">✓</span>
                     {% else %}
-                    <span style="color:#dc3545;">Non Verificato</span>
+                    <span style="color:#dc3545; font-size: 1.5em;">✕</span>
                     {% endif %}
                 </p>
-                <p><strong>Membro dal:</strong><br>{{ user.created_at[:10] if user.created_at else 'N/A' }}</p>
             </div>
-            <a href="/reset-password" class="btn btn-secondary">Cambia Password</a>
+            <a href="/reset-password" class="btn btn-secondary" style="word-break: break-word; white-space: normal; font-size: 0.9em; padding: 12px 14px;">Cambia Password</a>
         </section>
     </aside>
 </div>
@@ -447,6 +462,7 @@
     });
 
     profileForm.addEventListener('submit', async (e) => {
+        console.log('🟢 SUBMIT EVENT 1 - Primo event listener');
         e.preventDefault();
         
         const successDiv = document.getElementById('successMessage');
@@ -466,6 +482,9 @@
         
         const params = new URLSearchParams(formData);
         
+        // 🔍 DEBUG: Controlla il valore di aree_interesse prima di inviare
+        const areeInteresseValue = formData.get('aree_interesse');
+        console.log('❓ Valore aree_interesse prima dell\'invio:', areeInteresseValue);
         console.log('Dati inviati:', Object.fromEntries(params));
         
         try {
@@ -475,6 +494,7 @@
             });
             
             const data = await response.json();
+            console.log('Risposta dal server:', data);
             
             if (response.ok) {
                 let message = 'Profilo aggiornato con successo!';
@@ -1100,6 +1120,56 @@
         }
     }
     
+    async function loadUserQuestions() {
+        try {
+            const response = await fetch('/api/profile/user-questions');
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            const container = document.getElementById('userQuestionsContainer');
+            const section = document.getElementById('userQuestionsSection');
+            
+            if (!data.questions || data.questions.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            // Mostra la sezione se ci sono domande
+            section.style.display = 'block';
+            
+            // Crea le card per ogni domanda
+            const questionsHTML = data.questions.map(q => `
+                <div class="liked-question-card" onclick="navigateToQuestion(${q.id})" style="cursor: pointer;">
+                    <div class="question-category">
+                        <small>ID: ${q.category_id || 'Generale'}</small>
+                    </div>
+                    <h3 class="question-title">
+                        ${q.title}
+                    </h3>
+                    <p class="question-description">${q.description}</p>
+                    <div class="question-footer">
+                        <div class="question-meta">
+                            <span class="meta-item">
+                                <i class="fas fa-thumbs-up"></i> ${q.upvotes}
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-eye"></i> ${q.views}
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-calendar"></i> ${q.created_at}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = questionsHTML;
+            
+        } catch (error) {
+            console.error('Error loading user questions:', error);
+        }
+    }
+    
     // ========== SUBCATEGORIES SELECTOR ==========
     const categorySelect = document.getElementById('categorySelect');
     const subcategoriesContainer = document.getElementById('subcategoriesContainer');
@@ -1154,6 +1224,7 @@
     // Aggiungi alla form submission: raccogliere gli IDs delle subcategories selezionate
     const originalFormSubmit = profileForm.onsubmit;
     profileForm.addEventListener('submit', (e) => {
+        console.log('🔴 SUBMIT EVENT 2 - Secondo event listener');
         // Raccogli le subcategories selezionate
         const selectedCheckboxes = document.querySelectorAll('.subcategory-checkbox:checked');
         const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
@@ -1170,6 +1241,7 @@
     // Carica gli appuntamenti e le domande amate all'avvio
     loadUpcomingAppointments();
     loadLikedQuestions();
+    loadUserQuestions();
 
 </script>
 {% endblock %}

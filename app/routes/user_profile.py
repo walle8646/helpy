@@ -36,23 +36,22 @@ async def user_profile(request: Request):
             categories = session.exec(select(Category).where(Category.is_principal == True).order_by(Category.id)).all()
             logger.info(f"✅ Loaded {len(categories)} principal categories")
             
-            # ✅ AGGIUNGI cognome
-            user_data = {
-                "id": fresh_user.id,
-                "email": fresh_user.email,
-                "nome": fresh_user.nome or "",
-                "cognome": fresh_user.cognome or "",  # ✅ AGGIUNGI questo
-                "professione": fresh_user.professione or "",
-                "descrizione": fresh_user.descrizione or "",
-                "profile_picture": fresh_user.profile_picture or "/static/default-avatar.png",
-                "category_id": fresh_user.category_id,
-                "aree_interesse": fresh_user.aree_interesse or "",
-                "prezzo_consulenza": fresh_user.prezzo_consulenza or 0,
-                "bollini": fresh_user.bollini or 0,
-                "confirmed": fresh_user.confirmed,
-                "is_anonymous": fresh_user.is_anonymous,  # 🔒 AGGIUNGI il flag anonimato
-                "created_at": fresh_user.created_at.strftime("%d/%m/%Y") if fresh_user.created_at else "N/A"
-            }
+            # Formatta la data created_at prima di passarla
+            if fresh_user.created_at:
+                fresh_user.created_at = fresh_user.created_at.strftime("%d/%m/%Y")
+            
+            # Processiamo le aree di interesse
+            aree_interesse_list = fresh_user.aree_interesse.split(',') if fresh_user.aree_interesse else []
+            logger.info(f"🔍 DEBUG AREE - raw value: '{fresh_user.aree_interesse}'")
+            logger.info(f"🔍 DEBUG AREE - is None: {fresh_user.aree_interesse is None}")
+            logger.info(f"🔍 DEBUG AREE - is empty: {fresh_user.aree_interesse == ''}")
+            logger.info(f"🔍 DEBUG AREE - list result: {aree_interesse_list}")
+            logger.info(f"🔍 DEBUG AREE - list length: {len(aree_interesse_list)}")
+            
+            # Recupera la categoria dell'utente se presente
+            user_category = None
+            if fresh_user.category_id:
+                user_category = session.get(Category, fresh_user.category_id)
             
             logger.info(f"✅ Profile loaded for user: {fresh_user.email}")
             
@@ -60,9 +59,11 @@ async def user_profile(request: Request):
                 "profile.html",
                 {
                     "request": request,
-                    "user": user_data,  # Dati del proprio profilo
+                    "user": fresh_user,  # Passa l'oggetto User direttamente, come in public_profile.py
                     "current_user": fresh_user,  # Per il navbar
-                    "categories": categories
+                    "categories": categories,
+                    "aree_interesse_list": aree_interesse_list,  # ✅ Lista processata
+                    "user_category": user_category  # ✅ La categoria
                 }
             )
     
@@ -117,6 +118,56 @@ async def get_liked_questions(request: Request):
     
     except Exception as e:
         logger.error(f"Error getting liked questions: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore nel recupero delle domande"},
+            status_code=500
+        )
+
+@router.get("/api/profile/user-questions")
+async def get_user_questions(request: Request):
+    """Recupera le ultime 4 domande scritte dall'utente"""
+    try:
+        user = verify_token(request)
+        
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        with get_session() as session:
+            from app.models import CommunityQuestion, User as UserModel
+            
+            # Query per recuperare le ultime 4 domande scritte dall'utente
+            user_questions = session.exec(
+                select(CommunityQuestion)
+                .where(CommunityQuestion.user_id == user.id)
+                .order_by(CommunityQuestion.created_at.desc())
+                .limit(4)
+            ).all()
+            
+            questions_data = []
+            for q in user_questions:
+                # Recupera l'autore della domanda (dovrebbe essere l'utente stesso)
+                author = session.get(UserModel, q.user_id)
+                
+                questions_data.append({
+                    "id": q.id,
+                    "title": q.title,
+                    "description": q.description[:150] + "..." if len(q.description) > 150 else q.description,  # Preview
+                    "author_name": author.nome if author else "Utente Anonimo",
+                    "author_id": q.user_id,
+                    "category_id": q.category_id,
+                    "upvotes": q.upvotes,
+                    "views": q.views,
+                    "created_at": q.created_at.strftime("%d/%m/%Y"),
+                    "url": f"/community/question/{q.id}"
+                })
+            
+            return JSONResponse({
+                "success": True,
+                "questions": questions_data
+            })
+    
+    except Exception as e:
+        logger.error(f"Error getting user questions: {e}", exc_info=True)
         return JSONResponse(
             {"error": "Errore nel recupero delle domande"},
             status_code=500
@@ -192,6 +243,7 @@ async def update_profile(
                 db_user.category_id = category_id
             if aree_interesse is not None:
                 db_user.aree_interesse = aree_interesse
+                logger.info(f"✅ Aree di interesse aggiornate per user {db_user.id}: '{aree_interesse}'")
             if prezzo_consulenza is not None:
                 db_user.prezzo_consulenza = prezzo_consulenza
             if is_anonymous is not None:  # ✅ NUOVO: aggiorna flag anonimato

@@ -129,12 +129,20 @@ async def save_availability(
             
             # Crea nuovi blocchi
             for block_data in blocks_data:
-                start_time = block_data["start_time"]
-                end_time = block_data["end_time"]
+                start_time_str = block_data["start_time"]
+                end_time_str = block_data["end_time"]
+                
+                # Converti stringhe a oggetti time
+                try:
+                    start_time_obj = datetime.strptime(start_time_str, "%H:%M").time()
+                    end_time_obj = datetime.strptime(end_time_str, "%H:%M").time()
+                except (ValueError, KeyError):
+                    logger.warning(f"⚠️ Invalid time format: {start_time_str} or {end_time_str}")
+                    continue
                 
                 # Calcola durata in minuti
-                start_parts = list(map(int, start_time.split(":")))
-                end_parts = list(map(int, end_time.split(":")))
+                start_parts = list(map(int, start_time_str.split(":")))
+                end_parts = list(map(int, end_time_str.split(":")))
                 start_minutes = start_parts[0] * 60 + start_parts[1]
                 end_minutes = end_parts[0] * 60 + end_parts[1]
                 total_minutes = end_minutes - start_minutes
@@ -145,13 +153,13 @@ async def save_availability(
                 new_block = AvailabilityBlock(
                     user_id=user.id,
                     date=datetime.combine(target_date, datetime.min.time()),
-                    start_time=start_time,
-                    end_time=end_time,
+                    start_time=start_time_obj,
+                    end_time=end_time_obj,
                     total_minutes=total_minutes,
                     status="available"
                 )
                 session.add(new_block)
-                logger.info(f"💾 Saving block: date={target_date}, time={start_time}-{end_time}")
+                logger.info(f"💾 Saving block: date={target_date}, time={start_time_str}-{end_time_str}")
             
             session.commit()
             logger.info(f"✅ Saved {len(blocks_data)} availability blocks for user {user.id} on {date}")

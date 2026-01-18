@@ -1,5 +1,5 @@
 from sqlmodel import Field, SQLModel, Relationship
-from datetime import datetime
+from datetime import datetime, time
 from typing import Optional, List
 from decimal import Decimal
 from enum import Enum
@@ -192,8 +192,8 @@ class AvailabilityBlock(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
     date: datetime = Field(index=True)  # Data del giorno
-    start_time: str  # Formato "HH:MM" es: "09:00"
-    end_time: str    # Formato "HH:MM" es: "10:30"
+    start_time: time  # Oggetto time
+    end_time: time    # Oggetto time
     total_minutes: int  # Durata in minuti
     booked_minutes: int = Field(default=0)  # Minuti già prenotati
     status: str = Field(default="available")  # available, booked, unavailable
