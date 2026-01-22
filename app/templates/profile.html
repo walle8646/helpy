@@ -274,6 +274,18 @@
                     <input type="hidden" id="selectedSubcategories" name="selected_subcategories" value="">
                 </div>
                 
+                <!-- 🔔 Notifiche Categoria -->
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" name="notify_category_requests" value="true" {% if user.notify_category_requests %}checked{% endif %} 
+                               style="margin-right: 10px; width: 20px; height: 20px;">
+                        <span>
+                            <strong>🔔 Ricevi Notifiche di Categoria</strong><br>
+                            <small style="color: #666;">Ricevi notifiche e email quando qualcuno richiede aiuto nella tua categoria di expertise.</small>
+                        </span>
+                    </label>
+                </div>
+                
                 <div class="form-group">
                     <label>Descrizione <span id="charCounter" style="float:right; font-size:0.9rem; color:#dc3545;">0/200 caratteri</span></label>
                     <textarea 
@@ -296,7 +308,7 @@
                     <input type="number" name="prezzo_consulenza" value="{{ user.prezzo_consulenza or 150 }}" min="0" step="10">
                 </div>
                 
-                <!-- 🔒 Modalità Anonima -->
+                <!-- �🔒 Modalità Anonima -->
                 <div class="form-group" style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px;">
                     <label style="display: flex; align-items: center; cursor: pointer;">
                         <input type="checkbox" name="is_anonymous" value="true" {% if user.is_anonymous %}checked{% endif %} 
@@ -381,6 +393,16 @@
 
     <!-- Sidebar -->
     <aside class="sidebar">
+        <!-- Richieste della Categoria -->
+        {% if user.is_verified and user.category_id %}
+        <section class="consultation-card" style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; margin-bottom: 20px; position: relative;">
+            <button id="openCategoryRequestsBtn" style="width: 100%; padding: 12px; background: white; color: #2e7d32; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.95em; position: relative;">
+                🔔 Richieste della tua Categoria
+                <span id="categoryRequestsBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: #dc3545; color: white; border-radius: 50%; width: 24px; height: 24px; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; border: 2px solid white;"></span>
+            </button>
+        </section>
+        {% endif %}
+        
         <!-- Stats Card -->
         <section class="consultation-card">
             <h2>Le tue Statistiche</h2>
@@ -438,6 +460,23 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Richieste della Categoria -->
+<div id="categoryRequestsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto;">
+    <div style="background: white; margin: 20px auto; max-width: 95%; max-height: 95vh; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0; font-size: 1.5em;">🔔 Richieste della tua Categoria</h2>
+            <button id="closeCategoryRequestsBtn" style="background: white; border: none; color: #2e7d32; font-size: 1.5em; cursor: pointer; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        
+        <!-- Content -->
+        <div id="categoryRequestsContent" style="flex: 1; overflow-y: auto; padding: 20px;">
+            <p style="text-align: center; color: #888;">Caricamento richieste...</p>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -451,9 +490,19 @@
     const profileForm = document.getElementById('profileForm');
 
     editBtn.addEventListener('click', () => {
-        editSection.style.display = 'block';
-        if(viewSection) viewSection.style.display = 'none';
-        window.scrollTo({ top: editSection.offsetTop - 80, behavior: 'smooth' });
+        const isEditing = editSection.style.display === 'block';
+        if (!isEditing) {
+            editSection.style.display = 'block';
+            if(viewSection) viewSection.style.display = 'none';
+            editBtn.textContent = '❌ Chiudi senza salvare';
+            editBtn.style.backgroundColor = '#dc3545';
+            window.scrollTo({ top: editSection.offsetTop - 80, behavior: 'smooth' });
+        } else {
+            editSection.style.display = 'none';
+            if(viewSection) viewSection.style.display = 'block';
+            editBtn.textContent = '✏️ Modifica Profilo';
+            editBtn.style.backgroundColor = '';
+        }
     });
 
     cancelBtn.addEventListener('click', () => {
@@ -1242,6 +1291,139 @@
     loadUpcomingAppointments();
     loadLikedQuestions();
     loadUserQuestions();
+
+    // ========== CATEGORY REQUESTS MODAL ==========
+    const openCategoryRequestsBtn = document.getElementById('openCategoryRequestsBtn');
+    const closeCategoryRequestsBtn = document.getElementById('closeCategoryRequestsBtn');
+    const categoryRequestsModal = document.getElementById('categoryRequestsModal');
+    const categoryRequestsContent = document.getElementById('categoryRequestsContent');
+
+    if (openCategoryRequestsBtn) {
+        openCategoryRequestsBtn.addEventListener('click', async () => {
+            categoryRequestsModal.style.display = 'block';
+            categoryRequestsContent.innerHTML = '<p style="text-align: center; color: #888;">Caricamento richieste...</p>';
+            
+            // Marca le notifiche come lette
+            try {
+                await fetch('/api/category-requests/mark-as-read', { method: 'POST' });
+                loadCategoryRequestsBadge();  // Aggiorna il badge
+            } catch (error) {
+                console.error('Errore nel marcamento:', error);
+            }
+            
+            try {
+                const response = await fetch('/api/category-requests');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                displayCategoryRequests(data.questions);
+            } catch (error) {
+                console.error('Errore nel caricamento delle richieste:', error);
+                categoryRequestsContent.innerHTML = '<p style="text-align: center; color: #dc3545;">Errore nel caricamento delle richieste. Riprova.</p>';
+            }
+        });
+    }
+
+    if (closeCategoryRequestsBtn) {
+        closeCategoryRequestsBtn.addEventListener('click', () => {
+            categoryRequestsModal.style.display = 'none';
+        });
+    }
+
+    // Chiudi il modal cliccando fuori
+    categoryRequestsModal.addEventListener('click', (e) => {
+        if (e.target === categoryRequestsModal) {
+            categoryRequestsModal.style.display = 'none';
+        }
+    });
+
+    function displayCategoryRequests(questions) {
+        if (!questions || questions.length === 0) {
+            categoryRequestsContent.innerHTML = '<p style="text-align: center; color: #888; padding: 40px;">Nessuna richiesta nella tua categoria al momento.</p>';
+            return;
+        }
+
+        let html = '<div style="display: grid; gap: 16px;">';
+        questions.forEach(q => {
+            const timeAgo = formatTimeAgo(q.created_at);
+            const authorInitials = q.author_name ? q.author_name.substring(0, 2).toUpperCase() : '?';
+            const authorColor = stringToColor(q.author_name || '');
+            
+            html += `
+                <a href="/community/question/${q.id}" style="text-decoration: none; color: inherit;">
+                    <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #667eea; cursor: pointer; transition: all 0.3s; hover-shadow;">
+                        <div style="display: flex; gap: 12px;">
+                            <div style="width: 40px; height: 40px; border-radius: 50%; background: ${authorColor}20; border: 2px solid ${authorColor}; display: flex; align-items: center; justify-content: center; font-weight: bold; color: ${authorColor}; flex-shrink: 0;">
+                                ${authorInitials}
+                            </div>
+                            <div style="flex: 1;">
+                                <h3 style="margin: 0 0 8px 0; color: #333; font-size: 1.05em;">${escapeHtml(q.title)}</h3>
+                                <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">${escapeHtml(q.description.substring(0, 150))}${q.description.length > 150 ? '...' : ''}</p>
+                                <div style="display: flex; gap: 12px; font-size: 0.85em; color: #888;">
+                                    <span>👤 ${escapeHtml(q.author_name || 'Anonimo')}</span>
+                                    <span>⏰ ${timeAgo}</span>
+                                    ${q.likes_count ? `<span>❤️ ${q.likes_count}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            `;
+        });
+        html += '</div>';
+        categoryRequestsContent.innerHTML = html;
+    }
+
+    function formatTimeAgo(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+        
+        if (seconds < 60) return 'Proprio ora';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m fa`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h fa`;
+        if (seconds < 604800) return `${Math.floor(seconds / 86400)}g fa`;
+        return date.toLocaleDateString('it-IT');
+    }
+
+    function stringToColor(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const hue = Math.abs(hash) % 360;
+        return `hsl(${hue}, 70%, 60%)`;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ========== CARICA BADGE NOTIFICHE ==========
+    async function loadCategoryRequestsBadge() {
+        try {
+            const response = await fetch('/api/category-requests/unread-count');
+            if (!response.ok) throw new Error('Errore nel caricamento');
+            const data = await response.json();
+            
+            const badge = document.getElementById('categoryRequestsBadge');
+            if (data.unread_count > 0) {
+                badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Errore nel caricamento del badge:', error);
+        }
+    }
+
+    // Carica il badge all'avvio e ogni 30 secondi
+    loadCategoryRequestsBadge();
+    setInterval(loadCategoryRequestsBadge, 30000);
 
 </script>
 {% endblock %}

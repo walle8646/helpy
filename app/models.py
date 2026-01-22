@@ -59,6 +59,7 @@ class User(SQLModel, table=True):
     confirmation_code: Optional[str] = None
     is_verified: bool = Field(default=False)
     is_anonymous: bool = Field(default=False)  # Se True, mostra "Utente #ID" invece del nome
+    notify_category_requests: bool = Field(default=True)  # 🔔 Ricevi notifiche per richieste in categoria
     user_type_id: int = Field(default=1)  # 1=Utente, 2=Verificatore, 3=Amministratore
     
     # Timestamps
@@ -267,6 +268,18 @@ class CallMessage(SQLModel, table=True):
     message: str
     attachments: Optional[str] = Field(default=None)  # JSON string con lista di allegati {filename, file_path, file_size, file_type}
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+class CategoryRequestNotification(SQLModel, table=True):
+    """Traccia le notifiche di nuove richieste nella categoria per i consulenti"""
+    __tablename__ = "category_request_notifications"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    consultant_user_id: int = Field(foreign_key="user.id", index=True)  # Consulente notificato
+    question_id: int = Field(foreign_key="community_questions.id", index=True)  # La richiesta
+    is_read: bool = Field(default=False, index=True)  # Se il consulente l'ha letta
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 
 class ConsultationOffer(SQLModel, table=True):

@@ -145,3 +145,32 @@ def send_profile_verification_request(to_email: str, user_id: int, user_name: st
     except Exception as e:
         logger.error(f"❌ Failed to send profile verification request to {to_email}: {e}", exc_info=True)
         return False
+
+
+def send_email(recipient_email: str, subject: str, html_content: str) -> bool:
+    """Invia email generica tramite SendGrid API"""
+    
+    sendgrid_api_key = os.getenv("SENDGRID_API_KEY") or os.getenv("SMTP_PASSWORD")
+    from_email = os.getenv("FROM_EMAIL") or os.getenv("EMAIL_FROM")
+    
+    if not sendgrid_api_key or not from_email:
+        logger.error("❌ SendGrid API key or FROM_EMAIL not configured")
+        return False
+    
+    try:
+        message = Mail(
+            from_email=Email(from_email),
+            to_emails=To(recipient_email),
+            subject=subject,
+            html_content=Content("text/html", html_content)
+        )
+        
+        sg = SendGridAPIClient(sendgrid_api_key)
+        response = sg.send(message)
+        
+        logger.info(f"✅ Email sent to {recipient_email} (subject: {subject}) via SendGrid API (status: {response.status_code})")
+        return True
+    
+    except Exception as e:
+        logger.error(f"❌ Failed to send email to {recipient_email}: {e}", exc_info=True)
+        return False

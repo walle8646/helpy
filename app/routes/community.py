@@ -7,9 +7,10 @@ from datetime import datetime, timedelta
 import os
 
 from app.database import get_session
-from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, CommunityQuestionFollow, QuestionStatus, CategoryHierarchy
+from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, CommunityQuestionFollow, QuestionStatus, CategoryHierarchy, CategoryRequestNotification
 from app.routes.auth import verify_token
 from app.utils_user import get_display_name
+from app.utils.email import send_email
 from loguru import logger
 
 router = APIRouter()
@@ -364,6 +365,75 @@ async def api_ask_question(
                 f"✅ New question created: ID {new_question.id} "
                 f"by user {current_user.email}"
             )
+            
+            # ========== NOTIFICA CONSULENTI ==========
+            # Trova tutti i consulenti che hanno la stessa categoria e notify_category_requests=true
+            category_to_search = primary_category_id or category_id
+            
+            if category_to_search:
+                consultants = session.exec(
+                    select(User).where(
+                        and_(
+                            or_(
+                                User.category_id == category_to_search,
+                                # Se la categoria è una sottocategoria, cerca anche per categoria principale
+                            ),
+                            User.is_verified == True,
+                            User.notify_category_requests == True,
+                            User.id != current_user.id  # Non notificare l'autore della domanda
+                        )
+                    )
+                ).all()
+                
+                logger.info(f"🔔 Found {len(consultants)} consultants to notify for category {category_to_search}")
+                
+                # Crea notifiche e invia mail
+                for consultant in consultants:
+                    # Crea record di notifica
+                    notification = CategoryRequestNotification(
+                        consultant_user_id=consultant.id,
+                        question_id=new_question.id,
+                        is_read=False
+                    )
+                    session.add(notification)
+                    
+                    # Invia email
+                    try:
+                        send_email(
+                            recipient_email=consultant.email,
+                            subject=f"🔔 Nuova richiesta di consulenza nella tua categoria: {new_question.title}",
+                            html_content=f"""
+                            <html>
+                                <body style="font-family: Arial, sans-serif;">
+                                    <div style="max-width: 600px; margin: 0 auto;">
+                                        <h2>Nuova Richiesta di Consulenza</h2>
+                                        <p>Ciao {consultant.nome},</p>
+                                        <p>C'è una nuova richiesta di consulenza nella tua categoria di expertise!</p>
+                                        
+                                        <div style="background: #f0f0f0; padding: 16px; border-radius: 8px; margin: 20px 0;">
+                                            <h3 style="margin-top: 0;">{new_question.title}</h3>
+                                            <p>{new_question.description[:200]}...</p>
+                                            <p><strong>Utente:</strong> {current_user.nome} {current_user.cognome}</p>
+                                        </div>
+                                        
+                                        <p>
+                                            <a href="{os.getenv('APP_URL', 'http://localhost:8000')}/profile" 
+                                               style="background: #4caf50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                                                Visualizza Richieste
+                                            </a>
+                                        </p>
+                                        
+                                        <p>Accedi al tuo profilo per vedere tutte le nuove richieste della tua categoria.</p>
+                                    </div>
+                                </body>
+                            </html>
+                            """
+                        )
+                        logger.info(f"📧 Email sent to consultant {consultant.email}")
+                    except Exception as e:
+                        logger.error(f"❌ Error sending email to {consultant.email}: {e}")
+                
+                session.commit()
             
             return JSONResponse({
                 "success": True,

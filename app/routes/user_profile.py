@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Form, UploadFile, File, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
 from app.models import User, Category, CategoryHierarchy
-from sqlmodel import select
+from sqlmodel import select, and_, func
 from app.routes.auth import verify_token
 from app.logger_config import logger
 from app.utils.email import send_profile_verification_request
@@ -213,6 +213,7 @@ async def update_profile(
     aree_interesse: str = Form(None),
     prezzo_consulenza: Optional[int] = Form(None),
     is_anonymous: Optional[bool] = Form(None),  # ✅ NUOVO: flag anonimato
+    notify_category_requests: Optional[bool] = Form(None),  # ✅ NUOVO: notifiche categoria
     selected_subcategories: str = Form(None)  # ✅ NUOVO: JSON array di subcategory IDs
 ):
     """Aggiorna profilo utente"""
@@ -252,6 +253,12 @@ async def update_profile(
                     is_anonymous = is_anonymous.lower() == 'true'
                 db_user.is_anonymous = is_anonymous
                 logger.info(f"{'🔒' if is_anonymous else '👤'} User {db_user.id} set anonymous mode: {is_anonymous}")
+            if notify_category_requests is not None:  # ✅ NUOVO: aggiorna flag notifiche categoria
+                # Converti la stringa "true"/"false" a booleano
+                if isinstance(notify_category_requests, str):
+                    notify_category_requests = notify_category_requests.lower() == 'true'
+                db_user.notify_category_requests = notify_category_requests
+                logger.info(f"{'🔔' if notify_category_requests else '🔕'} User {db_user.id} set category notifications: {notify_category_requests}")
             if selected_subcategories is not None:  # ✅ NUOVO: salva JSON array
                 db_user.selected_subcategories = selected_subcategories
                 logger.info(f"✅ Subcategories updated for user: {db_user.id} - {selected_subcategories}")
@@ -533,5 +540,151 @@ async def set_anonymous_mode(request: Request):
         logger.error(f"❌ Error setting anonymous mode: {e}", exc_info=True)
         return JSONResponse(
             {"error": "Errore durante l'aggiornamento della modalità anonima"},
+            status_code=500
+        )
+
+@router.get("/api/category-requests")
+async def get_category_requests(request: Request):
+    """Ritorna le richieste della comunità della categoria dell'utente"""
+    try:
+        user = verify_token(request)
+        
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        with get_session() as session:
+            db_user = session.get(User, user.id)
+            
+            if not db_user or not db_user.category_id:
+                return JSONResponse({
+                    "questions": [],
+                    "message": "Nessuna categoria configurata"
+                })
+            
+            # Importa il modello CommunityQuestion
+            from app.models import CommunityQuestion
+            from sqlmodel import or_
+            
+            # Recupera le domande della categoria o della sottocategoria
+            # Cerca sia per primary_category_id che per category_id
+            questions = session.exec(
+                select(CommunityQuestion)
+                .where(
+                    or_(
+                        CommunityQuestion.primary_category_id == db_user.category_id,
+                        CommunityQuestion.category_id == db_user.category_id
+                    )
+                )
+                .order_by(CommunityQuestion.created_at.desc())
+                .limit(50)
+            ).all()
+            
+            # Formatta le domande per il frontend
+            formatted_questions = []
+            for q in questions:
+                author = session.get(User, q.user_id) if q.user_id else None
+                formatted_questions.append({
+                    "id": q.id,
+                    "title": q.title,
+                    "description": q.description,
+                    "author_name": f"{author.nome} {author.cognome}" if author else "Anonimo",
+                    "created_at": q.created_at.isoformat(),
+                    "likes_count": q.upvotes if hasattr(q, 'upvotes') else 0
+                })
+            
+            logger.info(f"✅ Loaded {len(formatted_questions)} category requests for user {db_user.id}")
+            
+            return JSONResponse({
+                "questions": formatted_questions,
+                "total": len(formatted_questions)
+            })
+    
+    except Exception as e:
+        logger.error(f"❌ Error loading category requests: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore nel caricamento delle richieste", "questions": []},
+            status_code=500
+        )
+
+@router.get("/api/category-requests/unread-count")
+async def get_unread_category_requests_count(request: Request):
+    """Ritorna il numero di richieste non lette della categoria dell'utente"""
+    try:
+        user = verify_token(request)
+        
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        with get_session() as session:
+            db_user = session.get(User, user.id)
+            
+            if not db_user or not db_user.category_id:
+                return JSONResponse({
+                    "unread_count": 0
+                })
+            
+            from app.models import CategoryRequestNotification
+            
+            # Conta le notifiche non lette per questo utente
+            unread_count = session.exec(
+                select(func.count(CategoryRequestNotification.id))
+                .where(
+                    and_(
+                        CategoryRequestNotification.consultant_user_id == db_user.id,
+                        CategoryRequestNotification.is_read == False
+                    )
+                )
+            ).first() or 0
+            
+            logger.info(f"✅ Unread category requests for user {db_user.id}: {unread_count}")
+            
+            return JSONResponse({
+                "unread_count": unread_count
+            })
+    
+    except Exception as e:
+        logger.error(f"❌ Error counting unread category requests: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore nel conteggio", "unread_count": 0},
+            status_code=500
+        )
+
+@router.post("/api/category-requests/mark-as-read")
+async def mark_category_requests_as_read(request: Request):
+    """Marca tutte le notifiche di richieste come lette"""
+    try:
+        user = verify_token(request)
+        
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        with get_session() as session:
+            from app.models import CategoryRequestNotification
+            from sqlalchemy import update as sql_update
+            
+            # Aggiorna il flag is_read
+            session.execute(
+                sql_update(CategoryRequestNotification)
+                .where(
+                    and_(
+                        CategoryRequestNotification.consultant_user_id == user.id,
+                        CategoryRequestNotification.is_read == False
+                    )
+                )
+                .values(is_read=True)
+            )
+            session.commit()
+            
+            logger.info(f"✅ Marked all category requests as read for user {user.id}")
+            
+            return JSONResponse({
+                "success": True,
+                "message": "Notifiche marcate come lette"
+            })
+    
+    except Exception as e:
+        logger.error(f"❌ Error marking as read: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore nel marcamento", "success": False},
             status_code=500
         )
