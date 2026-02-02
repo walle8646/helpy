@@ -210,68 +210,101 @@
             </div>
         </section>
         
-        <!-- Profile Header -->
-        <header class="profile-header card">
-            <div class="profile-avatar-container">
-                {% if user.profile_picture %}
-                <img data-src="{{ user.profile_picture }}" alt="Profile" class="profile-avatar-large" id="profileImage">
-                {% else %}
-                <div class="profile-avatar-large" id="profileImage">👤</div>
-                {% endif %}
+        <!-- Profile Header with Modern Stats -->
+        <header class="profile-header card" style="display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: center; background: white;">
+            <div style="display: flex; align-items: center; gap: 32px;">
+                <div class="profile-avatar-container">
+                    {% if user.profile_picture %}
+                    <img data-src="{{ user.profile_picture }}" alt="Profile" class="profile-avatar-large" id="profileImage">
+                    {% else %}
+                    <div class="profile-avatar-large" id="profileImage">👤</div>
+                    {% endif %}
+                    
+                    <label for="profilePictureInput" class="edit-avatar-btn" title="Cambia immagine profilo">
+                        ✏️
+                    </label>
+                    <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+                </div>
                 
-                <!-- 🔥 Bottone per modificare immagine (matita) -->
-                <label for="profilePictureInput" class="edit-avatar-btn" title="Cambia immagine profilo">
-                    ✏️
-                </label>
-                <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+                <div class="info">
+                    <h1 style="margin-bottom: 12px; font-size: 1.8em;">{{ user.nome or 'Nome non impostato' }}</h1>
+                    <p style="font-size: 1em; margin: 4px 0; color: #4caf50; font-weight: 600;">{{ user.professione or 'Professione non impostata' }}</p>
+                    <small style="color: #888; display: block; margin-bottom: 16px;">{{ user.email }}</small>
+                    <button id="editProfileBtn" class="btn btn-primary btn-small">✏️ Modifica Profilo</button>
+                </div>
             </div>
-            
-            <div class="info">
-                <h1>{{ user.nome or 'Nome non impostato' }}</h1>
-                <p>{{ user.professione or 'Professione non impostata' }}</p>
-                <small style="color: #888;">{{ user.email }}</small>
-                <button id="editProfileBtn" class="btn-edit">✏️ Modifica Profilo</button>
+
+            <div class="profile-stats" style="grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                <div class="stat-item">
+                    <div class="stat-value" style="color: #4caf50; font-size: 1.6em;">
+                        {% if is_consultant %}⭐{% else %}📅{% endif %}
+                    </div>
+                    <div class="stat-label">
+                        {% if is_consultant %}
+                            Consulente
+                        {% else %}
+                            Utente
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: #4caf50;">0</div>
+                    <div class="stat-label">Prenotazioni</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: #4caf50;">0</div>
+                    <div class="stat-label">Recensioni</div>
+                </div>
             </div>
         </header>
 
         <!-- Edit Mode Form (Hidden by default) -->
         <section class="card" id="editSection" style="display:none;">
-            <h2>Modifica Profilo</h2>
+            <h2>✏️ Modifica Profilo</h2>
             <div id="successMessage" class="success-message" style="display:none;"></div>
             <div id="errorMessage" class="error-message" style="display:none;"></div>
             
-            <form id="profileForm" class="profile-form">
-                <div class="form-group">
-                    <label>Nome</label>
-                    <input type="text" name="nome" value="{{ user.nome or '' }}" placeholder="Inserisci il tuo nome">
-                </div>
-                
-                <div class="form-group">
-                    <label>Professione</label>
-                    <input type="text" name="professione" value="{{ user.professione or '' }}" placeholder="Es: Lead Software Developer">
+            <form id="profileForm" class="edit-form">
+                <!-- 👤 Informazioni Personali -->
+                <div class="form-section">
+                    <div class="form-section-title">👤 Informazioni Personali</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nome Completo</label>
+                            <input type="text" name="nome" value="{{ user.nome or '' }}" placeholder="Inserisci il tuo nome">
+                        </div>
+                        <div class="form-group">
+                            <label>Professione</label>
+                            <input type="text" name="professione" value="{{ user.professione or '' }}" placeholder="Es: Lead Software Developer">
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Categoria</label>
-                    <select id="categorySelect" name="category_id" style="padding:12px; border:1px solid #ddd; border-radius:6px; font-size:1rem;">
-                        <option value="">Nessuna categoria</option>
-                        {% for cat in categories %}
-                        <option value="{{ cat.id }}" {% if user.category_id == cat.id %}selected{% endif %}>
-                            {{ cat.icon }} {{ cat.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <small style="color:#888; margin-top:4px; display:block;">Seleziona la categoria che meglio rappresenta la tua expertise</small>
-                </div>
-                
-                <!-- Sottocategorie - Appaiono al cambio categoria -->
-                <div id="subcategoriesContainer" class="form-group" style="display:none;">
-                    <label>Sottocategorie (opzionale)</label>
-                    <div id="subcategoriesList" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                        <!-- Riempito dinamicamente da JavaScript -->
+                <!-- 🎓 Categoria e Specializzazione -->
+                <div class="form-section">
+                    <div class="form-section-title">🎓 Categoria e Specializzazione</div>
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select id="categorySelect" name="category_id" style="padding:12px; border:1px solid #d1d8e0; border-radius:10px; font-size:1rem; background-color: #f8fafb;">
+                            <option value="">Nessuna categoria</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if user.category_id == cat.id %}selected{% endif %}>
+                                {{ cat.icon }} {{ cat.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small style="color:#888; margin-top:8px; display:block;">Seleziona la categoria che meglio rappresenta la tua expertise</small>
                     </div>
-                    <small style="color:#888; margin-top:4px; display:block;">Seleziona una o più sottocategorie relative alla tua categoria principale</small>
-                    <input type="hidden" id="selectedSubcategories" name="selected_subcategories" value="">
+                    
+                    <!-- Sottocategorie - Appaiono al cambio categoria -->
+                    <div id="subcategoriesContainer" class="form-group" style="display:none;">
+                        <label>Sottocategorie (opzionale)</label>
+                        <div id="subcategoriesList" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                            <!-- Riempito dinamicamente da JavaScript -->
+                        </div>
+                        <small style="color:#888; margin-top:8px; display:block;">Seleziona una o più sottocategorie</small>
+                        <input type="hidden" id="selectedSubcategories" name="selected_subcategories" value="">
+                    </div>
                 </div>
                 
                 <!-- 🔔 Notifiche Categoria -->
