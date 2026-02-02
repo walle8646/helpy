@@ -219,9 +219,18 @@
                         </div>
                         {% endif %}
                         
-                        <a href="/book/{{ item.id }}" class="btn-consult">
-                            <i class="fas fa-calendar-check"></i> Prenota Consulenza
-                        </a>
+                        <div class="footer-buttons">
+                            <button class="btn-message-consultant" 
+                                    data-consultant-id="{{ item.id }}"
+                                    data-consultant-name="{{ item.nome }} {{ item.cognome }}"
+                                    data-consultant-pic="{{ item.profile_picture or '/static/default-avatar.png' }}"
+                                    title="Invia un messaggio">
+                                <i class="fas fa-envelope"></i> Messaggia
+                            </button>
+                            <a href="/book/{{ item.id }}" class="btn-consult">
+                                <i class="fas fa-calendar-check"></i> Prenota Consulenza
+                            </a>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -342,6 +351,31 @@
                 } else {
                     btn.classList.remove('collapsed');
                 }
+            }
+        });
+    });
+
+    // 💬 Event listener per bottoni "Messaggia"
+    document.querySelectorAll('.btn-message-consultant').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            const consultantId = btn.dataset.consultantId;
+            const consultantName = btn.dataset.consultantName;
+            const consultantPic = btn.dataset.consultantPic;
+            
+            {% if not current_user %}
+            // Utente non loggato - redirect al login
+            window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+            return;
+            {% endif %}
+            
+            // Apri la chat con il consulente usando la funzione globale
+            if (typeof window.openChat === 'function') {
+                console.log('💬 Apertura chat con consulente:', { consultantId, consultantName, consultantPic });
+                window.openChat(consultantId, consultantName, consultantPic);
+            } else {
+                console.error('⚠️ window.openChat non disponibile');
             }
         });
     });
