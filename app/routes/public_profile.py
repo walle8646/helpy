@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from app.models import User
 from app.models import Category
 from app.database import get_session
 from app.logger_config import logger
+from app.utils.template_helpers import get_all_categories
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/user/{user_id}", response_class=HTMLResponse)
 def public_user_profile(request: Request, user_id: int):
@@ -33,13 +32,17 @@ def public_user_profile(request: Request, user_id: int):
         except:
             pass
         
+        # Carica tutte le categorie principali per il dropdown nel navbar
+        categories = get_all_categories()
+        
         logger.info(f"Public profile viewed: {user.email} (ID: {user.id}) by {current_user.email if current_user else 'anonymous'}")
         
-        return templates.TemplateResponse("user_profile.html", {
+        return request.app.state.templates.TemplateResponse("user_profile.html", {
             "request": request,
             "user": user,  # Utente del profilo che stai visualizzando
             "current_user": current_user,  # Utente loggato
             "category": category,
             "aree_interesse_list": aree_interesse_list,
-            "is_own_profile": current_user and current_user.id == user.id
+            "is_own_profile": current_user and current_user.id == user.id,
+            "categories": categories
         })

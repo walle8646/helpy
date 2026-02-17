@@ -28,6 +28,20 @@ def get_display_name(user, include_full_name=True):
     else:
         return user.nome or f"Utente #{user.id}"
 
+
+def get_default_avatar(user):
+    """
+    Restituisce il path dell'avatar di default in base al genere dell'utente.
+    - M → avatar-male.svg
+    - F → avatar-female.svg
+    - None/altro → avatar-default.svg
+    """
+    if hasattr(user, 'genere') and user.genere == 'M':
+        return '/static/avatar-male.svg'
+    elif hasattr(user, 'genere') and user.genere == 'F':
+        return '/static/avatar-female.svg'
+    return '/static/avatar-default.svg'
+
 def send_confirmation_email(to_email: str, code: str):
     SMTP_HOST = os.getenv("SMTP_HOST")
     SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))

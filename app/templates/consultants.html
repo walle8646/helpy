@@ -174,13 +174,10 @@
                         <!-- Foto a sinistra con categoria sotto -->
                         <div class="consultant-photo-section">
                             <a href="/user/{{ item.id }}" class="consultant-photo-link">
-                                {% if item.profile_picture %}
-                                <img src="{{ item.profile_picture }}" alt="{{ item.nome }}" class="consultant-avatar">
-                                {% else %}
-                                <div class="consultant-avatar-default">
-                                    {{ item.category.icon if item.category else '👤' }}
-                                </div>
-                                {% endif %}
+                                <img src="{{ item.profile_picture or item|default_avatar }}" 
+                                     alt="{{ item.nome }}" 
+                                     class="consultant-avatar"
+                                     onerror="this.onerror=null; this.src='{{ item|default_avatar }}'">
                             </a>
                             
                             <!-- Categoria sotto la foto -->
@@ -223,7 +220,7 @@
                             <button class="btn-message-consultant" 
                                     data-consultant-id="{{ item.id }}"
                                     data-consultant-name="{{ item.nome }} {{ item.cognome }}"
-                                    data-consultant-pic="{{ item.profile_picture or '/static/default-avatar.png' }}"
+                                    data-consultant-pic="{{ item.profile_picture or item|default_avatar }}"
                                     title="Invia un messaggio">
                                 <i class="fas fa-envelope"></i> Messaggia
                             </button>

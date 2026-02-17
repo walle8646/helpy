@@ -21,6 +21,7 @@ async def community_page(
     category: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    sort: Optional[str] = Query(None),
     page: int = Query(1, ge=1)
 ):
     """Pagina Q&A Community"""
@@ -71,11 +72,39 @@ async def community_page(
             categories = principal_categories
             
             # ========== BASE QUERY ==========
-            query_stmt = select(CommunityQuestion).where(
-                CommunityQuestion.validation == True  # 🆕 Mostra solo domande validate
-            ).order_by(
-                CommunityQuestion.created_at.desc()
-            )
+            base_where = CommunityQuestion.validation == True  # 🆕 Mostra solo domande validate
+            
+            # ========== ORDINAMENTO ==========
+            if sort == 'interactions':
+                # Ordina per interazioni (upvotes + views/contatti)
+                query_stmt = select(CommunityQuestion).where(base_where).order_by(
+                    (CommunityQuestion.upvotes + CommunityQuestion.views).desc(),
+                    CommunityQuestion.created_at.desc()
+                )
+            elif sort == 'followed':
+                # Ordina per numero di follower (subquery)
+                follow_count_subq = (
+                    select(
+                        CommunityQuestionFollow.question_id,
+                        func.count(CommunityQuestionFollow.id).label('follow_count')
+                    )
+                    .group_by(CommunityQuestionFollow.question_id)
+                    .subquery()
+                )
+                query_stmt = (
+                    select(CommunityQuestion)
+                    .outerjoin(follow_count_subq, CommunityQuestion.id == follow_count_subq.c.question_id)
+                    .where(base_where)
+                    .order_by(
+                        func.coalesce(follow_count_subq.c.follow_count, 0).desc(),
+                        CommunityQuestion.created_at.desc()
+                    )
+                )
+            else:
+                # Default: più recenti
+                query_stmt = select(CommunityQuestion).where(base_where).order_by(
+                    CommunityQuestion.created_at.desc()
+                )
             
             # ========== FILTRO CATEGORIA ==========
             if category:
@@ -277,6 +306,7 @@ async def community_page(
                     "selected_category": category,
                     "search_query": search or '',
                     "selected_status": status,
+                    "selected_sort": sort or 'recent',
                     "current_page": page,
                     "total_pages": total_pages,
                     "total_count": total_count,
@@ -785,12 +815,20 @@ async def get_question_followers(request: Request, question_id: int):
             
             followers_data = []
             for follower in followers:
+                # Determina avatar di default in base al genere
+                if hasattr(follower, 'genere') and follower.genere == 'M':
+                    default_pic = "/static/avatar-male.svg"
+                elif hasattr(follower, 'genere') and follower.genere == 'F':
+                    default_pic = "/static/avatar-female.svg"
+                else:
+                    default_pic = "/static/avatar-default.svg"
+                
                 followers_data.append({
                     "id": follower.id,
                     "nome": follower.nome or "",
                     "cognome": follower.cognome or "",
                     "email": follower.email,
-                    "profile_picture": follower.profile_picture or "/static/default-avatar.png",
+                    "profile_picture": follower.profile_picture or default_pic,
                     "professione": follower.professione or "Utente"
                 })
             

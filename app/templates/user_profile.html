@@ -9,19 +9,13 @@
 {% block content %}
 <div class="profile-container">
     <main class="main-content">
-        <!-- Cover Image -->
-        <div class="cover-image"></div>
-        
         <!-- Profile Header -->
         <header class="profile-header card">
             <!-- ✅ Foto Profilo -->
-            {% if user.profile_picture and user.profile_picture != '/static/default-avatar.png' %}
-            <img data-src="{{ user.profile_picture }}" alt="{{ user.nome }}" class="profile-avatar-large">
-            {% else %}
-            <div class="profile-avatar-large">
-                {{ category.icon if category else '👤' }}
-            </div>
-            {% endif %}
+            <img data-src="{{ user.profile_picture or user|default_avatar }}" 
+                 alt="{{ user.nome }}" 
+                 class="profile-avatar-large"
+                 onerror="this.onerror=null; this.src='{{ user|default_avatar }}'">
             
             <div class="info">
                 <!-- ✅ Nome completo con cognome -->
@@ -34,9 +28,9 @@
             </div>
         </header>
 
-        <!-- Description Section -->
+        <!-- About Section -->
         <section class="card">
-            <h2>📝 Descrizione</h2>
+            <h2>About</h2>
             {% if user.descrizione %}
             <p style="white-space: pre-wrap;">{{ user.descrizione }}</p>
             {% else %}
@@ -92,6 +86,56 @@
 
     <!-- Sidebar -->
     <aside class="sidebar">
+        <!-- Mentorship Plans -->
+        <section class="consultation-card">
+            <h2>Mentorship plans</h2>
+            
+            <!-- Plan Tabs -->
+            <div class="plan-tabs">
+                <button class="plan-tab" onclick="switchPlan('lite')">Lite</button>
+                <button class="plan-tab active" onclick="switchPlan('standard')">Standard</button>
+                <button class="plan-tab" onclick="switchPlan('pro')">Pro</button>
+            </div>
+            
+            <!-- Lite Plan -->
+            <div id="lite-plan" class="plan-card" style="display: none;">
+                <h3>Lite</h3>
+                <div class="plan-price">$150<span class="plan-period"> /month</span></div>
+                <ul>
+                    <li>2 calls per month (30min/call)</li>
+                    <li>Email support</li>
+                    <li>Response in 48 hours</li>
+                </ul>
+                <button class="apply-btn">Apply now</button>
+            </div>
+            
+            <!-- Standard Plan (Default) -->
+            <div id="standard-plan" class="plan-card standard">
+                <span class="badge">Most Popular</span>
+                <h3>Standard</h3>
+                <div class="plan-price">$450<span class="plan-period"> /month</span></div>
+                <ul>
+                    <li>4 calls per month (60min/call)</li>
+                    <li>Unlimited Q&A via chat</li>
+                    <li>Expect responses in 24 hours or less</li>
+                </ul>
+                <button class="apply-btn">Apply now</button>
+            </div>
+            
+            <!-- Pro Plan -->
+            <div id="pro-plan" class="plan-card" style="display: none;">
+                <h3>Pro</h3>
+                <div class="plan-price">$800<span class="plan-period"> /month</span></div>
+                <ul>
+                    <li>8 calls per month (90min/call)</li>
+                    <li>Priority email support</li>
+                    <li>24/7 chat availability</li>
+                    <li>Custom project review</li>
+                </ul>
+                <button class="apply-btn">Apply now</button>
+            </div>
+        </section>
+        
         <!-- Consultation Booking Card -->
         <section class="consultation-card">
             <h2>💬 Richiedi una Consulenza</h2>
@@ -165,6 +209,27 @@
         {% endif %}
     </aside>
 </div>
+
+<script>
+    // ========== MENTORSHIP PLANS FUNCTIONALITY ==========
+    function switchPlan(planType) {
+        // Nascondi tutti i piani
+        document.getElementById('lite-plan').style.display = 'none';
+        document.getElementById('standard-plan').style.display = 'none';
+        document.getElementById('pro-plan').style.display = 'none';
+        
+        // Rimuovi la classe active da tutti i tab
+        document.querySelectorAll('.plan-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Mostra il piano selezionato
+        document.getElementById(planType + '-plan').style.display = 'block';
+        
+        // Aggiungi la classe active al tab
+        event.target.classList.add('active');
+    }
+</script>
 
 <style>
     /* ✅ Fix hover per bottone messaggi */

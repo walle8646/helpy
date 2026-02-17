@@ -188,6 +188,77 @@
         object-fit: cover;
     }
     
+    /* Link al profilo dell'autore */
+    .author-link {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        text-decoration: none !important;
+        color: inherit !important;
+        flex: 1 !important;
+        transition: opacity 0.2s !important;
+    }
+    
+    .author-link:hover {
+        opacity: 0.7 !important;
+    }
+    
+    .author-link .author-avatar {
+        cursor: pointer !important;
+    }
+    
+    .author-link .author-name {
+        cursor: pointer !important;
+    }
+    
+    /* Sort Pills */
+    .sort-pills {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+    
+    .sort-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 50px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        background: #f0f0f0;
+        color: #555;
+        border: 2px solid transparent;
+        cursor: pointer;
+        flex: 1;
+    }
+    
+    .sort-pill:hover {
+        background: #e8f5e9;
+        color: #2e7d32;
+        border-color: #a5d6a7;
+    }
+    
+    .sort-pill.active {
+        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+    }
+    
+    .sort-pill.active:hover {
+        background: linear-gradient(135deg, #43a047 0%, #1b5e20 100%);
+        color: white;
+    }
+    
+    .sort-pill i {
+        font-size: 0.85rem;
+    }
+    
     .author-info {
         flex: 1;
     }
@@ -1130,7 +1201,7 @@
     <!-- Community Title -->
     <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.2);">
         <div class="container">
-            <h1 style="text-align: center; font-size: 2.5rem; margin: 0;">Fai la tua domanda e ottieni la consulenza che serve</h1>
+            <h1 style="text-align: center; font-size: 2.5rem; margin: 0;">Fai la tua domanda e ottieni la consulenza che cerchi</h1>
         </div>
     </div>
     
@@ -1244,23 +1315,40 @@
             </div>
             {% endif %}
             
-            <h2 style="margin-bottom: 24px; font-size: 1.75rem; color: #333;">
-                {% if selected_category %}
-                    <i class="fas fa-filter" style="color: #4caf50;"></i> {{ categories|selectattr('id', 'equalto', selected_category)|map(attribute='name')|first }}
-                {% elif search_query %}
-                    <i class="fas fa-search" style="color: #4caf50;"></i> Risultati per "{{ search_query }}"
-                {% else %}
-                    <i class="fas fa-fire" style="color: #ff6b6b;"></i> Domande Recenti
-                {% endif %}
+            {% if selected_category %}
+            <h2 style="margin-bottom: 16px; font-size: 1.75rem; color: #333;">
+                <i class="fas fa-filter" style="color: #4caf50;"></i> {{ categories|selectattr('id', 'equalto', selected_category)|map(attribute='name')|first }}
             </h2>
+            {% elif search_query %}
+            <h2 style="margin-bottom: 16px; font-size: 1.75rem; color: #333;">
+                <i class="fas fa-search" style="color: #4caf50;"></i> Risultati per "{{ search_query }}"
+            </h2>
+            {% endif %}
+
+            <!-- Pill di ordinamento -->
+            <div class="sort-pills">
+                <a href="/community?sort=recent{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                   class="sort-pill {% if selected_sort == 'recent' %}active{% endif %}">
+                    <i class="fas fa-clock"></i> Più recenti
+                </a>
+                <a href="/community?sort=interactions{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                   class="sort-pill {% if selected_sort == 'interactions' %}active{% endif %}">
+                    <i class="fas fa-fire"></i> Più interazioni
+                </a>
+                <a href="/community?sort=followed{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                   class="sort-pill {% if selected_sort == 'followed' %}active{% endif %}">
+                    <i class="fas fa-bell"></i> Più seguite
+                </a>
+            </div>
             
             {% if questions %}
                 {% for item in questions %}
                 <div class="question-card" data-question-id="{{ item.question.id }}" id="question-{{ item.question.id }}">
                     <!-- Header -->
                     <div class="question-header">
+                        {% if item.author.is_anonymous %}
                         <img 
-                            data-src="{% if item.author.is_anonymous %}/static/default-avatar.png{% else %}{{ item.author.profile_picture or '/static/default-avatar.png' }}{% endif %}" 
+                            data-src="/static/avatar-default.svg"
                             alt="{{ item.author|display_name }}"
                             class="author-avatar"
                         >
@@ -1268,6 +1356,20 @@
                             <div class="author-name">{{ item.author|display_name }}</div>
                             <div class="question-time">{{ item.question.created_at.strftime('%d %B %Y') }}</div>
                         </div>
+                        {% else %}
+                        <a href="/user/{{ item.author.id }}" class="author-link">
+                            <img 
+                                data-src="{{ item.author.profile_picture or item.author|default_avatar }}"
+                                alt="{{ item.author|display_name }}"
+                                class="author-avatar"
+                                onerror="this.onerror=null; this.src='{{ item.author|default_avatar }}'"
+                            >
+                            <div class="author-info">
+                                <div class="author-name">{{ item.author|display_name }}</div>
+                                <div class="question-time">{{ item.question.created_at.strftime('%d %B %Y') }}</div>
+                            </div>
+                        </a>
+                        {% endif %}
                         <span class="question-status status-{{ item.question.status }}">
                             {% if item.question.status == 'open' %}Aperta
                             {% elif item.question.status == 'in_progress' %}In corso
@@ -1327,7 +1429,7 @@
                                data-question-id="{{ item.question.id }}"
                                data-author-id="{{ item.author.id }}"
                                data-author-name="{{ item.author|display_name }}"
-                               data-author-pic="{{ item.author.profile_picture or '/static/default-avatar.png' }}"
+                               data-author-pic="{{ item.author.profile_picture or item.author|default_avatar }}"
                                style="display: inline-flex; 
                                       align-items: center; 
                                       gap: 8px; 

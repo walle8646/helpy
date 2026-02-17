@@ -241,9 +241,9 @@
     <!-- HEADER CHAT -->
     <div class="chat-header">
         <a href="/user/{{ other_user.id }}" style="text-decoration: none;">
-            <img src="{{ other_user.profile_picture or 'https://ui-avatars.com/api/?name=' + other_user.nome|urlencode + '&background=667eea&color=fff' }}" 
+            <img src="{{ other_user.profile_picture or other_user|default_avatar }}" 
                  alt="{{ other_user.nome }}"
-                 onerror="this.src='https://ui-avatars.com/api/?name=User&background=667eea&color=fff'">
+                 onerror="this.src='{{ other_user|default_avatar }}'">
         </a>
         <div class="chat-header-info">
             <h2>{{ other_user.nome }} {{ other_user.cognome or '' }}</h2>

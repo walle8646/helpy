@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import select
 from app.models import User
 from app.database import get_session
@@ -9,13 +8,12 @@ from app.logger_config import logger
 import re
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 EMAIL_REGEX = r"^[\w\.-]+@[\w\.-]+\.\w+$"
 
 @router.get("/register", response_class=HTMLResponse)
 def register_form(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    return request.app.state.templates.TemplateResponse("register.html", {"request": request})
 
 @router.post("/api/register")
 def register_user(email: str = Form(...), password: str = Form(...)):

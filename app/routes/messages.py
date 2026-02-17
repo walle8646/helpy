@@ -170,6 +170,7 @@ async def get_conversations(request: Request):
                         "nome": other_user.nome or "Utente",
                         "cognome": other_user.cognome or "",
                         "profile_picture": other_user.profile_picture or None,
+                        "genere": other_user.genere or None,
                         "professione": other_user.professione or ""
                     },
                     "last_message": {

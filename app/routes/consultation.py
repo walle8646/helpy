@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, status, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
 from typing import Optional
@@ -11,7 +10,6 @@ from ..models import User, ConsultationOffer, Message
 from .auth import get_current_user
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/consulenza/crea/{client_user_id}", response_class=HTMLResponse)
@@ -45,7 +43,7 @@ async def show_create_consultation_form(
             .where(ConsultationOffer.expires_at > datetime.utcnow())
         ).first()
         
-        return templates.TemplateResponse("create_consultation_offer.html", {
+        return request.app.state.templates.TemplateResponse("create_consultation_offer.html", {
             "request": request,
             "current_user": user,
             "client": client,
@@ -76,8 +74,8 @@ async def create_consultation_offer(
             raise HTTPException(status_code=403, detail="Solo i consulenti possono creare offerte di consulenza")
         
         # Validate inputs
-        if price <= 0:
-            raise HTTPException(status_code=400, detail="Il prezzo deve essere maggiore di zero")
+        if price < 15:
+            raise HTTPException(status_code=400, detail="Il prezzo della consulenza deve essere almeno 15€")
         
         if duration_minutes not in [30, 60, 90, 120]:
             raise HTTPException(status_code=400, detail="Durata non valida. Scegli tra 30, 60, 90 o 120 minuti")
@@ -210,7 +208,7 @@ async def show_booking_page(
         if not consultant:
             raise HTTPException(status_code=404, detail="Consulente non trovato")
         
-        return templates.TemplateResponse("book_consultation_offer.html", {
+        return request.app.state.templates.TemplateResponse("book_consultation_offer.html", {
             "request": request,
             "user": user,
             "offer": offer,

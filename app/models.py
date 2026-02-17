@@ -59,6 +59,7 @@ class User(SQLModel, table=True):
     confirmation_code: Optional[str] = None
     is_verified: bool = Field(default=False)
     is_anonymous: bool = Field(default=False)  # Se True, mostra "Utente #ID" invece del nome
+    genere: Optional[str] = Field(default=None)  # M=Maschio, F=Femmina, None=Non specificato
     notify_category_requests: bool = Field(default=True)  # 🔔 Ricevi notifiche per richieste in categoria
     user_type_id: int = Field(default=1)  # 1=Utente, 2=Verificatore, 3=Amministratore
     

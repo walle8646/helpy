@@ -32,6 +32,7 @@
             left: 0;
             right: 0;
             z-index: 1000;
+            overflow: visible;
         }
         
         /* Left: Solo Logo + Helpy */
@@ -155,6 +156,7 @@
             display: flex;
             align-items: center;
             gap: 24px;
+            overflow: visible;
         }
         
         .navbar-link {
@@ -522,6 +524,7 @@
         .navbar-dropdown {
             position: relative;
             display: inline-block;
+            overflow: visible;
         }
         
         .navbar-dropdown-content {
@@ -535,7 +538,7 @@
             border-radius: 12px;
             padding: 12px 0;
             margin-top: 8px;
-            z-index: 1000;
+            z-index: 10000;
             animation: dropdownSlide 0.3s ease;
         }
         
@@ -793,10 +796,10 @@
                 <!-- User Profile Picture Dropdown -->
                 <div class="user-profile-dropdown" onclick="toggleUserMenu(event)">
                     <img 
-                        src="{{ current_user.profile_picture or '/static/default-avatar.png' }}" 
+                        src="{{ current_user.profile_picture or current_user|default_avatar }}" 
                         alt="{{ current_user.nome or 'Profile' }}" 
                         class="navbar-profile-pic"
-                        onerror="this.src='/static/default-avatar.png'"
+                        onerror="this.src='{{ current_user|default_avatar }}'"
                     >
                     
                     <!-- Dropdown Menu -->

@@ -276,6 +276,7 @@
     grid-template-columns: 160px 1fr !important;
     gap: 20px !important;
     padding: 20px !important;
+    flex: 1 !important;
 }
 
 /* Link foto */

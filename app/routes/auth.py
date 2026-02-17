@@ -57,7 +57,7 @@ def verify_token(request: Request) -> Optional[User]:
             logger.warning("⚠️ Token expired")
             return None
         except jwt.InvalidTokenError as e:
-            logger.warning(f"⚠️ Invalid token: {e}")
+            logger.warning(f"⚠️ Invalid token: {str(e)}")
             return None
         
         # ✅ Ottieni utente dal database
@@ -71,7 +71,7 @@ def verify_token(request: Request) -> Optional[User]:
             return user
     
     except Exception as e:
-        logger.error(f"Error verifying token: {e}", exc_info=True)
+        logger.error(f"Error verifying token: {str(e)}", exc_info=True)
         return None
 
 # Alias per compatibilità
@@ -177,7 +177,7 @@ async def api_login(
             }, status_code=200)
     
     except Exception as e:
-        logger.error(f"Login error: {e}", exc_info=True)
+        logger.error(f"Login error: {str(e)}", exc_info=True)
         return JSONResponse(
             {"error": "Errore durante il login"},
             status_code=500

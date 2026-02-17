@@ -214,7 +214,8 @@ async def update_profile(
     prezzo_consulenza: Optional[int] = Form(None),
     is_anonymous: Optional[bool] = Form(None),  # ✅ NUOVO: flag anonimato
     notify_category_requests: Optional[bool] = Form(None),  # ✅ NUOVO: notifiche categoria
-    selected_subcategories: str = Form(None)  # ✅ NUOVO: JSON array di subcategory IDs
+    selected_subcategories: str = Form(None),  # ✅ NUOVO: JSON array di subcategory IDs
+    genere: Optional[str] = Form(None)  # ✅ Genere: M/F/None
 ):
     """Aggiorna profilo utente"""
     try:
@@ -246,6 +247,12 @@ async def update_profile(
                 db_user.aree_interesse = aree_interesse
                 logger.info(f"✅ Aree di interesse aggiornate per user {db_user.id}: '{aree_interesse}'")
             if prezzo_consulenza is not None:
+                # Validazione: prezzo minimo 15 euro
+                if prezzo_consulenza < 15:
+                    return JSONResponse(
+                        {"error": "Il prezzo della consulenza deve essere almeno 15€/ora"},
+                        status_code=400
+                    )
                 db_user.prezzo_consulenza = prezzo_consulenza
             if is_anonymous is not None:  # ✅ NUOVO: aggiorna flag anonimato
                 # Converti la stringa "true"/"false" a booleano
@@ -262,6 +269,10 @@ async def update_profile(
             if selected_subcategories is not None:  # ✅ NUOVO: salva JSON array
                 db_user.selected_subcategories = selected_subcategories
                 logger.info(f"✅ Subcategories updated for user: {db_user.id} - {selected_subcategories}")
+            if genere is not None:
+                # Accetta solo 'M', 'F' o stringa vuota (→ None)
+                db_user.genere = genere if genere in ('M', 'F') else None
+                logger.info(f"✅ Genere updated for user {db_user.id}: {db_user.genere}")
             
             session.add(db_user)
             session.commit()

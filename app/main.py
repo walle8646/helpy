@@ -10,7 +10,7 @@ from app.routes import home, auth, consultants, user_profile, messages, communit
 from app.logger_config import logger
 from app.scheduler import start_scheduler, shutdown_scheduler
 from app.utils.template_helpers import get_all_categories
-from app.utils_user import get_display_name
+from app.utils_user import get_display_name, get_default_avatar
 
 app = FastAPI(title="Helpy", version="1.0.0")
 
@@ -38,6 +38,7 @@ app.add_middleware(CategoriesMiddleware)
 templates = Jinja2Templates(directory="app/templates")
 # Aggiungi filtro personalizzato per nomi utenti
 templates.env.filters['display_name'] = get_display_name
+templates.env.filters['default_avatar'] = get_default_avatar
 app.state.templates = templates
 
 # Crea directory uploads

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="100" fill="#e8f5e9"/>
+  
+  <!-- Head -->
+  <circle cx="100" cy="78" r="36" fill="#4caf50"/>
+  
+  <!-- Face (skin) -->
+  <circle cx="100" cy="78" r="32" fill="#ffcc99"/>
+  
+  <!-- Hair -->
+  <path d="M64 76 Q64 38 100 36 Q136 38 136 76 Q134 52 100 50 Q66 52 64 76Z" fill="#5d3a1a"/>
+  <!-- Side hair -->
+  <path d="M64 76 Q60 96 66 110 Q68 96 68 78Z" fill="#5d3a1a"/>
+  <path d="M136 76 Q140 96 134 110 Q132 96 132 78Z" fill="#5d3a1a"/>
+  <!-- Bangs -->
+  <path d="M72 60 Q86 50 100 56 Q92 48 72 60Z" fill="#5d3a1a"/>
+  
+  <!-- Eyes -->
+  <ellipse cx="86" cy="76" rx="4" ry="5" fill="#333"/>
+  <ellipse cx="114" cy="76" rx="4" ry="5" fill="#333"/>
+  <circle cx="87.5" cy="74.5" r="1.5" fill="white"/>
+  <circle cx="115.5" cy="74.5" r="1.5" fill="white"/>
+  
+  <!-- Eyelashes -->
+  <path d="M80 72 L78 69" stroke="#333" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M82 71 L81 68" stroke="#333" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M120 72 L122 69" stroke="#333" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M118 71 L119 68" stroke="#333" stroke-width="1.5" stroke-linecap="round"/>
+  
+  <!-- Eyebrows -->
+  <path d="M78 66 Q86 62 94 66" stroke="#5d3a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M106 66 Q114 62 122 66" stroke="#5d3a1a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  
+  <!-- Nose -->
+  <path d="M100 80 Q97 87 98 88 Q100 89 102 88 Q103 87 100 80" fill="#e8b882"/>
+  
+  <!-- Lips -->
+  <path d="M90 94 Q100 104 110 94" stroke="#e87474" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M92 94 Q100 98 108 94" fill="#f09090" stroke="none"/>
+  
+  <!-- Blush -->
+  <ellipse cx="76" cy="90" rx="7" ry="4" fill="#ffb3b3" opacity="0.4"/>
+  <ellipse cx="124" cy="90" rx="7" ry="4" fill="#ffb3b3" opacity="0.4"/>
+  
+  <!-- Body/Shoulders -->
+  <path d="M40 200 Q40 152 68 140 Q84 132 100 132 Q116 132 132 140 Q160 152 160 200Z" fill="#4caf50"/>
+  
+  <!-- V-neck -->
+  <path d="M88 132 L100 152 L112 132" fill="#388e3c" stroke="#388e3c" stroke-width="1"/>
+  
+  <!-- Necklace -->
+  <path d="M82 134 Q100 142 118 134" fill="none" stroke="#ffd54f" stroke-width="1.5"/>
+  <circle cx="100" cy="141" r="3" fill="#ffd54f"/>
+</svg>

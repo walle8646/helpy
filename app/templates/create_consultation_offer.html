@@ -233,20 +233,21 @@
     
     <form method="POST" action="/consulenza/crea/{{ client.id }}" id="consultationForm">
         <div class="form-group">
-            <label for="price">Prezzo (€)</label>
+            <label for="price">Prezzo (€) <span style="color: #d32f2f;">*</span></label>
             <div class="price-input-wrapper">
                 <span class="currency-symbol">€</span>
                 <input 
                     type="number" 
                     id="price" 
                     name="price" 
-                    min="1" 
+                    min="15" 
                     step="0.01"
                     value="{{ default_price }}" 
                     required
                 >
             </div>
             <div class="help-text">Il prezzo che il cliente dovrà pagare per questa consulenza</div>
+            <small style="color: #d32f2f;">⚠️ Minimo 15€</small>
         </div>
         
         <div class="form-group">

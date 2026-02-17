@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="100" fill="#e8f5e9"/>
+  
+  <!-- Head -->
+  <circle cx="100" cy="78" r="36" fill="#4caf50"/>
+  
+  <!-- Face (skin) -->
+  <circle cx="100" cy="78" r="32" fill="#c8e6c9"/>
+  
+  <!-- Silhouette style - modern flat avatar -->
+  <!-- Hair -->
+  <path d="M66 72 Q66 42 100 40 Q134 42 134 72 Q132 54 100 52 Q68 54 66 72Z" fill="#2e7d32"/>
+  
+  <!-- Eyes -->
+  <ellipse cx="86" cy="76" rx="4" ry="4.5" fill="#1b5e20"/>
+  <ellipse cx="114" cy="76" rx="4" ry="4.5" fill="#1b5e20"/>
+  
+  <!-- Smile -->
+  <path d="M90 94 Q100 104 110 94" stroke="#2e7d32" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  
+  <!-- Body/Shoulders -->
+  <path d="M40 200 Q40 150 70 138 Q85 131 100 131 Q115 131 130 138 Q160 150 160 200Z" fill="#2e7d32"/>
+  
+  <!-- Person icon on chest -->
+  <circle cx="100" cy="162" r="6" fill="#e8f5e9"/>
+  <path d="M88 180 Q88 172 100 170 Q112 172 112 180" fill="#e8f5e9"/>
+</svg>

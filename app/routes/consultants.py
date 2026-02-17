@@ -296,6 +296,7 @@ async def consultants_page(
                     "user": current_user,
                     "current_user": current_user,
                     "consultants": enriched_consultants,
+                    "categories": principal_categories,
                     "categories_with_children": categories_with_children,
                     "child_to_parent_map": child_to_parent_map,
                     "selected_category": category,
@@ -332,6 +333,7 @@ async def consultants_page(
                 "user": None,  # ⚠️ Mantenuto per compatibilità
                 "current_user": None,  # ✅ Aggiunto per navbar
                 "consultants": [],
+                "categories": [],
                 "categories_with_children": categories_with_children,
                 "child_to_parent_map": {},
                 "selected_category": None,

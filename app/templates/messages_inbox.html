@@ -150,12 +150,14 @@
                         const lastMsg = conv.last_message?.content || 'Nessun messaggio';
                         const preview = lastMsg.length > 50 ? lastMsg.substring(0, 50) + '...' : lastMsg;
 
+                        const defaultAvatar = conv.other_user.genere === 'M' ? '/static/avatar-male.svg' : conv.other_user.genere === 'F' ? '/static/avatar-female.svg' : '/static/avatar-default.svg';
+
                         return `
-                            <div class="conversation-item" onclick="openChat(${conv.other_user.id}, '${conv.other_user.nome} ${conv.other_user.cognome || ''}', '${conv.other_user.profile_picture || '/static/uploads/profile_pictures/default.jpg'}')" style="cursor: pointer;">
+                            <div class="conversation-item" onclick="openChat(${conv.other_user.id}, '${conv.other_user.nome} ${conv.other_user.cognome || ''}', '${conv.other_user.profile_picture || defaultAvatar}')" style="cursor: pointer;">
                                 <div class="conversation-avatar">
-                                    <img src="${conv.other_user.profile_picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(conv.other_user.nome) + '&background=667eea&color=fff'}" 
+                                    <img src="${conv.other_user.profile_picture || defaultAvatar}" 
                                          alt="${conv.other_user.nome}"
-                                         onerror="this.src='https://ui-avatars.com/api/?name=User&background=667eea&color=fff'">
+                                         onerror="this.src='${defaultAvatar}'">
                                 </div>
                                 <div class="conversation-info">
                                     <div class="conversation-name">

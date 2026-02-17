@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, Form, File
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func
 from datetime import datetime, timedelta, time
 from typing import Optional, List, Dict, Union
@@ -17,7 +16,6 @@ from app.utils.stripe_config import create_checkout_session
 from app.utils.notification_service import send_notification
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 # ===== PYDANTIC MODELS =====
 class ChatMessageRequest(BaseModel):
@@ -168,7 +166,7 @@ async def booking_page(
     # Verifica che l'utente sia autenticato
     current_user = get_current_user(request)
     if not current_user:
-        return templates.TemplateResponse("login.html", {
+        return request.app.state.templates.TemplateResponse("login.html", {
             "request": request,
             "error": "Devi effettuare il login per prenotare una consulenza"
         })
@@ -190,7 +188,7 @@ async def booking_page(
         if current_user.id == consultant_id:
             raise HTTPException(status_code=400, detail="Non puoi prenotare una consulenza con te stesso")
         
-        return templates.TemplateResponse("booking.html", {
+        return request.app.state.templates.TemplateResponse("booking.html", {
             "request": request,
             "user": current_user,
             "current_user": current_user,  # Per la navbar
@@ -748,7 +746,7 @@ async def call_page(booking_id: int, request: Request):
         if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
             raise HTTPException(status_code=403, detail="Non autorizzato")
         
-        return templates.TemplateResponse("call.html", {
+        return request.app.state.templates.TemplateResponse("call.html", {
             "request": request,
             "user": current_user,
             "current_user": current_user,
@@ -1052,7 +1050,7 @@ async def get_booking_recording(booking_id: int, request: Request):
 async def booking_success(request: Request):
     """Payment success page"""
     current_user = get_current_user(request)
-    return templates.TemplateResponse("booking_success.html", {
+    return request.app.state.templates.TemplateResponse("booking_success.html", {
         "request": request,
         "user": current_user,
         "current_user": current_user
@@ -1063,7 +1061,7 @@ async def booking_cancel(request: Request, offer_id: Optional[int] = None):
     """Payment cancelled page"""
     current_user = get_current_user(request)
     back_url = f"/consulenza/prenota/{offer_id}" if offer_id else "/profile"
-    return templates.TemplateResponse("booking_cancel.html", {
+    return request.app.state.templates.TemplateResponse("booking_cancel.html", {
         "request": request,
         "user": current_user,
         "current_user": current_user,

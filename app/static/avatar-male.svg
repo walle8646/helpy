@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="100" fill="#e8f5e9"/>
+  
+  <!-- Head -->
+  <circle cx="100" cy="78" r="36" fill="#4caf50"/>
+  
+  <!-- Face (skin) -->
+  <circle cx="100" cy="78" r="32" fill="#ffcc99"/>
+  
+  <!-- Hair -->
+  <path d="M68 72 Q68 44 100 42 Q132 44 132 72 Q132 56 100 54 Q68 56 68 72Z" fill="#5d4037"/>
+  <rect x="66" y="56" width="68" height="8" rx="4" fill="#5d4037"/>
+  
+  <!-- Eyes -->
+  <ellipse cx="86" cy="76" rx="4" ry="4.5" fill="#333"/>
+  <ellipse cx="114" cy="76" rx="4" ry="4.5" fill="#333"/>
+  <circle cx="87.5" cy="74.5" r="1.5" fill="white"/>
+  <circle cx="115.5" cy="74.5" r="1.5" fill="white"/>
+  
+  <!-- Eyebrows -->
+  <path d="M78 68 Q86 64 94 68" stroke="#5d4037" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M106 68 Q114 64 122 68" stroke="#5d4037" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  
+  <!-- Nose -->
+  <path d="M100 80 Q96 88 98 89 Q100 90 102 89 Q104 88 100 80" fill="#e8b882"/>
+  
+  <!-- Smile -->
+  <path d="M88 94 Q100 106 112 94" stroke="#c97856" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  
+  <!-- Body/Shoulders -->
+  <path d="M40 200 Q40 148 72 136 Q86 130 100 130 Q114 130 128 136 Q160 148 160 200Z" fill="#2e7d32"/>
+  
+  <!-- Shirt collar -->
+  <path d="M86 130 L100 148 L114 130" fill="#1b5e20" stroke="#1b5e20" stroke-width="1"/>
+  
+  <!-- Shirt detail -->
+  <line x1="100" y1="148" x2="100" y2="180" stroke="#1b5e20" stroke-width="2"/>
+  <circle cx="100" cy="158" r="2" fill="#e8f5e9"/>
+  <circle cx="100" cy="170" r="2" fill="#e8f5e9"/>
+</svg>

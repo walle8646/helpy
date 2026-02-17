@@ -1,7 +1,6 @@
 """Route per gestione disponibilità consulenze"""
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, func, and_
 from datetime import datetime, timedelta, date, time
 from typing import List, Optional
@@ -12,7 +11,6 @@ from app.models import User, AvailabilityBlock
 from app.routes.auth import verify_token
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 logger = logging.getLogger(__name__)
 
 
@@ -39,12 +37,12 @@ async def availability_page(request: Request):
     """Pagina gestione disponibilità"""
     user = verify_token(request)
     if not user:
-        return templates.TemplateResponse("login.html", {
+        return request.app.state.templates.TemplateResponse("login.html", {
             "request": request,
             "error": "Devi effettuare il login per accedere a questa pagina"
         })
     
-    return templates.TemplateResponse("availability.html", {
+    return request.app.state.templates.TemplateResponse("availability.html", {
         "request": request,
         "user": user,
         "current_user": user
