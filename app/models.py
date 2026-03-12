@@ -53,6 +53,7 @@ class User(SQLModel, table=True):
     bollini: int = Field(default=0)
     descrizione: Optional[str] = None
     aree_interesse: Optional[str] = None
+    tags: Optional[str] = None  # JSON array di tag generati da AI per la ricerca
     
     # Status
     confirmed: int = Field(default=0)

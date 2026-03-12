@@ -811,6 +811,20 @@ function renderCalendar() {
     }
 }
 
+// Calcola l'orario minimo consentito (4 ore da adesso) — vale solo per oggi
+function getMinStartTime() {
+    if (!selectedDate) return null;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sel = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+    if (sel.getTime() !== today.getTime()) return null; // non è oggi
+    
+    const minDate = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+    const hh = String(minDate.getHours()).padStart(2, '0');
+    const mm = String(minDate.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+}
+
 function selectDate(date) {
     selectedDate = date;
     const dateStr = formatDate(date);
@@ -823,7 +837,14 @@ function selectDate(date) {
     
     // Aggiorna header
     const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-    document.getElementById('selectedDate').textContent = date.toLocaleDateString('it-IT', options);
+    let headerText = date.toLocaleDateString('it-IT', options);
+    
+    // Mostra hint se è oggi
+    const minTime = getMinStartTime();
+    if (minTime) {
+        headerText += ` — ⚠️ Disponibilità dalle ${minTime} in poi (min. 4h da adesso)`;
+    }
+    document.getElementById('selectedDate').textContent = headerText;
     
     // Carica disponibilità per questa data
     loadAvailability(dateStr);
@@ -922,7 +943,19 @@ function renderTimeBlocks() {
 
 function addTimeBlock() {
     const lastBlock = timeBlocks[timeBlocks.length - 1];
-    const newStart = lastBlock ? lastBlock.end_time : '09:00';
+    let newStart = lastBlock ? lastBlock.end_time : '09:00';
+    
+    // Se è oggi, forza orario minimo a 4h da adesso
+    const minTime = getMinStartTime();
+    if (minTime && newStart < minTime) {
+        // Arrotonda al prossimo quarto d'ora
+        const [mh, mmn] = minTime.split(':').map(Number);
+        const rounded = Math.ceil((mh * 60 + mmn) / 15) * 15;
+        const rh = Math.floor(rounded / 60);
+        const rm = rounded % 60;
+        newStart = `${String(rh).padStart(2, '0')}:${String(rm).padStart(2, '0')}`;
+    }
+    
     const newEnd = calculateEndTime(newStart, 60);
     
     timeBlocks.push({
@@ -943,6 +976,15 @@ function calculateEndTime(startTime, minutes) {
 }
 
 function updateBlock(index, field, value) {
+    // Se si modifica start_time per oggi, verifica vincolo 4 ore
+    if (field === 'start_time') {
+        const minTime = getMinStartTime();
+        if (minTime && value < minTime) {
+            alert(`⚠️ Per oggi l'orario di inizio deve essere almeno ${minTime} (4 ore da adesso)`);
+            renderTimeBlocks(); // ripristina valore precedente
+            return;
+        }
+    }
     timeBlocks[index][field] = value;
 }
 
@@ -1005,6 +1047,17 @@ async function saveAvailability() {
         if (block.start_time >= block.end_time) {
             alert(`❌ Blocco ${i + 1}: L'orario di fine deve essere maggiore dell'orario di inizio`);
             return;
+        }
+    }
+
+    // ✅ Valida vincolo 4 ore per oggi
+    const minTime = getMinStartTime();
+    if (minTime) {
+        for (let i = 0; i < timeBlocks.length; i++) {
+            if (timeBlocks[i].start_time < minTime) {
+                alert(`⚠️ Blocco ${i + 1}: Per oggi l'orario di inizio deve essere almeno ${minTime} (4 ore da adesso)`);
+                return;
+            }
         }
     }
 

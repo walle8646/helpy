@@ -4,238 +4,480 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="/static/profile.css">
+<style>
+/* ===== PUBLIC PROFILE — CONVERSATIONAL LAYOUT ===== */
+
+.pub-page {
+    min-height: 100vh;
+}
+
+/* Full hero (initial view) */
+.pub-hero {
+    background: linear-gradient(135deg, #1a4d2e 0%, #2d6a4f 50%, #1a4d2e 100%);
+    padding: 56px 0 0 0;
+    color: white;
+    margin: 0 -24px 0 -40px;
+    position: relative;
+    z-index: 10;
+}
+
+.pub-hero-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-end;
+    gap: 36px;
+    padding: 0 40px 44px 40px;
+}
+
+.pub-hero img {
+    width: 180px;
+    height: 180px;
+    border-radius: 16px;
+    border: 3px solid rgba(255,255,255,.85);
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.pub-hero-text h1 {
+    font-size: 2.2em;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    color: white;
+    letter-spacing: -.3px;
+}
+
+.pub-hero-text .pub-role {
+    font-size: 1.05em;
+    color: #a8d5ba;
+    font-weight: 500;
+    margin: 0;
+}
+
+.pub-hero-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+.pub-hero-skills span {
+    padding: 4px 12px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.15);
+    backdrop-filter: blur(6px);
+    color: rgba(255,255,255,.92);
+    font-size: .82em;
+    font-weight: 500;
+    border: 1px solid rgba(255,255,255,.18);
+    transition: background .2s;
+}
+
+.pub-hero-skills span:hover {
+    background: rgba(255,255,255,.25);
+}
+
+{% if category %}
+.pub-hero-text .pub-cat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    background: rgba(255,255,255,.15);
+    backdrop-filter: blur(6px);
+    font-size: .88em;
+    color: rgba(255,255,255,.92);
+    font-weight: 500;
+}
+{% endif %}
+
+{% if is_own_profile %}
+.pub-hero-text .btn-edit {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 8px 18px;
+    background: white;
+    color: #2d6a4f;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: .9em;
+    cursor: pointer;
+    transition: all .2s;
+    text-decoration: none;
+}
+.pub-hero-text .btn-edit:hover {
+    background: #f0f8f0;
+    transform: translateY(-1px);
+}
+{% endif %}
+
+/* Narrative column */
+.pub-narrative-col {
+    min-width: 0;
+}
+
+.pub-narrative {
+    font-size: 1.08em;
+    line-height: 1.75;
+    color: #374151;
+}
+
+.pub-narrative p {
+    margin: 0 0 20px 0;
+}
+
+.pub-narrative .pub-section-label {
+    font-weight: 700;
+    font-size: .82em;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #2d6a4f;
+    margin: 40px 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pub-narrative .pub-section-label::before {
+    content: '';
+    width: 20px;
+    height: 2px;
+    background: #2d6a4f;
+    border-radius: 2px;
+}
+
+.pub-desc {
+    white-space: pre-wrap;
+    color: #374151;
+}
+
+.pub-placeholder {
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* Interests as inline flow */
+.pub-interests {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.pub-interests span {
+    padding: 6px 16px;
+    border-radius: 20px;
+    background: #f0faf3;
+    color: #2d6a4f;
+    font-size: .9em;
+    font-weight: 500;
+    border: 1px solid #d1e7dd;
+    transition: all .2s;
+}
+
+.pub-interests span:hover {
+    background: #d1e7dd;
+}
+
+/* Category inline */
+.pub-category-inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, {{ category.color if category else '#4CAF50' }}10, {{ category.color if category else '#4CAF50' }}08);
+    border: 1px solid {{ category.color if category else '#4CAF50' }}25;
+    margin-top: 6px;
+}
+
+.pub-category-inline .pub-cat-icon {
+    font-size: 1.6em;
+}
+
+.pub-category-inline .pub-cat-info h4 {
+    margin: 0;
+    font-size: 1em;
+    color: {{ category.color if category else '#4CAF50' }};
+    font-weight: 600;
+}
+
+.pub-category-inline .pub-cat-info p {
+    margin: 2px 0 0 0;
+    font-size: .88em;
+    color: #6b7280;
+}
+
+/* Stats row inline */
+.pub-stats-row {
+    display: flex;
+    gap: 32px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.pub-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.pub-stat strong {
+    font-size: 1.3em;
+    font-weight: 700;
+    color: #1a202c;
+}
+
+.pub-stat span {
+    font-size: .88em;
+    color: #6b7280;
+}
+
+/* Divider */
+.pub-divider {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 32px 0;
+}
+
+/* (CTA styles moved to .pub-sidebar-card above) */
+
+/* Override profile-container for public profile */
+.pub-page .profile-container {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+}
+
+.pub-page .main-content {
+    padding: 0;
+    gap: 0;
+}
+
+/* Two-column layout below hero */
+.pub-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 40px;
+    padding: 40px 40px 60px;
+    align-items: start;
+}
+
+/* Sidebar CTA sticky */
+.pub-sidebar {
+    position: sticky;
+    top: 80px;
+    align-self: start;
+}
+
+.pub-sidebar-card {
+    background: #5ec26a;
+    border-radius: 16px;
+    padding: 28px 24px;
+    border: none;
+    box-shadow: 0 4px 20px rgba(45,106,79,.15);
+    text-align: center;
+}
+
+.pub-sidebar-card h3 {
+    margin: 0 0 6px 0;
+    font-size: 1.1em;
+    color: white;
+    font-weight: 700;
+}
+
+.pub-sidebar-card .pub-sidebar-sub {
+    margin: 0 0 16px 0;
+    color: rgba(255,255,255,.85);
+    font-size: .9em;
+}
+
+.pub-sidebar-card .pub-sidebar-price {
+    font-size: 2em;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 2px;
+    line-height: 1.1;
+}
+
+.pub-sidebar-card .pub-sidebar-price span {
+    font-size: .4em;
+    font-weight: 400;
+    color: rgba(255,255,255,.8);
+}
+
+.pub-sidebar-card .pub-sidebar-btn {
+    display: block;
+    margin-top: 16px;
+    padding: 14px 20px;
+    background: white;
+    color: #2d6a4f;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all .25s;
+    text-decoration: none;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.1);
+}
+
+.pub-sidebar-card .pub-sidebar-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,.15);
+}
+
+.pub-sidebar-card .pub-sidebar-btn.disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.pub-sidebar-card .pub-sidebar-msg {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px;
+    padding: 14px 20px;
+    background: #1a4d2e;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all .2s;
+    text-decoration: none;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.15);
+}
+
+.pub-sidebar-card .pub-sidebar-msg:hover {
+    background: #143d23;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0,0,0,.2);
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+    .pub-layout {
+        grid-template-columns: 1fr;
+        padding: 28px 20px 48px;
+        gap: 24px;
+    }
+    .pub-sidebar { position: static; }
+    .pub-hero-inner {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 0 24px 32px;
+    }
+    .pub-hero img { width: 130px; height: 130px; }
+    .pub-hero-text h1 { font-size: 1.7em; }
+    .pub-narrative-col { padding: 0; }
+    .pub-stats-row { justify-content: center; }
+}
+</style>
 {% endblock %}
 
 {% block content %}
+<div class="pub-page">
 <div class="profile-container">
     <main class="main-content">
-        <!-- Profile Header -->
-        <header class="profile-header card">
-            <!-- ✅ Foto Profilo -->
-            <img data-src="{{ user.profile_picture or user|default_avatar }}" 
-                 alt="{{ user.nome }}" 
-                 class="profile-avatar-large"
-                 onerror="this.onerror=null; this.src='{{ user|default_avatar }}'">
-            
-            <div class="info">
-                <!-- ✅ Nome completo con cognome -->
-                <h1>{{ user.nome }} {{ user.cognome or '' }}</h1>
-                <p>{{ user.professione or 'Professionista' }}</p>
-                <small style="color: #888;">Membro dal {{ user.created_at }}</small>
-                {% if is_own_profile %}
-                <a href="/profile" class="btn-edit">✏️ Modifica il tuo profilo</a>
-                {% endif %}
+        <!-- Hero compatto -->
+        <div class="pub-hero">
+            <div class="pub-hero-inner">
+                <img src="{{ user.profile_picture or user|default_avatar }}" 
+                     alt="{{ user.nome }}"
+                     onerror="this.onerror=null; this.src='{{ user|default_avatar }}'">
+                <div class="pub-hero-text">
+                    <h1>{{ user|display_name }}</h1>
+                    <p class="pub-role">{{ user.professione or 'Professionista' }}</p>
+                    {% if category %}
+                    <div class="pub-cat-pill">{{ category.icon }} {{ category.name }}</div>
+                    {% endif %}
+                    {% if aree_interesse_list %}
+                    <div class="pub-hero-skills">
+                        {% for area in aree_interesse_list %}
+                        <span>{{ area }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if is_own_profile %}
+                    <a href="/profile" class="btn-edit">✏️ Modifica profilo</a>
+                    {% endif %}
+                </div>
             </div>
-        </header>
+        </div>
 
-        <!-- About Section -->
-        <section class="card">
-            <h2>About</h2>
-            {% if user.descrizione %}
-            <p style="white-space: pre-wrap;">{{ user.descrizione }}</p>
-            {% else %}
-            <p style="color:#888;">{{ user.nome or 'Questo utente' }} non ha ancora aggiunto una descrizione al profilo.</p>
-            {% endif %}
-        </section>
+        <!-- Layout a due colonne: narrativo + sidebar CTA -->
+        <div class="pub-layout">
+            <!-- Colonna sinistra: contenuto narrativo -->
+            <div class="pub-narrative-col">
+                <div class="pub-narrative">
 
-        <!-- Areas of Interest -->
-        {% if aree_interesse_list %}
-        <section class="card">
-            <h2>🎯 Aree di Interesse</h2>
-            <ul>
-                {% for area in aree_interesse_list %}
-                <li>{{ area }}</li>
-                {% endfor %}
-            </ul>
-        </section>
-        {% endif %}
+                    <!-- Chi sono -->
+                    {% if user.descrizione %}
+                    <p class="pub-desc">{{ user.descrizione }}</p>
+                    {% else %}
+                    <p class="pub-placeholder">{{ user|display_name }} non ha ancora aggiunto una presentazione.</p>
+                    {% endif %}
 
-        <!-- Skills / Macro Areas -->
-        {% if macro_aree_list %}
-        <section class="card">
-            <h2>💼 Competenze</h2>
-            <div class="skills-container">
-                {% for skill in macro_aree_list %}
-                <span class="skill-tag">{{ skill }}</span>
-                {% endfor %}
+                    <!-- Statistiche inline -->
+                    {% if user.consulenze_vendute > 0 or user.bollini > 0 %}
+                    <div class="pub-stats-row">
+                        {% if user.consulenze_vendute > 0 %}
+                        <div class="pub-stat">
+                            <strong>{{ user.consulenze_vendute }}</strong>
+                            <span>consulenz{{ 'a' if user.consulenze_vendute == 1 else 'e' }} completat{{ 'a' if user.consulenze_vendute == 1 else 'e' }}</span>
+                        </div>
+                        {% endif %}
+                        {% if user.bollini > 0 %}
+                        <div class="pub-stat">
+                            <strong>{{ user.bollini }} 🏅</strong>
+                            <span>bollini guadagnati</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                </div>
             </div>
-        </section>
-        {% endif %}
-        
-        <!-- Reviews Section -->
-        <section class="card">
-            <h2>⭐ Recensioni e Voti</h2>
-            <p style="color:#888;">Nessuna recensione disponibile al momento.</p>
-        </section>
 
-        <!-- Category Badge -->
-        {% if category %}
-        <section class="card">
-            <h2>📂 Categoria</h2>
-            <div class="category-badge" style="background:{{ category.color }}20; border-left:4px solid {{ category.color }}; padding:16px; border-radius:8px;">
-                <div style="font-size:2em; margin-bottom:8px;">{{ category.icon }}</div>
-                <h3 style="margin:0 0 8px 0; color:{{ category.color }};">{{ category.name }}</h3>
-                <p style="margin:0; color:#666;">{{ category.description }}</p>
-                {% if category.target %}
-                <small style="color:#888; display:block; margin-top:8px;"><strong>Target:</strong> {{ category.target }}</small>
-                {% endif %}
+            <!-- Colonna destra: CTA sticky -->
+            <div class="pub-sidebar">
+                <div class="pub-sidebar-card">
+                    <h3>Prenota una consulenza</h3>
+                    {% if user.prezzo_consulenza %}
+                    <div class="pub-sidebar-price">€{{ user.prezzo_consulenza }} <span>/ ora</span></div>
+                    {% endif %}
+                    <p class="pub-sidebar-sub">Sessione 1-on-1 in videochiamata</p>
+
+                    {% if is_own_profile %}
+                    <div class="pub-sidebar-btn disabled">Non puoi prenotare te stesso</div>
+                    {% elif not current_user %}
+                    <a href="/login?redirect=/user/{{ user.id }}" class="pub-sidebar-btn">Accedi per Prenotare</a>
+                    {% else %}
+                    <a href="/book/{{ user.id }}" class="pub-sidebar-btn">Prenota Ora</a>
+                    {% endif %}
+
+                    {% if not is_own_profile and current_user %}
+                    <button onclick="openChat({{ user.id }}, '{{ user.nome }} {{ user.cognome }}', '{{ user.profile_picture_url }}')" 
+                            class="pub-sidebar-msg">💬 Invia un messaggio</button>
+                    {% endif %}
+                </div>
             </div>
-        </section>
-        {% endif %}
+        </div>
     </main>
-
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <!-- Mentorship Plans -->
-        <section class="consultation-card">
-            <h2>Mentorship plans</h2>
-            
-            <!-- Plan Tabs -->
-            <div class="plan-tabs">
-                <button class="plan-tab" onclick="switchPlan('lite')">Lite</button>
-                <button class="plan-tab active" onclick="switchPlan('standard')">Standard</button>
-                <button class="plan-tab" onclick="switchPlan('pro')">Pro</button>
-            </div>
-            
-            <!-- Lite Plan -->
-            <div id="lite-plan" class="plan-card" style="display: none;">
-                <h3>Lite</h3>
-                <div class="plan-price">$150<span class="plan-period"> /month</span></div>
-                <ul>
-                    <li>2 calls per month (30min/call)</li>
-                    <li>Email support</li>
-                    <li>Response in 48 hours</li>
-                </ul>
-                <button class="apply-btn">Apply now</button>
-            </div>
-            
-            <!-- Standard Plan (Default) -->
-            <div id="standard-plan" class="plan-card standard">
-                <span class="badge">Most Popular</span>
-                <h3>Standard</h3>
-                <div class="plan-price">$450<span class="plan-period"> /month</span></div>
-                <ul>
-                    <li>4 calls per month (60min/call)</li>
-                    <li>Unlimited Q&A via chat</li>
-                    <li>Expect responses in 24 hours or less</li>
-                </ul>
-                <button class="apply-btn">Apply now</button>
-            </div>
-            
-            <!-- Pro Plan -->
-            <div id="pro-plan" class="plan-card" style="display: none;">
-                <h3>Pro</h3>
-                <div class="plan-price">$800<span class="plan-period"> /month</span></div>
-                <ul>
-                    <li>8 calls per month (90min/call)</li>
-                    <li>Priority email support</li>
-                    <li>24/7 chat availability</li>
-                    <li>Custom project review</li>
-                </ul>
-                <button class="apply-btn">Apply now</button>
-            </div>
-        </section>
-        
-        <!-- Consultation Booking Card -->
-        <section class="consultation-card">
-            <h2>💬 Richiedi una Consulenza</h2>
-            <div class="price">€{{ user.prezzo_consulenza }} <span>/ {{ user.durata_consulenza }} min</span></div>
-            
-            <ul>
-                <li>✅ Consulenza personalizzata 1-on-1</li>
-                <li>✅ Sessione Q&A illimitata</li>
-                <li>✅ Follow-up via email</li>
-                <li>✅ Materiali di supporto inclusi</li>
-            </ul>
-
-            {% if is_own_profile %}
-            <div class="btn btn-secondary" style="cursor: not-allowed; opacity: 0.6;">Non puoi prenotare te stesso</div>
-            {% elif not current_user %}
-            <a href="/login?redirect=/user/{{ user.id }}" class="btn btn-primary">Accedi per Prenotare</a>
-            <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Devi essere loggato per richiedere una consulenza</p>
-            {% else %}
-            <a href="/book/{{ user.id }}" class="btn btn-primary">Prenota Ora</a>
-            <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Scegli data e orario nel calendario.</p>
-            {% endif %}
-        </section>
-        
-        <!-- Stats Card -->
-        <section class="card">
-            <h3>📊 Statistiche</h3>
-            
-            <div class="stat-item">
-                <div class="stat-label">Consulenze Vendute</div>
-                <div class="stat-value">{{ user.consulenze_vendute }}</div>
-            </div>
-            
-            <div class="stat-item">
-                <div class="stat-label">Bollini Guadagnati</div>
-                <div class="stat-value" style="color: #f59e0b;">{{ user.bollini }} 🏅</div>
-            </div>
-            
-            <div class="stat-item">
-                <div class="stat-label">Valutazione Media</div>
-                <div class="stars">⭐⭐⭐⭐⭐</div>
-                <p style="margin:5px 0 0 0; font-size:0.9em; color:#888;">(0 recensioni)</p>
-            </div>
-        </section>
-
-        <!-- ✅ Messaging Card - BOTTONE CONTENUTO NEI BORDI -->
-        {% if not is_own_profile and current_user %}
-        <section class="card" style="padding: 20px;">
-            <h3 style="margin: 0 0 12px 0; text-align: center;">📩 Messaggistica</h3>
-            <p style="text-align: center; color: #555; font-size: 0.95em; margin: 0 0 16px 0;">
-                Invia un messaggio per domande veloci.
-            </p>
-            <button onclick="openChat({{ user.id }}, '{{ user.nome }} {{ user.cognome }}', '{{ user.profile_picture_url }}')" 
-               class="btn btn-secondary" 
-               style="display: block; 
-                      width: 100%; 
-                      box-sizing: border-box;
-                      text-align: center; 
-                      padding: 14px 20px; 
-                      background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); 
-                      color: white; 
-                      border-radius: 12px; 
-                      border: none;
-                      cursor: pointer;
-                      font-weight: 600; 
-                      transition: transform 0.2s, box-shadow 0.2s;
-                      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
-                💬 Invia Messaggio
-            </button>
-            </a>
-        </section>
-        {% endif %}
-    </aside>
+</div>
 </div>
 
-<script>
-    // ========== MENTORSHIP PLANS FUNCTIONALITY ==========
-    function switchPlan(planType) {
-        // Nascondi tutti i piani
-        document.getElementById('lite-plan').style.display = 'none';
-        document.getElementById('standard-plan').style.display = 'none';
-        document.getElementById('pro-plan').style.display = 'none';
-        
-        // Rimuovi la classe active da tutti i tab
-        document.querySelectorAll('.plan-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        
-        // Mostra il piano selezionato
-        document.getElementById(planType + '-plan').style.display = 'block';
-        
-        // Aggiungi la classe active al tab
-        event.target.classList.add('active');
-    }
-</script>
-
-<style>
-    /* ✅ Fix hover per bottone messaggi */
-    .sidebar .card a.btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-    }
-</style>
 {% endblock %}

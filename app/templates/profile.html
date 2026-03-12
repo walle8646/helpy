@@ -7,548 +7,700 @@
 <!-- Cropper.js Library -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 <style>
-    .modal {
-        position: fixed !important;
-        z-index: 999999 !important;
-        left: 0 !important;
-        top: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background-color: rgba(0, 0, 0, 0.9) !important;
-        display: none !important;
-    }
-    
-    .modal[style*="display: flex"],
-    .modal[style*="display:flex"] {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-    
-    .modal-content {
-        background: white !important;
-        padding: 40px !important;
-        border-radius: 16px !important;
-        max-width: 700px !important;
-        width: 90% !important;
-        position: relative !important;
-        z-index: 1000000 !important;
-    }
+/* ===== PROFILE PAGE — CONVERSATIONAL LAYOUT (mirrors user_profile) ===== */
 
-    /* ✅ Stili per modal rifiuto consulenza */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
+.pub-page {
+    min-height: 100vh;
+}
+
+.pub-hero {
+    background: linear-gradient(135deg, #1a4d2e 0%, #2d6a4f 50%, #1a4d2e 100%);
+    padding: 56px 0 0 0;
+    color: white;
+    margin: 0 -24px 0 -40px;
+    position: relative;
+    z-index: 10;
+}
+
+.pub-hero-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-end;
+    gap: 36px;
+    padding: 0 40px 44px 40px;
+}
+
+.pub-hero img {
+    width: 180px;
+    height: 180px;
+    border-radius: 16px;
+    border: 3px solid rgba(255,255,255,.85);
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.pub-hero-text h1 {
+    font-size: 2.2em;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    color: white;
+    letter-spacing: -.3px;
+}
+
+.pub-hero-text .pub-role {
+    font-size: 1.05em;
+    color: #a8d5ba;
+    font-weight: 500;
+    margin: 0;
+}
+
+.pub-hero-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+.pub-hero-skills span {
+    padding: 4px 12px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.15);
+    backdrop-filter: blur(6px);
+    color: rgba(255,255,255,.92);
+    font-size: .82em;
+    font-weight: 500;
+    border: 1px solid rgba(255,255,255,.18);
+    transition: background .2s;
+}
+
+.pub-hero-skills span:hover {
+    background: rgba(255,255,255,.25);
+}
+
+.pub-hero-text .pub-cat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    background: rgba(255,255,255,.15);
+    backdrop-filter: blur(6px);
+    font-size: .88em;
+    color: rgba(255,255,255,.92);
+    font-weight: 500;
+}
+
+.pub-hero-text .btn-edit {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 8px 18px;
+    background: white;
+    color: #2d6a4f;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: .9em;
+    cursor: pointer;
+    transition: all .2s;
+    text-decoration: none;
+}
+
+.pub-hero-text .btn-edit:hover {
+    background: #f0f8f0;
+    transform: translateY(-1px);
+}
+
+.pub-edit-avatar {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1em;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    transition: transform .2s;
+    border: 2px solid #2d6a4f;
+}
+
+.pub-edit-avatar:hover {
+    transform: scale(1.1);
+}
+
+/* Narrative column */
+.pub-narrative-col {
+    min-width: 0;
+}
+
+.pub-narrative {
+    font-size: 1.08em;
+    line-height: 1.75;
+    color: #374151;
+}
+
+.pub-narrative .pub-section-label {
+    font-weight: 700;
+    font-size: .82em;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #2d6a4f;
+    margin: 40px 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pub-narrative .pub-section-label::before {
+    content: '';
+    width: 20px;
+    height: 2px;
+    background: #2d6a4f;
+    border-radius: 2px;
+}
+
+.pub-desc {
+    white-space: pre-wrap;
+    color: #374151;
+}
+
+.pub-placeholder {
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* Stats row inline */
+.pub-stats-row {
+    display: flex;
+    gap: 32px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.pub-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.pub-stat strong {
+    font-size: 1.3em;
+    font-weight: 700;
+    color: #1a202c;
+}
+
+.pub-stat span {
+    font-size: .88em;
+    color: #6b7280;
+}
+
+/* Override profile-container for this layout */
+.pub-page .profile-container {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+}
+
+.pub-page .main-content {
+    padding: 0;
+    gap: 0;
+}
+
+/* Two-column layout below hero */
+.pub-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 40px;
+    padding: 40px 40px 60px;
+    align-items: start;
+}
+
+/* Sidebar CTA sticky */
+.pub-sidebar {
+    position: sticky;
+    top: 80px;
+    align-self: start;
+}
+
+.pub-sidebar-card {
+    background: #5ec26a;
+    border-radius: 16px;
+    padding: 28px 24px;
+    border: none;
+    box-shadow: 0 4px 20px rgba(45,106,79,.15);
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.pub-sidebar-card h3 {
+    margin: 0 0 6px 0;
+    font-size: 1.1em;
+    color: white;
+    font-weight: 700;
+}
+
+.pub-sidebar-card .pub-sidebar-sub {
+    margin: 0 0 16px 0;
+    color: rgba(255,255,255,.85);
+    font-size: .9em;
+}
+
+.pub-sidebar-card .pub-sidebar-price {
+    font-size: 2em;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 2px;
+    line-height: 1.1;
+}
+
+.pub-sidebar-card .pub-sidebar-price span {
+    font-size: .4em;
+    font-weight: 400;
+    color: rgba(255,255,255,.8);
+}
+
+.pub-sidebar-card .pub-sidebar-btn {
+    display: block;
+    margin-top: 16px;
+    padding: 14px 20px;
+    background: white;
+    color: #2d6a4f;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all .25s;
+    text-decoration: none;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.1);
+}
+
+.pub-sidebar-card .pub-sidebar-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,.15);
+}
+
+.pub-sidebar-card .pub-sidebar-msg {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px;
+    padding: 14px 20px;
+    background: #1a4d2e;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all .2s;
+    text-decoration: none;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.15);
+}
+
+.pub-sidebar-card .pub-sidebar-msg:hover {
+    background: #143d23;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0,0,0,.2);
+}
+
+.pub-sidebar-card .pub-sidebar-link {
+    display: block;
+    margin-top: 12px;
+    color: rgba(255,255,255,.8);
+    font-size: .88em;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color .2s;
+}
+
+.pub-sidebar-card .pub-sidebar-link:hover {
+    color: white;
+}
+
+/* Modal styles */
+.modal {
+    position: fixed !important;
+    z-index: 999999 !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background-color: rgba(0, 0, 0, 0.9) !important;
+    display: none !important;
+}
+
+.modal[style*="display: flex"],
+.modal[style*="display:flex"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.modal-content {
+    background: white !important;
+    padding: 40px !important;
+    border-radius: 16px !important;
+    max-width: 700px !important;
+    width: 90% !important;
+    position: relative !important;
+    z-index: 1000000 !important;
+}
+
+/* Stili per modal rifiuto consulenza */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal-overlay .modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 { margin: 0; font-size: 1.3em; color: #333; }
+
+.close-btn {
+    background: none; border: none; font-size: 1.5em;
+    cursor: pointer; color: #999; padding: 0;
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+}
+.close-btn:hover { color: #333; }
+
+.modal-body { margin: 20px 0; }
+.modal-body p { margin: 10px 0; line-height: 1.5; }
+
+.modal-footer {
+    display: flex; gap: 10px; justify-content: flex-end;
+    margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;
+}
+
+.btn-refuse {
+    background: #dc3545; color: white; border: none;
+    padding: 10px 16px; border-radius: 6px; cursor: pointer;
+    font-size: 0.95em; font-weight: 500;
+    transition: all 0.3s ease;
+    display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-refuse:hover {
+    background: #c82333; transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.modal-footer .btn {
+    padding: 10px 20px; border: 1px solid #ddd; border-radius: 6px;
+    cursor: pointer; font-size: 0.95em; font-weight: 500;
+    transition: all 0.3s ease;
+}
+.modal-footer .btn-secondary { background: #f0f0f0; color: #333; }
+.modal-footer .btn-secondary:hover { background: #e0e0e0; }
+.modal-footer .btn-danger { background: #dc3545; color: white; border-color: #dc3545; }
+.modal-footer .btn-danger:hover { background: #c82333; border-color: #c82333; }
+
+.success-message {
+    position: fixed; top: 20px; right: 20px;
+    background: #28a745; color: white;
+    padding: 15px 20px; border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999; font-weight: 500;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+    .pub-layout {
+        grid-template-columns: 1fr;
+        padding: 28px 20px 48px;
+        gap: 24px;
+    }
+    .pub-sidebar { position: static; }
+    .pub-hero-inner {
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        z-index: 2000;
+        text-align: center;
+        padding: 0 24px 32px;
     }
-
-    .modal-overlay .modal-content {
-        background: white;
-        border-radius: 12px;
-        max-width: 500px;
-        width: 90%;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    }
-
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #eee;
-    }
-
-    .modal-header h3 {
-        margin: 0;
-        font-size: 1.3em;
-        color: #333;
-    }
-
-    .close-btn {
-        background: none;
-        border: none;
-        font-size: 1.5em;
-        cursor: pointer;
-        color: #999;
-        padding: 0;
-        width: 30px;
-        height: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .close-btn:hover {
-        color: #333;
-    }
-
-    .modal-body {
-        margin: 20px 0;
-    }
-
-    .modal-body p {
-        margin: 10px 0;
-        line-height: 1.5;
-    }
-
-    .modal-footer {
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-        margin-top: 25px;
-        padding-top: 20px;
-        border-top: 1px solid #eee;
-    }
-
-    /* ✅ Bottone Rifiuta */
-    .btn-refuse {
-        background: #dc3545;
-        color: white;
-        border: none;
-        padding: 10px 16px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 0.95em;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .btn-refuse:hover {
-        background: #c82333;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-    }
-
-    .btn-refuse:active {
-        transform: translateY(0);
-    }
-
-    /* ✅ Stili bottoni modal */
-    .modal-footer .btn {
-        padding: 10px 20px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 0.95em;
-        font-weight: 500;
-        transition: all 0.3s ease;
-    }
-
-    .modal-footer .btn-secondary {
-        background: #f0f0f0;
-        color: #333;
-    }
-
-    .modal-footer .btn-secondary:hover {
-        background: #e0e0e0;
-    }
-
-    .modal-footer .btn-danger {
-        background: #dc3545;
-        color: white;
-        border-color: #dc3545;
-    }
-
-    .modal-footer .btn-danger:hover {
-        background: #c82333;
-        border-color: #c82333;
-    }
-
-    .success-message {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #28a745;
-        color: white;
-        padding: 15px 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        z-index: 9999;
-        font-weight: 500;
-        animation: slideIn 0.3s ease;
-    }
-
-    @keyframes slideIn {
-        from {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
+    .pub-hero img { width: 130px; height: 130px; }
+    .pub-hero-text h1 { font-size: 1.7em; }
+    .pub-narrative-col { padding: 0; }
+    .pub-stats-row { justify-content: center; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="profile-container">
-    <main class="main-content">
-        <!-- Upcoming Appointments / Cover Image -->
+<div class="pub-page">
+<div class="profile-container" style="display: block; max-width: 100%; padding: 0;">
+    <main class="main-content" style="padding: 0; gap: 0;">
+
+        <!-- Upcoming Appointments Banner -->
         <div id="upcomingAppointmentsSection">
             <div class="cover-image" id="coverImagePlaceholder"></div>
         </div>
 
-        <!-- Liked Questions Section (Top position) -->
-        <section class="card" id="likedQuestionsTopSection" style="display:none;">
-            <h2>❤️ Domande a cui hai messo Like</h2>
-            <div id="likedQuestionsContainerTop" class="liked-questions-grid">
-                <p style="color:#888; text-align: center; grid-column: 1 / -1;">Caricamento...</p>
-            </div>
-        </section>
-        
-        <!-- Profile Header with Modern Stats -->
-        <header class="profile-header card" style="display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: center; background: white;">
-            <div style="display: flex; align-items: center; gap: 32px;">
-                <div class="profile-avatar-container">
-                    <img data-src="{{ user.profile_picture or user|default_avatar }}" 
-                         alt="Profile" 
-                         class="profile-avatar-large" 
+        <!-- Hero compatto -->
+        <div class="pub-hero">
+            <div class="pub-hero-inner">
+                <div style="position: relative; flex-shrink: 0;">
+                    <img src="{{ user.profile_picture or user|default_avatar }}" 
+                         alt="{{ user.nome }}"
                          id="profileImage"
+                         class="profile-avatar-large"
                          onerror="this.onerror=null; this.src='{{ user|default_avatar }}'">
-                    
-                    <label for="profilePictureInput" class="edit-avatar-btn" title="Cambia immagine profilo">
+                    <label for="profilePictureInput" class="pub-edit-avatar" title="Cambia immagine profilo">
                         ✏️
                     </label>
                     <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
                 </div>
-                
-                <div class="info">
-                    <h1 style="margin-bottom: 12px; font-size: 1.8em;">{{ user.nome or 'Nome non impostato' }}</h1>
-                    <p style="font-size: 1em; margin: 4px 0; color: #4caf50; font-weight: 600;">{{ user.professione or 'Professione non impostata' }}</p>
-                    <small style="color: #888; display: block; margin-bottom: 16px;">{{ user.email }}</small>
-                    <button id="editProfileBtn" class="btn btn-primary btn-small">✏️ Modifica Profilo</button>
-                </div>
-            </div>
-
-            <div class="profile-stats" style="grid-template-columns: repeat(3, 1fr); gap: 12px;">
-                <div class="stat-item">
-                    <div class="stat-value" style="color: #4caf50; font-size: 1.6em;">
-                        {% if is_consultant %}⭐{% else %}📅{% endif %}
-                    </div>
-                    <div class="stat-label">
-                        {% if is_consultant %}
-                            Consulente
-                        {% else %}
-                            Utente
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" style="color: #4caf50;">0</div>
-                    <div class="stat-label">Prenotazioni</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" style="color: #4caf50;">0</div>
-                    <div class="stat-label">Recensioni</div>
-                </div>
-            </div>
-        </header>
-
-        <!-- Edit Mode Form (Hidden by default) -->
-        <section class="card" id="editSection" style="display:none;">
-            <h2>✏️ Modifica Profilo</h2>
-            <div id="successMessage" class="success-message" style="display:none;"></div>
-            <div id="errorMessage" class="error-message" style="display:none;"></div>
-            
-            <form id="profileForm" class="edit-form">
-                <!-- 👤 Informazioni Personali -->
-                <div class="form-section">
-                    <div class="form-section-title">👤 Informazioni Personali</div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Nome Completo</label>
-                            <input type="text" name="nome" value="{{ user.nome or '' }}" placeholder="Inserisci il tuo nome">
-                        </div>
-                        <div class="form-group">
-                            <label>Professione</label>
-                            <input type="text" name="professione" value="{{ user.professione or '' }}" placeholder="Es: Lead Software Developer">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Genere</label>
-                        <div style="display: flex; gap: 16px; align-items: center; margin-top: 4px;">
-                            <label style="display: flex; align-items: center; cursor: pointer; gap: 6px; font-weight: 400;">
-                                <input type="radio" name="genere" value="M" {% if user.genere == 'M' %}checked{% endif %}
-                                       style="width: 18px; height: 18px; accent-color: #4caf50;">
-                                🙋‍♂️ Uomo
-                            </label>
-                            <label style="display: flex; align-items: center; cursor: pointer; gap: 6px; font-weight: 400;">
-                                <input type="radio" name="genere" value="F" {% if user.genere == 'F' %}checked{% endif %}
-                                       style="width: 18px; height: 18px; accent-color: #4caf50;">
-                                🙋‍♀️ Donna
-                            </label>
-                            <label style="display: flex; align-items: center; cursor: pointer; gap: 6px; font-weight: 400;">
-                                <input type="radio" name="genere" value="" {% if not user.genere %}checked{% endif %}
-                                       style="width: 18px; height: 18px; accent-color: #4caf50;">
-                                Preferisco non specificare
-                            </label>
-                        </div>
-                        <small style="color:#888; margin-top:4px; display:block;">Usato per personalizzare il tuo avatar predefinito</small>
-                    </div>
-                </div>
-
-                <!-- 🎓 Categoria e Specializzazione -->
-                <div class="form-section">
-                    <div class="form-section-title">🎓 Categoria e Specializzazione</div>
-                    <div class="form-group">
-                        <label>Categoria</label>
-                        <select id="categorySelect" name="category_id" style="padding:12px; border:1px solid #d1d8e0; border-radius:10px; font-size:1rem; background-color: #f8fafb;">
-                            <option value="">Nessuna categoria</option>
-                            {% for cat in categories %}
-                            <option value="{{ cat.id }}" {% if user.category_id == cat.id %}selected{% endif %}>
-                                {{ cat.icon }} {{ cat.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <small style="color:#888; margin-top:8px; display:block;">Seleziona la categoria che meglio rappresenta la tua expertise</small>
-                    </div>
-                    
-                    <!-- Sottocategorie - Appaiono al cambio categoria -->
-                    <div id="subcategoriesContainer" class="form-group" style="display:none;">
-                        <label>Sottocategorie (opzionale)</label>
-                        <div id="subcategoriesList" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                            <!-- Riempito dinamicamente da JavaScript -->
-                        </div>
-                        <small style="color:#888; margin-top:8px; display:block;">Seleziona una o più sottocategorie</small>
-                        <input type="hidden" id="selectedSubcategories" name="selected_subcategories" value="">
-                    </div>
-                </div>
-                
-                <!-- 🔔 Notifiche Categoria -->
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" name="notify_category_requests" value="true" {% if user.notify_category_requests %}checked{% endif %} 
-                               style="margin-right: 10px; width: 20px; height: 20px;">
-                        <span>
-                            <strong>🔔 Ricevi Notifiche di Categoria</strong><br>
-                            <small style="color: #666;">Ricevi notifiche e email quando qualcuno richiede aiuto nella tua categoria di expertise.</small>
-                        </span>
-                    </label>
-                </div>
-                
-                <div class="form-group">
-                    <label>Descrizione <span id="charCounter" style="float:right; font-size:0.9rem; color:#dc3545;">0/200 caratteri</span></label>
-                    <textarea 
-                        id="descrizioneTextarea"
-                        name="descrizione" 
-                        rows="5" 
-                        placeholder="Raccontaci di te, della tua esperienza e come puoi aiutare gli altri (minimo 200 caratteri)"
-                    >{{ user.descrizione or '' }}</textarea>
-                    <small id="descrizioneHint" style="color:#dc3545; display:block; margin-top:4px;">La descrizione deve essere di almeno 200 caratteri per richiedere la verifica del profilo.</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Aree di Interesse</label>
-                    <textarea name="aree_interesse" rows="4" placeholder="Es: Sviluppo Mobile, Leadership, Crescita Personale">{{ user.aree_interesse or '' }}</textarea>
-                    <small>Separa con virgole</small>
-                </div>
-
-                <div class="form-group">
-                    <label>Prezzo della Consulenza Orario (€) <span style="color: #d32f2f;">*</span></label>
-                    <input type="number" name="prezzo_consulenza" value="{{ user.prezzo_consulenza or 150 }}" min="15" step="5" required>
-                    <small style="color: #d32f2f;">⚠️ Minimo 15€/ora</small>
-                </div>
-                
-                <!-- �🔒 Modalità Anonima -->
-                <div class="form-group" style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px;">
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" name="is_anonymous" value="true" {% if user.is_anonymous %}checked{% endif %} 
-                               style="margin-right: 10px; width: 20px; height: 20px;">
-                        <span>
-                            <strong>🔒 Modalità Anonima</strong><br>
-                            <small style="color: #666;">Se attivata, il tuo nome e cognome non verranno mostrati pubblicamente. Apparirà "Utente #{{ user.id }}" al posto del tuo nome reale.</small>
-                        </span>
-                    </label>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Salva Modifiche</button>
-                    <button type="button" id="cancelEditBtn" class="btn btn-secondary">Annulla</button>
-                </div>
-            </form>
-        </section>
-
-        <!-- Category Badge (se presente) -->
-        {% if user_category %}
-        <section class="card" id="viewSection">
-            <h2>Categoria</h2>
-            <div class="category-badge" style="background:{{ user_category.color }}20; border-left:4px solid {{ user_category.color }}; padding:16px; border-radius:8px;">
-                <div style="font-size:2em; margin-bottom:8px;">{{ user_category.icon }}</div>
-                <h3 style="margin:0 0 8px 0; color:{{ user_category.color }};">{{ user_category.name }}</h3>
-                <p style="margin:0; color:#666;">{{ user_category.description }}</p>
-            </div>
-        </section>
-        {% endif %}
-
-        <!-- About Section -->
-        <section class="card">
-            <h2>About</h2>
-            {% if user.descrizione %}
-            <p style="white-space: pre-wrap;">{{ user.descrizione }}</p>
-            {% else %}
-            <p style="color:#888;">Aggiungi una descrizione al tuo profilo per far sapere agli altri chi sei!</p>
-            {% endif %}
-        </section>
-
-        <!-- Areas of Interest -->
-        {% if aree_interesse_list %}
-        <section class="card">
-            <h2>🎯 Aree di Interesse</h2>
-            <ul>
-                {% for area in aree_interesse_list %}
-                <li>{{ area }}</li>
-                {% endfor %}
-            </ul>
-        </section>
-        {% endif %}
-        
-        <!-- Prezzo della Consulenza Orario -->
-        {% if user.prezzo_consulenza %}
-        <section class="card">
-            <h2>💰 Prezzo della Consulenza Orario</h2>
-            <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid #2e7d32;">
-                <div style="font-size: 2.5em; color: #2e7d32;">💵</div>
-                <div>
-                    <p style="margin: 0; font-size: 1.5rem; font-weight: 600; color: #2e7d32;">€{{ user.prezzo_consulenza }}<span style="font-size: 0.8rem; color: #555;"> / ora</span></p>
-                    <small style="color: #666;">Prezzo orario per la consulenza</small>
-                </div>
-            </div>
-        </section>
-        {% endif %}
-        
-        <!-- User Questions Section -->
-        <section class="card" id="userQuestionsSection" style="display:none;">
-            <h2>💬 Le tue Domande nella Community</h2>
-            <div id="userQuestionsContainer" class="liked-questions-grid">
-                <p style="color:#888; text-align: center; grid-column: 1 / -1;">Caricamento...</p>
-            </div>
-        </section>
-        
-        <!-- Reviews Section -->
-        <section class="card">
-            <h2>Recensioni</h2>
-            <p style="color:#888;">Nessuna recensione disponibile al momento.</p>
-        </section>
-
-    </main>
-
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <!-- Mentorship Plans -->
-        <section class="consultation-card">
-            <h2>Mentorship plans</h2>
-            
-            <!-- Plan Tabs -->
-            <div class="plan-tabs">
-                <button class="plan-tab" onclick="switchPlan('lite')">Lite</button>
-                <button class="plan-tab active" onclick="switchPlan('standard')">Standard</button>
-                <button class="plan-tab" onclick="switchPlan('pro')">Pro</button>
-            </div>
-            
-            <!-- Lite Plan -->
-            <div id="lite-plan" class="plan-card" style="display: none;">
-                <h3>Lite</h3>
-                <div class="plan-price">$150<span class="plan-period"> /month</span></div>
-                <ul>
-                    <li>2 calls per month (30min/call)</li>
-                    <li>Email support</li>
-                    <li>Response in 48 hours</li>
-                </ul>
-                <button class="apply-btn">Apply now</button>
-            </div>
-            
-            <!-- Standard Plan (Default) -->
-            <div id="standard-plan" class="plan-card standard">
-                <span class="badge">Most Popular</span>
-                <h3>Standard</h3>
-                <div class="plan-price">$450<span class="plan-period"> /month</span></div>
-                <ul>
-                    <li>4 calls per month (60min/call)</li>
-                    <li>Unlimited Q&A via chat</li>
-                    <li>Expect responses in 24 hours or less</li>
-                </ul>
-                <button class="apply-btn">Apply now</button>
-            </div>
-            
-            <!-- Pro Plan -->
-            <div id="pro-plan" class="plan-card" style="display: none;">
-                <h3>Pro</h3>
-                <div class="plan-price">$800<span class="plan-period"> /month</span></div>
-                <ul>
-                    <li>8 calls per month (90min/call)</li>
-                    <li>Priority email support</li>
-                    <li>24/7 chat availability</li>
-                    <li>Custom project review</li>
-                </ul>
-                <button class="apply-btn">Apply now</button>
-            </div>
-        </section>
-        
-        <!-- Richieste della Categoria -->
-        {% if user.is_verified and user.category_id %}
-        <section class="consultation-card" style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; margin-bottom: 20px; position: relative;">
-            <button id="openCategoryRequestsBtn" style="width: 100%; padding: 12px; background: white; color: #2e7d32; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.95em; position: relative;">
-                🔔 Richieste della tua Categoria
-                <span id="categoryRequestsBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: #dc3545; color: white; border-radius: 50%; width: 24px; height: 24px; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; border: 2px solid white;"></span>
-            </button>
-        </section>
-        {% endif %}
-        
-        <!-- Stats Card -->
-        <section class="consultation-card">
-            <h2>Le tue Statistiche</h2>
-            
-            <div class="stat-item">
-                <div class="stat-label">Bollini</div>
-                <div class="stat-value">{{ user.bollini }}</div>
-            </div>
-            
-            <div class="stat-item">
-                <div class="stat-label">Consulenze Acquistate</div>
-                <div class="stat-value">{{ user.consulenze_acquistate }}</div>
-            </div>
-            
-            <div class="stat-item">
-                <div class="stat-label">Consulenze Vendute</div>
-                <div class="stat-value">{{ user.consulenze_vendute }}</div>
-            </div>
-
-            <a href="/availability" class="btn btn-primary">
-                <i class="fas fa-calendar-alt"></i> Gestisci Disponibilità
-            </a>
-        </section>
-        
-        <!-- Account Info -->
-        <section class="card">
-            <h3>Account</h3>
-            <div class="account-info">
-                <p><strong>Email:</strong><br>{{ user.email }}</p>
-                <p><strong>Membro dal:</strong><br>{{ user.created_at if user.created_at else 'N/A' }}</p>
-                <p><strong>Consulente Verificato:</strong><br>
-                    {% if user.is_verified %}
-                    <span style="color:#28a745; font-size: 1.5em;">✓</span>
-                    {% else %}
-                    <span style="color:#dc3545; font-size: 1.5em;">✕</span>
+                <div class="pub-hero-text">
+                    <h1>{{ user|display_name }}</h1>
+                    <p class="pub-role">{{ user.professione or 'Professione non impostata' }}</p>
+                    <small style="color: rgba(255,255,255,.6);">{{ user.email }}</small>
+                    {% if user_category %}
+                    <div class="pub-cat-pill">{{ user_category.icon }} {{ user_category.name }}</div>
                     {% endif %}
-                </p>
+                    {% if aree_interesse_list %}
+                    <div class="pub-hero-skills">
+                        {% for area in aree_interesse_list %}
+                        <span>{{ area }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <button id="editProfileBtn" class="btn-edit">✏️ Modifica Profilo</button>
+                </div>
             </div>
-            <a href="/reset-password" class="btn btn-secondary" style="word-break: break-word; white-space: normal; font-size: 0.9em; padding: 12px 14px;">Cambia Password</a>
-        </section>
-    </aside>
+        </div>
+
+        <!-- Layout a due colonne -->
+        <div class="pub-layout">
+            <!-- Colonna sinistra: contenuto -->
+            <div class="pub-narrative-col">
+
+                <!-- Liked Questions Section -->
+                <section class="card" id="likedQuestionsTopSection" style="display:none;">
+                    <h2>❤️ Domande a cui hai messo Like</h2>
+                    <div id="likedQuestionsContainerTop" class="liked-questions-grid">
+                        <p style="color:#888; text-align: center; grid-column: 1 / -1;">Caricamento...</p>
+                    </div>
+                </section>
+
+                <!-- Edit Mode Form (Hidden by default) -->
+                <section class="card" id="editSection" style="display:none;">
+                    <h2>✏️ Modifica Profilo</h2>
+                    <div id="successMessage" class="success-message" style="display:none;"></div>
+                    <div id="errorMessage" class="error-message" style="display:none;"></div>
+                    
+                    <form id="profileForm" class="edit-form">
+                        <div class="form-section">
+                            <div class="form-section-title">👤 Informazioni Personali</div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nome Completo</label>
+                                    <input type="text" name="nome" value="{{ user.nome or '' }}" placeholder="Inserisci il tuo nome">
+                                </div>
+                                <div class="form-group">
+                                    <label>Professione</label>
+                                    <input type="text" name="professione" value="{{ user.professione or '' }}" placeholder="Es: Lead Software Developer">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Genere</label>
+                                <div style="display: flex; gap: 16px; align-items: center; margin-top: 4px;">
+                                    <label style="display: flex; align-items: center; cursor: pointer; gap: 6px; font-weight: 400;">
+                                        <input type="radio" name="genere" value="M" {% if user.genere == 'M' %}checked{% endif %}
+                                               style="width: 18px; height: 18px; accent-color: #4caf50;">
+                                        🙋‍♂️ Uomo
+                                    </label>
+                                    <label style="display: flex; align-items: center; cursor: pointer; gap: 6px; font-weight: 400;">
+                                        <input type="radio" name="genere" value="F" {% if user.genere == 'F' %}checked{% endif %}
+                                               style="width: 18px; height: 18px; accent-color: #4caf50;">
+                                        🙋‍♀️ Donna
+                                    </label>
+                                    <label style="display: flex; align-items: center; cursor: pointer; gap: 6px; font-weight: 400;">
+                                        <input type="radio" name="genere" value="" {% if not user.genere %}checked{% endif %}
+                                               style="width: 18px; height: 18px; accent-color: #4caf50;">
+                                        Preferisco non specificare
+                                    </label>
+                                </div>
+                                <small style="color:#888; margin-top:4px; display:block;">Usato per personalizzare il tuo avatar predefinito</small>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">🎓 Categoria e Specializzazione</div>
+                            <div class="form-group">
+                                <label>Categoria</label>
+                                <select id="categorySelect" name="category_id" style="padding:12px; border:1px solid #d1d8e0; border-radius:10px; font-size:1rem; background-color: #f8fafb;">
+                                    <option value="">Nessuna categoria</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}" {% if user.category_id == cat.id %}selected{% endif %}>
+                                        {{ cat.icon }} {{ cat.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small style="color:#888; margin-top:8px; display:block;">Seleziona la categoria che meglio rappresenta la tua expertise</small>
+                            </div>
+                            
+                            <div id="subcategoriesContainer" class="form-group" style="display:none;">
+                                <label>Sottocategorie (opzionale)</label>
+                                <div id="subcategoriesList" style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"></div>
+                                <small style="color:#888; margin-top:8px; display:block;">Seleziona una o più sottocategorie</small>
+                                <input type="hidden" id="selectedSubcategories" name="selected_subcategories" value="">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" name="notify_category_requests" value="true" {% if user.notify_category_requests %}checked{% endif %} 
+                                       style="margin-right: 10px; width: 20px; height: 20px;">
+                                <span>
+                                    <strong>🔔 Ricevi Notifiche di Categoria</strong><br>
+                                    <small style="color: #666;">Ricevi notifiche e email quando qualcuno richiede aiuto nella tua categoria di expertise.</small>
+                                </span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Descrizione <span id="charCounter" style="float:right; font-size:0.9rem; color:#dc3545;">0/200 caratteri</span></label>
+                            <textarea id="descrizioneTextarea" name="descrizione" rows="5" 
+                                placeholder="Raccontaci di te, della tua esperienza e come puoi aiutare gli altri (minimo 200 caratteri)">{{ user.descrizione or '' }}</textarea>
+                            <small id="descrizioneHint" style="color:#dc3545; display:block; margin-top:4px;">La descrizione deve essere di almeno 200 caratteri per richiedere la verifica del profilo.</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Aree di Interesse</label>
+                            <textarea id="areeInteresseTextarea" name="aree_interesse" rows="4" placeholder="Es: Sviluppo Mobile, Leadership, Crescita Personale">{{ user.aree_interesse or '' }}</textarea>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                                <small>Separa con virgole</small>
+                                <button type="button" id="generateInterestsBtn" 
+                                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.85em; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(102,126,234,.3);">
+                                    🤖 Genera con AI
+                                </button>
+                            </div>
+                            <div id="generateInterestsStatus" style="display: none; margin-top: 8px; padding: 10px 14px; border-radius: 8px; font-size: 0.9em;"></div>
+                        </div>
+
+                        <!-- Tags nascosti per la ricerca (generati da AI al salvataggio) -->
+                        <input type="hidden" id="tagsInput" name="tags" value='{{ user.tags or "" }}'>
+
+                        <div class="form-group">
+                            <label>Prezzo della Consulenza Orario (€) <span style="color: #d32f2f;">*</span></label>
+                            <input type="number" name="prezzo_consulenza" value="{{ user.prezzo_consulenza or 150 }}" min="15" step="5" required>
+                            <small style="color: #d32f2f;">⚠️ Minimo 15€/ora</small>
+                        </div>
+                        
+                        <div class="form-group" style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px;">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" name="is_anonymous" value="true" {% if user.is_anonymous %}checked{% endif %} 
+                                       style="margin-right: 10px; width: 20px; height: 20px;">
+                                <span>
+                                    <strong>🔒 Modalità Anonima</strong><br>
+                                    <small style="color: #666;">Se attivata, il tuo nome e cognome non verranno mostrati pubblicamente. Apparirà "Utente #{{ user.id }}" al posto del tuo nome reale.</small>
+                                </span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Salva Modifiche</button>
+                            <button type="button" id="cancelEditBtn" class="btn btn-secondary">Annulla</button>
+                        </div>
+                    </form>
+                </section>
+                <!-- User Questions Section -->
+                <section class="card" id="userQuestionsSection" style="display:none;">
+                    <h2>💬 Le tue Domande nella Community</h2>
+                    <div id="userQuestionsContainer" class="liked-questions-grid">
+                        <p style="color:#888; text-align: center; grid-column: 1 / -1;">Caricamento...</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Colonna destra: sidebar sticky -->
+            <div class="pub-sidebar">
+                <div class="pub-sidebar-card">
+                    <h3>Gestisci il tuo profilo</h3>
+                    {% if user.prezzo_consulenza %}
+                    <div class="pub-sidebar-price">€{{ user.prezzo_consulenza }} <span>/ ora</span></div>
+                    {% endif %}
+                    <p class="pub-sidebar-sub">
+                        {% if user.is_verified %}
+                        ✅ Consulente Verificato
+                        {% else %}
+                        ❌ Non ancora verificato
+                        {% endif %}
+                    </p>
+
+                    <a href="/availability" class="pub-sidebar-btn">
+                        📅 Gestisci Fasce Orarie
+                    </a>
+                    <button onclick="document.getElementById('editProfileBtn').click(); window.scrollTo({top: document.getElementById('editSection').offsetTop - 80, behavior: 'smooth'});" 
+                            class="pub-sidebar-msg">
+                        ⚙️ Modifica Profilo e Prezzi
+                    </button>
+                    <a href="/user/{{ user.id }}" class="pub-sidebar-link">
+                        👁️ Vedi il tuo profilo pubblico
+                    </a>
+                </div>
+
+                {% if user.is_verified and user.category_id %}
+                <div class="pub-sidebar-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <button id="openCategoryRequestsBtn" style="width: 100%; padding: 14px; background: white; color: #5b2c8e; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 1em; position: relative; box-shadow: 0 4px 14px rgba(0,0,0,.1);">
+                        🔔 Richieste della tua Categoria
+                        <span id="categoryRequestsBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: #dc3545; color: white; border-radius: 50%; width: 24px; height: 24px; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; border: 2px solid white;"></span>
+                    </button>
+                </div>
+                {% endif %}
+
+                <div class="pub-sidebar-card" style="background: white; color: #374151;">
+                    <h3 style="color: #1a202c;">Account</h3>
+                    <div style="text-align: left; font-size: .9em; line-height: 1.8;">
+                        <p style="margin: 0;"><strong>Email:</strong> {{ user.email }}</p>
+                        <p style="margin: 0;"><strong>Membro dal:</strong> {{ user.created_at if user.created_at else 'N/A' }}</p>
+                    </div>
+                    <a href="/reset-password" class="pub-sidebar-link" style="color: #6b7280;">
+                        🔑 Cambia Password
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
 </div>
 
 <!-- 🔥 Modal per crop immagine -->
@@ -569,13 +721,10 @@
 <!-- Modal Richieste della Categoria -->
 <div id="categoryRequestsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto;">
     <div style="background: white; margin: 20px auto; max-width: 95%; max-height: 95vh; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
-        <!-- Header -->
         <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
             <h2 style="margin: 0; font-size: 1.5em;">🔔 Richieste della tua Categoria</h2>
             <button id="closeCategoryRequestsBtn" style="background: white; border: none; color: #2e7d32; font-size: 1.5em; cursor: pointer; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">×</button>
         </div>
-        
-        <!-- Content -->
         <div id="categoryRequestsContent" style="flex: 1; overflow-y: auto; padding: 20px;">
             <p style="text-align: center; color: #888;">Caricamento richieste...</p>
         </div>
@@ -587,31 +736,16 @@
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <script>
-    // ========== MENTORSHIP PLANS FUNCTIONALITY ==========
-    function switchPlan(planType) {
-        // Nascondi tutti i piani
-        document.getElementById('lite-plan').style.display = 'none';
-        document.getElementById('standard-plan').style.display = 'none';
-        document.getElementById('pro-plan').style.display = 'none';
-        
-        // Rimuovi la classe active da tutti i tab
-        document.querySelectorAll('.plan-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        
-        // Mostra il piano selezionato
-        document.getElementById(planType + '-plan').style.display = 'block';
-        
-        // Aggiungi la classe active al tab
-        event.target.classList.add('active');
-    }
-
     // ========== EDIT PROFILE FUNCTIONALITY ==========
     const editBtn = document.getElementById('editProfileBtn');
     const cancelBtn = document.getElementById('cancelEditBtn');
     const editSection = document.getElementById('editSection');
     const viewSection = document.getElementById('viewSection');
     const profileForm = document.getElementById('profileForm');
+
+    // Valori originali per detectare modifiche (tags generati solo se cambiano)
+    let originalDescrizione = '';
+    let originalAreeInteresse = '';
 
     editBtn.addEventListener('click', () => {
         const isEditing = editSection.style.display === 'block';
@@ -620,6 +754,9 @@
             if(viewSection) viewSection.style.display = 'none';
             editBtn.textContent = '❌ Chiudi senza salvare';
             editBtn.style.backgroundColor = '#dc3545';
+            // Salva valori originali per confronto al salvataggio
+            originalDescrizione = (document.getElementById('descrizioneTextarea')?.value || '').trim();
+            originalAreeInteresse = (document.getElementById('areeInteresseTextarea')?.value || '').trim();
             window.scrollTo({ top: editSection.offsetTop - 80, behavior: 'smooth' });
         } else {
             editSection.style.display = 'none';
@@ -635,7 +772,6 @@
     });
 
     profileForm.addEventListener('submit', async (e) => {
-        console.log('🟢 SUBMIT EVENT 1 - Primo event listener');
         e.preventDefault();
         
         const successDiv = document.getElementById('successMessage');
@@ -645,21 +781,45 @@
         
         const formData = new FormData(profileForm);
         
-        // 🔒 Gestisci il checkbox is_anonymous correttamente
         const isAnonymousCheckbox = profileForm.querySelector('input[name="is_anonymous"]');
         if (isAnonymousCheckbox) {
-            // Rimuovi il valore "true" e manda "true" o "false" come stringa
             formData.delete('is_anonymous');
             formData.append('is_anonymous', isAnonymousCheckbox.checked ? 'true' : 'false');
         }
         
         const params = new URLSearchParams(formData);
         
-        // 🔍 DEBUG: Controlla il valore di aree_interesse prima di inviare
-        const areeInteresseValue = formData.get('aree_interesse');
-        console.log('❓ Valore aree_interesse prima dell\'invio:', areeInteresseValue);
-        console.log('Dati inviati:', Object.fromEntries(params));
+        // 🏷️ Step 1: Genera tags con AI solo se descrizione o aree di interesse sono cambiate
+        const descrizioneValue = formData.get('descrizione') || '';
+        const areeInteresseValue = formData.get('aree_interesse') || '';
+        const professioneValue = formData.get('professione') || '';
         
+        const descrizioneChanged = descrizioneValue.trim() !== originalDescrizione;
+        const areeChanged = areeInteresseValue.trim() !== originalAreeInteresse;
+        
+        if ((descrizioneChanged || areeChanged) && descrizioneValue.trim().length >= 50) {
+            console.log('🏷️ Descrizione o aree modificate, genero nuovi tags...');
+            try {
+                const tagsResponse = await fetch('/api/profile/generate-tags', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        descrizione: descrizioneValue,
+                        aree_interesse: areeInteresseValue,
+                        professione: professioneValue
+                    })
+                });
+                if (tagsResponse.ok) {
+                    const tagsData = await tagsResponse.json();
+                    params.set('tags', JSON.stringify(tagsData.tags));
+                    console.log('🏷️ Tags generati:', tagsData.tags);
+                }
+            } catch (tagError) {
+                console.warn('⚠️ Errore generazione tags (non bloccante):', tagError);
+            }
+        }
+        
+        // Step 2: Salva il profilo
         try {
             const response = await fetch('/api/profile/update', {
                 method: 'POST',
@@ -667,21 +827,15 @@
             });
             
             const data = await response.json();
-            console.log('Risposta dal server:', data);
             
             if (response.ok) {
                 let message = 'Profilo aggiornato con successo!';
-                
-                // Check if verification was requested
                 if (data.verification_requested) {
                     message += ' ✨ Il tuo profilo è stato inviato per la verifica. Riceverai una notifica quando sarà approvato.';
                 }
-                
                 successDiv.textContent = message;
                 successDiv.style.display = 'block';
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2500);
+                setTimeout(() => window.location.reload(), 2500);
             } else {
                 errorDiv.textContent = data.error || 'Errore durante l\'aggiornamento';
                 errorDiv.style.display = 'block';
@@ -707,19 +861,13 @@
         const file = e.target.files[0];
         if (!file) return;
         
-        console.log('File selezionato:', file.name);
-        
         const reader = new FileReader();
         reader.onload = (event) => {
             imageToCrop.src = event.target.result;
             cropModal.style.display = 'flex';
             document.body.classList.add('modal-open');
             
-            console.log('Modal aperto');
-            
-            if (cropperInstance) {
-                cropperInstance.destroy();
-            }
+            if (cropperInstance) cropperInstance.destroy();
             
             setTimeout(() => {
                 cropperInstance = new Cropper(imageToCrop, {
@@ -738,25 +886,17 @@
                     zoomable: true,
                     scalable: true,
                 });
-                console.log('Cropper inizializzato');
             }, 150);
         };
         reader.readAsDataURL(file);
     });
 
     saveCropBtn.addEventListener('click', async () => {
-        console.log('Salvataggio crop...');
-        
-        const canvas = cropperInstance.getCroppedCanvas({
-            width: 400,
-            height: 400,
-        });
+        const canvas = cropperInstance.getCroppedCanvas({ width: 400, height: 400 });
         
         canvas.toBlob(async (blob) => {
             const formData = new FormData();
             formData.append('file', blob, 'profile.jpg');
-            
-            console.log('Uploading...');
             
             try {
                 const response = await fetch('/api/upload-profile-picture', {
@@ -765,7 +905,6 @@
                 });
                 
                 const data = await response.json();
-                console.log('Response:', data);
                 
                 if (response.ok) {
                     const profileImage = document.getElementById('profileImage');
@@ -779,7 +918,6 @@
                     } else {
                         profileImage.src = data.url + '?t=' + Date.now();
                     }
-                    
                     cropModal.style.display = 'none';
                     cropperInstance.destroy();
                     cropperInstance = null;
@@ -797,17 +935,14 @@
     function closeCropModal() {
         cropModal.style.display = 'none';
         document.body.classList.remove('modal-open');
-        if (cropperInstance) {
-            cropperInstance.destroy();
-            cropperInstance = null;
-        }
+        if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
         profilePictureInput.value = '';
     }
 
     cancelCropBtn.addEventListener('click', closeCropModal);
     closeModalBtn.addEventListener('click', closeCropModal);
 
-    // Character counter for descrizione textarea
+    // ========== CHARACTER COUNTER ==========
     const descrizioneTextarea = document.getElementById('descrizioneTextarea');
     const charCounter = document.getElementById('charCounter');
     const descrizioneHint = document.getElementById('descrizioneHint');
@@ -815,7 +950,6 @@
     function updateCharCounter() {
         const length = descrizioneTextarea.value.length;
         charCounter.textContent = `${length}/200 caratteri`;
-        
         if (length >= 200) {
             charCounter.style.color = '#28a745';
             descrizioneHint.style.color = '#28a745';
@@ -828,11 +962,113 @@
     }
 
     if (descrizioneTextarea) {
-        // Initial count on page load
         updateCharCounter();
-        
-        // Update on input
         descrizioneTextarea.addEventListener('input', updateCharCounter);
+    }
+
+    // ========== AI: GENERA AREE DI INTERESSE (con cooldown 24h) ==========
+    const generateInterestsBtn = document.getElementById('generateInterestsBtn');
+    const areeInteresseTextarea = document.getElementById('areeInteresseTextarea');
+    const generateInterestsStatus = document.getElementById('generateInterestsStatus');
+
+    const AI_COOLDOWN_KEY = 'helpy_ai_generate_interests_ts';
+    const AI_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 ore
+
+    function getAiCooldownRemaining() {
+        const lastUsed = parseInt(localStorage.getItem(AI_COOLDOWN_KEY) || '0', 10);
+        if (!lastUsed) return 0;
+        const remaining = (lastUsed + AI_COOLDOWN_MS) - Date.now();
+        return remaining > 0 ? remaining : 0;
+    }
+
+    function formatCooldownTime(ms) {
+        const hours = Math.floor(ms / (1000 * 60 * 60));
+        const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+        if (hours > 0) return `${hours}h ${minutes}min`;
+        return `${minutes}min`;
+    }
+
+    function applyAiCooldown() {
+        const remaining = getAiCooldownRemaining();
+        if (remaining > 0 && generateInterestsBtn) {
+            generateInterestsBtn.disabled = true;
+            generateInterestsBtn.innerHTML = `🕐 Disponibile tra ${formatCooldownTime(remaining)}`;
+            generateInterestsBtn.style.opacity = '0.6';
+            generateInterestsBtn.style.cursor = 'not-allowed';
+            // Aggiorna ogni minuto
+            setTimeout(applyAiCooldown, 60000);
+        } else if (generateInterestsBtn) {
+            generateInterestsBtn.disabled = false;
+            generateInterestsBtn.innerHTML = '🤖 Genera con AI';
+            generateInterestsBtn.style.opacity = '1';
+            generateInterestsBtn.style.cursor = 'pointer';
+        }
+    }
+
+    // Applica cooldown al caricamento della pagina
+    applyAiCooldown();
+
+    if (generateInterestsBtn) {
+        generateInterestsBtn.addEventListener('click', async () => {
+            // Doppio check cooldown
+            if (getAiCooldownRemaining() > 0) {
+                applyAiCooldown();
+                return;
+            }
+
+            const descrizione = descrizioneTextarea.value.trim();
+            const professione = profileForm.querySelector('input[name="professione"]')?.value?.trim() || '';
+
+            if (descrizione.length < 50) {
+                generateInterestsStatus.style.display = 'block';
+                generateInterestsStatus.style.background = '#fff3cd';
+                generateInterestsStatus.style.color = '#856404';
+                generateInterestsStatus.textContent = '⚠️ Scrivi almeno 50 caratteri nella descrizione per generare le aree di interesse.';
+                return;
+            }
+
+            // Mostra stato di caricamento
+            generateInterestsBtn.disabled = true;
+            generateInterestsBtn.innerHTML = '⏳ Generazione in corso...';
+            generateInterestsStatus.style.display = 'block';
+            generateInterestsStatus.style.background = '#e8f4fd';
+            generateInterestsStatus.style.color = '#0c5460';
+            generateInterestsStatus.textContent = '🤖 L\'AI sta analizzando il tuo profilo...';
+
+            try {
+                const response = await fetch('/api/profile/generate-interests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ descrizione, professione })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    areeInteresseTextarea.value = data.aree_interesse;
+                    generateInterestsStatus.style.background = '#d4edda';
+                    generateInterestsStatus.style.color = '#155724';
+                    generateInterestsStatus.textContent = '✅ Aree di interesse generate! Puoi modificarle prima di salvare.';
+                    
+                    // Salva timestamp per cooldown 24h
+                    localStorage.setItem(AI_COOLDOWN_KEY, Date.now().toString());
+                    applyAiCooldown();
+                } else {
+                    generateInterestsStatus.style.background = '#f8d7da';
+                    generateInterestsStatus.style.color = '#721c24';
+                    generateInterestsStatus.textContent = '❌ ' + (data.error || 'Errore durante la generazione.');
+                    generateInterestsBtn.disabled = false;
+                    generateInterestsBtn.innerHTML = '🤖 Genera con AI';
+                }
+            } catch (error) {
+                generateInterestsStatus.style.background = '#f8d7da';
+                generateInterestsStatus.style.color = '#721c24';
+                generateInterestsStatus.textContent = '❌ Errore di connessione. Riprova.';
+                console.error('Error:', error);
+                generateInterestsBtn.disabled = false;
+                generateInterestsBtn.innerHTML = '🤖 Genera con AI';
+            }
+        });
     }
 
     // ========== UPCOMING APPOINTMENTS ==========
@@ -843,192 +1079,89 @@
             
             const data = await response.json();
             const bookings = data.bookings || [];
-            
             const section = document.getElementById('upcomingAppointmentsSection');
-            const placeholder = document.getElementById('coverImagePlaceholder');
             
-            if (bookings.length === 0) {
-                // Nessun appuntamento, mostra solo il banner
-                return;
-            }
+            if (bookings.length === 0) return;
             
-            // Crea il banner con gli appuntamenti
-            const appointmentsHTML = `
+            section.innerHTML = `
                 <div class="upcoming-appointments">
                     <h3><i class="fas fa-calendar-check"></i> Prossimi Appuntamenti</h3>
                     <div class="appointments-list">
-                        ${bookings.map(booking => createAppointmentCard(booking)).join('')}
+                        ${bookings.map(b => createAppointmentCard(b)).join('')}
                     </div>
                 </div>
             `;
             
-            section.innerHTML = appointmentsHTML;
-            
-            // Aggiungi event listeners
-            bookings.forEach(booking => {
-                setupAppointmentActions(booking);
-            });
-            
-            // Verifica lo stato della call per i booking che possono iniziare
-            bookings.forEach(booking => {
-                if (booking.can_start_call) {
-                    updateCallButtonStatus(booking.id);
-                }
-            });
-            
-            // Aggiorna ogni minuto
+            bookings.forEach(b => { if (b.can_start_call) updateCallButtonStatus(b.id); });
             setTimeout(loadUpcomingAppointments, 60000);
-            
         } catch (error) {
             console.error('Error loading appointments:', error);
         }
     }
     
     function createAppointmentCard(booking) {
-        console.log('Booking data:', booking);
-        console.log('Booking role:', booking.role, 'Status:', booking.status, 'Is consultant:', booking.role === 'consultant');
-        
         const otherUser = booking.other_user;
         const avatarHTML = otherUser.picture 
             ? `<img src="${otherUser.picture}" alt="${otherUser.name}" class="appointment-avatar">`
             : `<div class="appointment-avatar-placeholder">👤</div>`;
         
-        // Parse date correttamente (booking.date può essere "YYYY-MM-DD" o "YYYY-MM-DD HH:MM:SS")
         let date;
         try {
-            // Estrai solo la parte della data (prima dello spazio se presente)
             const datePart = booking.date.split(' ')[0];
             const [year, month, day] = datePart.split('-').map(Number);
             const [hours, minutes] = booking.start_time.split(':').map(Number);
             date = new Date(year, month - 1, day, hours, minutes);
-            console.log('Parsed date:', date, 'from:', booking.date);
         } catch (e) {
-            console.error('Error parsing date:', e, booking.date, booking.start_time);
             date = new Date();
         }
         
         const dateStr = date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
-        
         const roleLabel = booking.role === 'client' ? 'Consulenza con' : 'Consulenza richiesta da';
         
-        // Calcola il tempo rimanente lato client (più accurato per il timezone)
         const now = new Date();
-        const timeUntilMs = date - now;
-        const timeUntilMinutes = Math.floor(timeUntilMs / (1000 * 60));
+        const timeUntilMinutes = Math.floor((date - now) / 60000);
         
-        // Parse end_time e calcola quando la call finisce
         let endDate = new Date(date);
         try {
             const [endHours, endMinutes] = booking.end_time.split(':').map(Number);
             endDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), endHours, endMinutes);
         } catch (e) {
-            console.error('Error parsing end_time:', e, booking.end_time);
-            // Se c'è errore, usa duration_minutes se disponibile
-            if (booking.duration_minutes) {
-                endDate = new Date(date.getTime() + booking.duration_minutes * 60000);
-            }
+            if (booking.duration_minutes) endDate = new Date(date.getTime() + booking.duration_minutes * 60000);
         }
+        const timeUntilEndMinutes = Math.floor((endDate - now) / 60000);
         
-        const timeUntilEndMs = endDate - now;
-        const timeUntilEndMinutes = Math.floor(timeUntilEndMs / (1000 * 60));
-        
-        console.log('Time until start:', timeUntilMinutes, 'min | Time until end:', timeUntilEndMinutes, 'min');
-        
-        let actionsHTML = '';
-        let statusHTML = '';
-        
-        // Usa il calcolo client-side invece di quello del server
+        let actionsHTML = '', statusHTML = '';
         const minutesUntil = Math.abs(timeUntilMinutes);
         
-        // ✅ Aggiungi bottone Rifiuta solo se:
-        // - L'utente è il consulente (role === 'consultant')
-        // - Lo stato è pending, confirmed, o in altri stati (non completato/cancelled/refused)
-        // - La consulenza è ancora in futuro o non è ancora iniziata
-        // - Mancano ALMENO 4 ore (240 minuti) alla call
+        // Bottone Rifiuta
         let refuseButtonHTML = '';
-        const isConsultant = booking.role === 'consultant';
-        const statusOk = booking.status && booking.status !== 'completed' && booking.status !== 'cancelled' && booking.status !== 'no_show';
-        const timeOk = timeUntilMinutes > -10;
-        const hasEnoughTimeToRefuse = timeUntilMinutes >= 240; // 4 ore = 240 minuti
-        
-        console.log('Status value:', JSON.stringify(booking.status), 'Length:', booking.status?.length, 'Type:', typeof booking.status);
-        console.log('Refuse button check - isConsultant:', isConsultant, 'statusOk:', statusOk, 'timeOk:', timeOk, 'hasEnoughTimeToRefuse:', hasEnoughTimeToRefuse, 'timeUntilMinutes:', timeUntilMinutes);
-        
-        if (isConsultant && statusOk && timeOk && hasEnoughTimeToRefuse) {
-            refuseButtonHTML = `
-                <button class="btn-refuse" onclick="openRefuseModal(${booking.id}, '${otherUser.name}')">
-                    <i class="fas fa-times-circle"></i> Rifiuta
-                </button>
-            `;
-            console.log('✅ Bottone Rifiuta creato per booking:', booking.id);
-        } else {
-            console.log('❌ Bottone Rifiuta NOT creato - Motivo:', {isConsultant, statusOk, timeOk, hasEnoughTimeToRefuse, status: booking.status});
+        if (booking.role === 'consultant' && booking.status && booking.status !== 'completed' && booking.status !== 'cancelled' && booking.status !== 'no_show' && timeUntilMinutes > -10 && timeUntilMinutes >= 240) {
+            refuseButtonHTML = `<button class="btn-refuse" onclick="openRefuseModal(${booking.id}, '${otherUser.name}')"><i class="fas fa-times-circle"></i> Rifiuta</button>`;
         }
         
         if (timeUntilMinutes > 10) {
-            // Troppo presto (call non è ancora iniziata)
             const hours = Math.floor(minutesUntil / 60);
             const mins = minutesUntil % 60;
-            let timeText = '';
-            if (hours > 0) {
-                timeText = `${hours}h ${mins}min`;
-            } else {
-                timeText = `${mins}min`;
-            }
+            const timeText = hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
             statusHTML = `<div class="time-until"><i class="fas fa-clock"></i> Inizia tra ${timeText}</div>`;
         } else if (timeUntilMinutes <= 10 && timeUntilEndMinutes >= 0) {
-            // La call è iniziata o sta per iniziare, e non è ancora finita
-            // Bottone disponibile da 10 minuti prima fino alla fine della call
             if (booking.can_start_call) {
-                // Entrambi hanno joinato - mostra "Entra in Call" di default
-                // Verificheremo lo stato della call dopo che la card è creata
-                actionsHTML = `
-                    <button class="btn-start-call" onclick="startCall(${booking.id})" id="call-btn-${booking.id}">
-                        <i class="fas fa-phone-alt"></i> Entra in Call
-                    </button>
-                `;
+                actionsHTML = `<button class="btn-start-call" onclick="startCall(${booking.id})" id="call-btn-${booking.id}"><i class="fas fa-phone-alt"></i> Entra in Call</button>`;
             } else if (booking.has_joined) {
-                // L'utente ha joinato, aspetta l'altro
                 statusHTML = `<div class="waiting-indicator"><i class="fas fa-hourglass-half"></i> In attesa dell'altro partecipante...</div>`;
                 actionsHTML = `<button class="btn-join" disabled><i class="fas fa-check"></i> Pronto</button>`;
             } else {
-                // L'utente non ha ancora joinato
-                actionsHTML = `
-                    <button class="btn-join" onclick="joinAppointment(${booking.id})" id="join-btn-${booking.id}">
-                        <i class="fas fa-sign-in-alt"></i> Partecipa
-                    </button>
-                `;
-                if (booking.other_joined) {
-                    statusHTML = `<div class="waiting-indicator"><i class="fas fa-user-check"></i> ${otherUser.name} è pronto</div>`;
-                }
+                actionsHTML = `<button class="btn-join" onclick="joinAppointment(${booking.id})" id="join-btn-${booking.id}"><i class="fas fa-sign-in-alt"></i> Partecipa</button>`;
+                if (booking.other_joined) statusHTML = `<div class="waiting-indicator"><i class="fas fa-user-check"></i> ${otherUser.name} è pronto</div>`;
             }
         } else if (timeUntilEndMinutes < 0) {
-            // La call è finita
             if (booking.has_joined && !booking.other_joined) {
-                // L'utente ha partecipato ma l'altro no - mostra messaggio di assenza
                 const whoMissed = booking.role === 'client' ? 'il consulente' : 'il cliente';
-                statusHTML = `
-                    <div class="appointment-missed">
-                        <i class="fas fa-times-circle"></i>
-                        <p>Siamo spiacenti ma ${whoMissed} non ha partecipato alla call programmata.</p>
-                    </div>
-                `;
+                statusHTML = `<div class="appointment-missed"><i class="fas fa-times-circle"></i><p>Siamo spiacenti ma ${whoMissed} non ha partecipato alla call programmata.</p></div>`;
             } else if (!booking.has_joined && booking.other_joined) {
-                // L'utente non ha partecipato ma l'altro sì
-                statusHTML = `
-                    <div class="appointment-missed">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <p>Non hai partecipato a questa consulenza.</p>
-                    </div>
-                `;
+                statusHTML = `<div class="appointment-missed"><i class="fas fa-exclamation-circle"></i><p>Non hai partecipato a questa consulenza.</p></div>`;
             } else if (!booking.has_joined && !booking.other_joined) {
-                // Nessuno dei due ha partecipato
-                statusHTML = `
-                    <div class="appointment-missed">
-                        <i class="fas fa-ban"></i>
-                        <p>Questa consulenza non si è svolta.</p>
-                    </div>
-                `;
+                statusHTML = `<div class="appointment-missed"><i class="fas fa-ban"></i><p>Questa consulenza non si è svolta.</p></div>`;
             }
         }
         
@@ -1036,41 +1169,21 @@
             <div class="appointment-card" id="appointment-${booking.id}">
                 <div class="appointment-header">
                     ${avatarHTML}
-                    <div class="appointment-info">
-                        <h4>${otherUser.name}</h4>
-                        <p>${roleLabel}</p>
-                    </div>
+                    <div class="appointment-info"><h4>${otherUser.name}</h4><p>${roleLabel}</p></div>
                 </div>
                 <div class="appointment-details">
-                    <div class="appointment-detail">
-                        <i class="fas fa-calendar"></i>
-                        <span>${dateStr}</span>
-                    </div>
+                    <div class="appointment-detail"><i class="fas fa-calendar"></i><span>${dateStr}</span></div>
                 </div>
                 <div class="appointment-details">
-                    <div class="appointment-detail">
-                        <i class="fas fa-clock"></i>
-                        <span>${booking.start_time}</span>
-                    </div>
-                    <div class="appointment-detail">
-                        <i class="fas fa-hourglass-half"></i>
-                        <span>${booking.duration} min</span>
-                    </div>
+                    <div class="appointment-detail"><i class="fas fa-clock"></i><span>${booking.start_time}</span></div>
+                    <div class="appointment-detail"><i class="fas fa-hourglass-half"></i><span>${booking.duration} min</span></div>
                 </div>
                 ${statusHTML}
-                <div class="appointment-actions">
-                    ${actionsHTML}
-                    ${refuseButtonHTML}
-                </div>
+                <div class="appointment-actions">${actionsHTML}${refuseButtonHTML}</div>
             </div>
         `;
     }
-    
-    function setupAppointmentActions(booking) {
-        // Event listeners già gestiti tramite onclick inline per semplicità
-    }
 
-    // ✅ Popup di rifiuto consulenza
     function openRefuseModal(bookingId, clientName) {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
@@ -1083,54 +1196,33 @@
                 </div>
                 <div class="modal-body">
                     <p>Sei sicuro di voler rifiutare questa consulenza con <strong>${clientName}</strong>?</p>
-                    <p style="color: #666; font-size: 0.9em;">
-                        Il cliente riceverà una notifica e una mail. Se già pagato, gli sarà rimborsato l'importo.
-                    </p>
+                    <p style="color: #666; font-size: 0.9em;">Il cliente riceverà una notifica e una mail. Se già pagato, gli sarà rimborsato l'importo.</p>
                     <textarea id="refuse-reason-${bookingId}" placeholder="Motivo del rifiuto (opzionale)" 
                               style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
-                        Annulla
-                    </button>
-                    <button class="btn btn-danger" onclick="refuseBooking(${bookingId})">
-                        <i class="fas fa-times"></i> Rifiuta Consulenza
-                    </button>
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Annulla</button>
+                    <button class="btn btn-danger" onclick="refuseBooking(${bookingId})"><i class="fas fa-times"></i> Rifiuta Consulenza</button>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
-        
-        // Click outside to close
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.remove();
-        });
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
     }
 
     async function refuseBooking(bookingId) {
         const reason = document.getElementById(`refuse-reason-${bookingId}`).value;
-        
         try {
             const response = await fetch(`/api/booking/${bookingId}/refuse`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    reason: reason
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason })
             });
-            
             const data = await response.json();
-            
             if (data.success) {
                 showSuccess('✅ Consulenza rifiutata con successo!');
                 document.getElementById(`refuse-modal-${bookingId}`).remove();
-                
-                // Ricarica le consulenze
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
+                setTimeout(() => location.reload(), 1500);
             } else {
                 alert('Errore: ' + (data.detail || 'Impossibile rifiutare la consulenza'));
             }
@@ -1143,30 +1235,22 @@
     async function joinAppointment(bookingId) {
         const btn = document.getElementById(`join-btn-${bookingId}`);
         if (!btn) return;
-        
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connessione...';
-        
         try {
             const response = await fetch(`/api/booking/${bookingId}/join`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
-            
             if (response.ok) {
                 const data = await response.json();
-                
                 if (data.can_start_call) {
-                    // Entrambi hanno joinato - mostra "Inizia Call"
                     loadUpcomingAppointments();
                 } else {
-                    // In attesa dell'altro
                     btn.innerHTML = '<i class="fas fa-check"></i> Pronto';
                     const card = document.getElementById(`appointment-${bookingId}`);
-                    const actions = card.querySelector('.appointment-actions');
-                    actions.insertAdjacentHTML('beforebegin', 
-                        '<div class="waiting-indicator"><i class="fas fa-hourglass-half"></i> In attesa dell\'altro partecipante...</div>'
-                    );
+                    card.querySelector('.appointment-actions').insertAdjacentHTML('beforebegin', 
+                        '<div class="waiting-indicator"><i class="fas fa-hourglass-half"></i> In attesa dell\'altro partecipante...</div>');
                 }
             } else {
                 alert('Errore durante la connessione');
@@ -1174,36 +1258,25 @@
                 btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Partecipa';
             }
         } catch (error) {
-            console.error('Error joining appointment:', error);
             alert('Errore di connessione');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Partecipa';
         }
     }
     
-    function startCall(bookingId) {
-        window.location.href = `/booking/call/${bookingId}`;
-    }
+    function startCall(bookingId) { window.location.href = `/booking/call/${bookingId}`; }
     
-    // Verifica se la call è già stata avviata e aggiorna il bottone
     async function updateCallButtonStatus(bookingId) {
         try {
             const response = await fetch(`/api/booking/${bookingId}/call-status-extended`);
             if (!response.ok) return;
-            
             const callStatus = await response.json();
-            
-            // Se la call è già stata avviata e non è scaduta, cambia a "Entra in Call"
             if (callStatus.call_has_started && !callStatus.is_expired) {
                 const btn = document.getElementById(`call-btn-${bookingId}`);
-                if (btn) {
-                    btn.className = 'btn-resume-call';
-                    btn.innerHTML = '<i class="fas fa-phone-alt"></i> Entra in Call';
-                    console.log(`✅ Bottone aggiornato a "Entra in Call" per booking ${bookingId}`);
-                }
+                if (btn) { btn.className = 'btn-resume-call'; btn.innerHTML = '<i class="fas fa-phone-alt"></i> Entra in Call'; }
             }
         } catch (error) {
-            console.error(`Errore nel verificare lo stato della call ${bookingId}:`, error);
+            console.error(`Errore call status ${bookingId}:`, error);
         }
     }
     
@@ -1212,30 +1285,21 @@
         toast.className = 'success-message';
         toast.textContent = message;
         document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
+        setTimeout(() => toast.remove(), 3000);
     }
     
-    // ========== LIKED QUESTIONS SECTION ==========
+    // ========== LIKED QUESTIONS ==========
     async function navigateToQuestion(questionId) {
         try {
-            // Chiama l'API per trovare il numero di pagina della domanda
             const response = await fetch(`/api/community/question-page?question_id=${questionId}`);
             const data = await response.json();
-            
             if (data.success) {
-                // Naviga alla pagina corretta con l'anchor
                 const page = data.page > 1 ? `?page=${data.page}` : '';
                 window.location.href = `/community${page}#question-${questionId}`;
             } else {
-                console.error('Domanda non trovata');
                 alert('Domanda non trovata');
             }
         } catch (error) {
-            console.error('Error navigating to question:', error);
-            // Fallback: naviga comunque ma senza page
             window.location.href = `/community#question-${questionId}`;
         }
     }
@@ -1244,50 +1308,26 @@
         try {
             const response = await fetch('/api/profile/liked-questions');
             if (!response.ok) return;
-            
             const data = await response.json();
             const container = document.getElementById('likedQuestionsContainerTop');
             const section = document.getElementById('likedQuestionsTopSection');
-            
-            if (!data.questions || data.questions.length === 0) {
-                section.style.display = 'none';
-                return;
-            }
-            
-            // Mostra la sezione se ci sono domande
+            if (!data.questions || data.questions.length === 0) { section.style.display = 'none'; return; }
             section.style.display = 'block';
-            
-            // Crea le card per ogni domanda
-            const questionsHTML = data.questions.map(q => `
+            container.innerHTML = data.questions.map(q => `
                 <div class="liked-question-card" onclick="navigateToQuestion(${q.id})" style="cursor: pointer;">
-                    <div class="question-category">
-                        <small>ID: ${q.category_id || 'Generale'}</small>
-                    </div>
-                    <h3 class="question-title">
-                        ${q.title}
-                    </h3>
+                    <div class="question-category"><small>ID: ${q.category_id || 'Generale'}</small></div>
+                    <h3 class="question-title">${q.title}</h3>
                     <p class="question-description">${q.description}</p>
                     <div class="question-footer">
                         <div class="question-meta">
-                            <span class="meta-item">
-                                <i class="fas fa-thumbs-up"></i> ${q.upvotes}
-                            </span>
-                            <span class="meta-item">
-                                <i class="fas fa-eye"></i> ${q.views}
-                            </span>
-                            <span class="meta-item">
-                                <i class="fas fa-calendar"></i> ${q.created_at}
-                            </span>
+                            <span class="meta-item"><i class="fas fa-thumbs-up"></i> ${q.upvotes}</span>
+                            <span class="meta-item"><i class="fas fa-eye"></i> ${q.views}</span>
+                            <span class="meta-item"><i class="fas fa-calendar"></i> ${q.created_at}</span>
                         </div>
-                        <p class="question-author">
-                            <small>da <strong>${q.author_name}</strong></small>
-                        </p>
+                        <p class="question-author"><small>da <strong>${q.author_name}</strong></small></p>
                     </div>
                 </div>
             `).join('');
-            
-            container.innerHTML = questionsHTML;
-            
         } catch (error) {
             console.error('Error loading liked questions:', error);
         }
@@ -1297,47 +1337,25 @@
         try {
             const response = await fetch('/api/profile/user-questions');
             if (!response.ok) return;
-            
             const data = await response.json();
             const container = document.getElementById('userQuestionsContainer');
             const section = document.getElementById('userQuestionsSection');
-            
-            if (!data.questions || data.questions.length === 0) {
-                section.style.display = 'none';
-                return;
-            }
-            
-            // Mostra la sezione se ci sono domande
+            if (!data.questions || data.questions.length === 0) { section.style.display = 'none'; return; }
             section.style.display = 'block';
-            
-            // Crea le card per ogni domanda
-            const questionsHTML = data.questions.map(q => `
+            container.innerHTML = data.questions.map(q => `
                 <div class="liked-question-card" onclick="navigateToQuestion(${q.id})" style="cursor: pointer;">
-                    <div class="question-category">
-                        <small>ID: ${q.category_id || 'Generale'}</small>
-                    </div>
-                    <h3 class="question-title">
-                        ${q.title}
-                    </h3>
+                    <div class="question-category"><small>ID: ${q.category_id || 'Generale'}</small></div>
+                    <h3 class="question-title">${q.title}</h3>
                     <p class="question-description">${q.description}</p>
                     <div class="question-footer">
                         <div class="question-meta">
-                            <span class="meta-item">
-                                <i class="fas fa-thumbs-up"></i> ${q.upvotes}
-                            </span>
-                            <span class="meta-item">
-                                <i class="fas fa-eye"></i> ${q.views}
-                            </span>
-                            <span class="meta-item">
-                                <i class="fas fa-calendar"></i> ${q.created_at}
-                            </span>
+                            <span class="meta-item"><i class="fas fa-thumbs-up"></i> ${q.upvotes}</span>
+                            <span class="meta-item"><i class="fas fa-eye"></i> ${q.views}</span>
+                            <span class="meta-item"><i class="fas fa-calendar"></i> ${q.created_at}</span>
                         </div>
                     </div>
                 </div>
             `).join('');
-            
-            container.innerHTML = questionsHTML;
-            
         } catch (error) {
             console.error('Error loading user questions:', error);
         }
@@ -1352,66 +1370,45 @@
     if (categorySelect) {
         categorySelect.addEventListener('change', async (e) => {
             const categoryId = e.target.value;
-            
-            if (!categoryId || categoryId <= 8) {
-                // Categoria principale (ID 1-8) - carica le sottocategorie
-                if (categoryId && categoryId <= 8) {
-                    try {
-                        const response = await fetch(`/api/profile/subcategories/${categoryId}`);
-                        const data = await response.json();
-                        
-                        if (data.subcategories && data.subcategories.length > 0) {
-                            // Riempì con le checkbox
-                            subcategoriesList.innerHTML = data.subcategories.map(sub => `
-                                <label style="display:flex; gap:8px; padding:8px; align-items:center;">
-                                    <input type="checkbox" value="${sub.id}" class="subcategory-checkbox">
-                                    <span>${sub.icon} ${sub.name}</span>
-                                </label>
-                            `).join('');
-                            
-                            subcategoriesContainer.style.display = 'block';
-                        } else {
-                            subcategoriesContainer.style.display = 'none';
-                        }
-                    } catch (error) {
-                        console.error('Error loading subcategories:', error);
+            if (categoryId && categoryId <= 8) {
+                try {
+                    const response = await fetch(`/api/profile/subcategories/${categoryId}`);
+                    const data = await response.json();
+                    if (data.subcategories && data.subcategories.length > 0) {
+                        subcategoriesList.innerHTML = data.subcategories.map(sub => `
+                            <label style="display:flex; gap:8px; padding:8px; align-items:center;">
+                                <input type="checkbox" value="${sub.id}" class="subcategory-checkbox">
+                                <span>${sub.icon} ${sub.name}</span>
+                            </label>
+                        `).join('');
+                        subcategoriesContainer.style.display = 'block';
+                    } else {
                         subcategoriesContainer.style.display = 'none';
                     }
-                } else {
+                } catch (error) {
                     subcategoriesContainer.style.display = 'none';
                 }
             } else {
-                // Categoria secondaria - nasconde il container
                 subcategoriesContainer.style.display = 'none';
             }
         });
-        
-        // Carica le subcategories al caricamento della pagina se una categoria è già selezionata
         const initialCategoryId = categorySelect.value;
         if (initialCategoryId && initialCategoryId <= 8) {
-            const changeEvent = new Event('change');
-            categorySelect.dispatchEvent(changeEvent);
+            categorySelect.dispatchEvent(new Event('change'));
         }
     }
     
-    // Aggiungi alla form submission: raccogliere gli IDs delle subcategories selezionate
-    const originalFormSubmit = profileForm.onsubmit;
     profileForm.addEventListener('submit', (e) => {
-        console.log('🔴 SUBMIT EVENT 2 - Secondo event listener');
-        // Raccogli le subcategories selezionate
         const selectedCheckboxes = document.querySelectorAll('.subcategory-checkbox:checked');
         const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
-        
-        // Salva nel campo hidden come JSON
         if (selectedIds.length > 0) {
             selectedSubcategoriesInput.value = JSON.stringify(selectedIds);
-            console.log('📌 Subcategories selezionate:', selectedIds);
         } else {
             selectedSubcategoriesInput.value = '';
         }
     });
 
-    // Carica gli appuntamenti e le domande amate all'avvio
+    // Carica dati all'avvio
     loadUpcomingAppointments();
     loadLikedQuestions();
     loadUserQuestions();
@@ -1426,61 +1423,46 @@
         openCategoryRequestsBtn.addEventListener('click', async () => {
             categoryRequestsModal.style.display = 'block';
             categoryRequestsContent.innerHTML = '<p style="text-align: center; color: #888;">Caricamento richieste...</p>';
-            
-            // Marca le notifiche come lette
             try {
                 await fetch('/api/category-requests/mark-as-read', { method: 'POST' });
-                loadCategoryRequestsBadge();  // Aggiorna il badge
-            } catch (error) {
-                console.error('Errore nel marcamento:', error);
-            }
-            
+                loadCategoryRequestsBadge();
+            } catch (error) { console.error('Errore nel marcamento:', error); }
             try {
                 const response = await fetch('/api/category-requests');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
                 displayCategoryRequests(data.questions);
             } catch (error) {
-                console.error('Errore nel caricamento delle richieste:', error);
                 categoryRequestsContent.innerHTML = '<p style="text-align: center; color: #dc3545;">Errore nel caricamento delle richieste. Riprova.</p>';
             }
         });
     }
 
     if (closeCategoryRequestsBtn) {
-        closeCategoryRequestsBtn.addEventListener('click', () => {
-            categoryRequestsModal.style.display = 'none';
-        });
+        closeCategoryRequestsBtn.addEventListener('click', () => { categoryRequestsModal.style.display = 'none'; });
     }
 
-    // Chiudi il modal cliccando fuori
-    categoryRequestsModal.addEventListener('click', (e) => {
-        if (e.target === categoryRequestsModal) {
-            categoryRequestsModal.style.display = 'none';
-        }
-    });
+    if (categoryRequestsModal) {
+        categoryRequestsModal.addEventListener('click', (e) => {
+            if (e.target === categoryRequestsModal) categoryRequestsModal.style.display = 'none';
+        });
+    }
 
     function displayCategoryRequests(questions) {
         if (!questions || questions.length === 0) {
             categoryRequestsContent.innerHTML = '<p style="text-align: center; color: #888; padding: 40px;">Nessuna richiesta nella tua categoria al momento.</p>';
             return;
         }
-
         let html = '<div style="display: grid; gap: 16px;">';
         questions.forEach(q => {
             const timeAgo = formatTimeAgo(q.created_at);
             const authorInitials = q.author_name ? q.author_name.substring(0, 2).toUpperCase() : '?';
             const authorColor = stringToColor(q.author_name || '');
-            
             html += `
                 <a href="/community/question/${q.id}" style="text-decoration: none; color: inherit;">
-                    <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #667eea; cursor: pointer; transition: all 0.3s; hover-shadow;">
+                    <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #667eea; cursor: pointer; transition: all 0.3s;">
                         <div style="display: flex; gap: 12px;">
-                            <div style="width: 40px; height: 40px; border-radius: 50%; background: ${authorColor}20; border: 2px solid ${authorColor}; display: flex; align-items: center; justify-content: center; font-weight: bold; color: ${authorColor}; flex-shrink: 0;">
-                                ${authorInitials}
-                            </div>
+                            <div style="width: 40px; height: 40px; border-radius: 50%; background: ${authorColor}20; border: 2px solid ${authorColor}; display: flex; align-items: center; justify-content: center; font-weight: bold; color: ${authorColor}; flex-shrink: 0;">${authorInitials}</div>
                             <div style="flex: 1;">
                                 <h3 style="margin: 0 0 8px 0; color: #333; font-size: 1.05em;">${escapeHtml(q.title)}</h3>
                                 <p style="margin: 0 0 8px 0; color: #666; font-size: 0.95em;">${escapeHtml(q.description.substring(0, 150))}${q.description.length > 150 ? '...' : ''}</p>
@@ -1501,9 +1483,7 @@
 
     function formatTimeAgo(dateString) {
         const date = new Date(dateString);
-        const now = new Date();
-        const seconds = Math.floor((now - date) / 1000);
-        
+        const seconds = Math.floor((new Date() - date) / 1000);
         if (seconds < 60) return 'Proprio ora';
         if (seconds < 3600) return `${Math.floor(seconds / 60)}m fa`;
         if (seconds < 86400) return `${Math.floor(seconds / 3600)}h fa`;
@@ -1513,11 +1493,8 @@
 
     function stringToColor(str) {
         let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = str.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        const hue = Math.abs(hash) % 360;
-        return `hsl(${hue}, 70%, 60%)`;
+        for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        return `hsl(${Math.abs(hash) % 360}, 70%, 60%)`;
     }
 
     function escapeHtml(text) {
@@ -1526,28 +1503,27 @@
         return div.innerHTML;
     }
 
-    // ========== CARICA BADGE NOTIFICHE ==========
+    // ========== BADGE NOTIFICHE ==========
     async function loadCategoryRequestsBadge() {
         try {
             const response = await fetch('/api/category-requests/unread-count');
-            if (!response.ok) throw new Error('Errore nel caricamento');
+            if (!response.ok) throw new Error('Errore');
             const data = await response.json();
-            
             const badge = document.getElementById('categoryRequestsBadge');
-            if (data.unread_count > 0) {
-                badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
-                badge.style.display = 'flex';
-            } else {
-                badge.style.display = 'none';
+            if (badge) {
+                if (data.unread_count > 0) {
+                    badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                    badge.style.display = 'flex';
+                } else {
+                    badge.style.display = 'none';
+                }
             }
         } catch (error) {
-            console.error('Errore nel caricamento del badge:', error);
+            console.error('Errore badge:', error);
         }
     }
 
-    // Carica il badge all'avvio e ogni 30 secondi
     loadCategoryRequestsBadge();
     setInterval(loadCategoryRequestsBadge, 30000);
-
 </script>
 {% endblock %}

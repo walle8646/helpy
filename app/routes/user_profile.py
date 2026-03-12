@@ -6,6 +6,7 @@ from sqlmodel import select, and_, func
 from app.routes.auth import verify_token
 from app.logger_config import logger
 from app.utils.email import send_profile_verification_request
+from app.utils.ai_service import genera_aree_interesse, genera_tags
 from typing import Optional
 import os
 import hashlib
@@ -215,7 +216,8 @@ async def update_profile(
     is_anonymous: Optional[bool] = Form(None),  # ✅ NUOVO: flag anonimato
     notify_category_requests: Optional[bool] = Form(None),  # ✅ NUOVO: notifiche categoria
     selected_subcategories: str = Form(None),  # ✅ NUOVO: JSON array di subcategory IDs
-    genere: Optional[str] = Form(None)  # ✅ Genere: M/F/None
+    genere: Optional[str] = Form(None),  # ✅ Genere: M/F/None
+    tags: str = Form(None)  # 🏷️ JSON array di tags generati da AI
 ):
     """Aggiorna profilo utente"""
     try:
@@ -273,6 +275,9 @@ async def update_profile(
                 # Accetta solo 'M', 'F' o stringa vuota (→ None)
                 db_user.genere = genere if genere in ('M', 'F') else None
                 logger.info(f"✅ Genere updated for user {db_user.id}: {db_user.genere}")
+            if tags is not None:
+                db_user.tags = tags
+                logger.info(f"🏷️ Tags updated for user {db_user.id}: {tags}")
             
             session.add(db_user)
             session.commit()
@@ -352,6 +357,87 @@ async def update_profile(
         logger.error(f"Error updating profile: {e}", exc_info=True)
         return JSONResponse(
             {"error": "Errore durante l'aggiornamento"},
+            status_code=500
+        )
+
+
+@router.post("/api/profile/generate-interests")
+async def generate_interests(request: Request):
+    """Genera automaticamente le aree di interesse dalla descrizione usando AI"""
+    try:
+        user = verify_token(request)
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        body = await request.json()
+        descrizione = body.get("descrizione", "").strip()
+        professione = body.get("professione", "").strip()
+        
+        if not descrizione or len(descrizione) < 50:
+            return JSONResponse(
+                {"error": "La descrizione deve essere di almeno 50 caratteri per generare le aree di interesse."},
+                status_code=400
+            )
+        
+        aree = await genera_aree_interesse(descrizione, professione or None)
+        
+        return JSONResponse({
+            "success": True,
+            "aree_interesse": ", ".join(aree),
+            "aree_list": aree
+        })
+    
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    except Exception as e:
+        logger.error(f"❌ Errore generazione aree di interesse: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore durante la generazione delle aree di interesse. Riprova."},
+            status_code=500
+        )
+
+
+@router.post("/api/profile/generate-tags")
+async def generate_tags(request: Request):
+    """Genera tag di ricerca dalla descrizione e aree di interesse usando AI"""
+    try:
+        user = verify_token(request)
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        body = await request.json()
+        descrizione = body.get("descrizione", "").strip()
+        aree_interesse = body.get("aree_interesse", "").strip()
+        professione = body.get("professione", "").strip()
+        
+        if not descrizione or len(descrizione) < 50:
+            return JSONResponse(
+                {"error": "La descrizione deve essere di almeno 50 caratteri per generare i tag."},
+                status_code=400
+            )
+        
+        tags = await genera_tags(descrizione, aree_interesse or None, professione or None)
+        
+        # Salva i tag nel database
+        with get_session() as session:
+            db_user = session.get(User, user.id)
+            if db_user:
+                db_user.tags = json.dumps(tags)
+                session.add(db_user)
+                session.commit()
+                logger.info(f"🏷️ Tags salvati per user {user.id}: {tags}")
+        
+        return JSONResponse({
+            "success": True,
+            "tags": tags
+        })
+    
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    except Exception as e:
+        logger.error(f"❌ Errore generazione tags: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore durante la generazione dei tag. Riprova."},
             status_code=500
         )
 

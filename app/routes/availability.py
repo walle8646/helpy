@@ -3,12 +3,15 @@ from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import Session, select, func, and_
 from datetime import datetime, timedelta, date, time
+from zoneinfo import ZoneInfo
 from typing import List, Optional
 import logging
 
 from app.database import engine
 from app.models import User, AvailabilityBlock
 from app.routes.auth import verify_token
+
+ITALY_TZ = ZoneInfo("Europe/Rome")
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -110,6 +113,40 @@ async def save_availability(
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
         blocks_data = json.loads(blocks)
         
+        # ✅ Validazione: le fasce per oggi devono iniziare almeno 4 ore nel futuro
+        now_italy = datetime.now(ITALY_TZ)
+        today_italy = now_italy.date()
+        
+        if target_date == today_italy:
+            min_start = now_italy + timedelta(hours=4)
+            min_start_minutes = min_start.hour * 60 + min_start.minute
+            
+            for block_data in blocks_data:
+                start_time_str = block_data.get("start_time", "")
+                try:
+                    parts = list(map(int, start_time_str.split(":")))
+                    block_start_minutes = parts[0] * 60 + parts[1]
+                except (ValueError, IndexError):
+                    continue
+                
+                if block_start_minutes < min_start_minutes:
+                    min_time_formatted = f"{min_start.hour:02d}:{min_start.minute:02d}"
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "success": False,
+                            "message": f"Per oggi le fasce orarie devono iniziare dopo le {min_time_formatted} (almeno 4 ore da adesso)"
+                        }
+                    )
+        elif target_date < today_italy:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "message": "Non puoi impostare disponibilità per date passate"
+                }
+            )
+        
         with Session(engine) as session:
             # Rimuovi blocchi esistenti per quella data
             existing = session.exec(
@@ -203,9 +240,20 @@ async def copy_availability(
                 })
             
             copied_count = 0
+            skipped_count = 0
             
             for target_date_str in target_dates_list:
                 target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+                
+                # Calcola orario minimo se la data target è oggi
+                now_italy = datetime.now(ITALY_TZ)
+                today_italy = now_italy.date()
+                min_start_minutes = None
+                if target_date == today_italy:
+                    min_start = now_italy + timedelta(hours=4)
+                    min_start_minutes = min_start.hour * 60 + min_start.minute
+                elif target_date < today_italy:
+                    continue  # Salta date passate
                 
                 # Rimuovi blocchi esistenti
                 existing = session.exec(
@@ -220,6 +268,16 @@ async def copy_availability(
                 
                 # Copia blocchi
                 for source_block in source_blocks:
+                    # Se è oggi, verifica vincolo 4 ore
+                    if min_start_minutes is not None:
+                        src_start = format_time_field(source_block.start_time)
+                        if src_start:
+                            parts = list(map(int, src_start.split(":")))
+                            block_start_minutes = parts[0] * 60 + parts[1]
+                            if block_start_minutes < min_start_minutes:
+                                skipped_count += 1
+                                continue
+                    
                     new_block = AvailabilityBlock(
                         user_id=user.id,
                         date=target_date,
@@ -232,11 +290,15 @@ async def copy_availability(
                     copied_count += 1
             
             session.commit()
-            logger.info(f"✅ Copied availability from {source_date} to {len(target_dates_list)} dates")
+            logger.info(f"✅ Copied availability from {source_date} to {len(target_dates_list)} dates (skipped {skipped_count} blocks within 4h)")
+            
+            msg = f"Disponibilità copiata in {len(target_dates_list)} giorni ({copied_count} blocchi totali)"
+            if skipped_count > 0:
+                msg += f". {skipped_count} blocco/i esclusi perché troppo vicini all'orario attuale (min. 4 ore)"
             
             return JSONResponse({
                 "success": True,
-                "message": f"Disponibilità copiata in {len(target_dates_list)} giorni ({copied_count} blocchi totali)"
+                "message": msg
             })
     
     except Exception as e:

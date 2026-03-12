@@ -102,7 +102,8 @@ def calculate_relevance_score(user: User, keywords: list[str], expanded_keywords
         user.cognome or '',
         user.professione or '',
         user.descrizione or '',
-        user.aree_interesse or ''  # ✅ Rimosso macro_aree
+        user.aree_interesse or '',  # ✅ Rimosso macro_aree
+        user.tags or ''  # 🏷️ Tags generati da AI
     ])).lower()
     
     # +10 punti per ogni keyword originale trovata
@@ -220,8 +221,11 @@ async def consultants_page(
                                 and_(
                                     User.aree_interesse.isnot(None),
                                     User.aree_interesse.ilike(keyword_pattern)
+                                ),
+                                and_(
+                                    User.tags.isnot(None),
+                                    User.tags.ilike(keyword_pattern)
                                 )
-                                # ✅ Rimosso blocco macro_aree
                             )
                         )
                     
