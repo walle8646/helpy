@@ -510,6 +510,14 @@
             <!-- Colonna sinistra: contenuto -->
             <div class="pub-narrative-col">
 
+                <!-- Descrizione profilo (visibile) -->
+                {% if user.descrizione %}
+                <section class="pub-narrative" style="margin-bottom: 32px;">
+                    <div class="pub-section-label">📝 Chi sono</div>
+                    <p class="pub-desc">{{ user.descrizione }}</p>
+                </section>
+                {% endif %}
+
                 <!-- Liked Questions Section -->
                 <section class="card" id="likedQuestionsTopSection" style="display:none;">
                     <h2>❤️ Domande a cui hai messo Like</h2>
@@ -827,13 +835,18 @@
             const data = await response.json();
             
             if (response.ok) {
-                let message = 'Profilo aggiornato con successo!';
-                if (data.verification_requested) {
-                    message += ' ✨ Il tuo profilo è stato inviato per la verifica. Riceverai una notifica quando sarà approvato.';
+                let message = '✅ Profilo aggiornato con successo!';
+                if (data.is_verified) {
+                    message += ' ✨ Il tuo profilo è stato verificato automaticamente!';
+                } else if (data.verification_warning) {
+                    message = '⚠️ Profilo salvato, ma non verificato: ' + data.verification_warning;
+                    successDiv.style.background = '#fff3cd';
+                    successDiv.style.color = '#856404';
+                    successDiv.style.border = '1px solid #ffc107';
                 }
                 successDiv.textContent = message;
                 successDiv.style.display = 'block';
-                setTimeout(() => window.location.reload(), 2500);
+                setTimeout(() => window.location.reload(), 3000);
             } else {
                 errorDiv.textContent = data.error || 'Errore durante l\'aggiornamento';
                 errorDiv.style.display = 'block';

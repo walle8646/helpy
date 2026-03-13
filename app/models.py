@@ -134,6 +134,7 @@ class CommunityQuestion(SQLModel, table=True):
     views: int = Field(default=0)  # Ora rappresenta quanti utenti UNICI hanno cliccato "Messaggia"
     upvotes: int = Field(default=0)
     validation: bool = Field(default=False, index=True)  # 🆕 Flag di validazione - se False, la domanda non è visibile
+    images: Optional[str] = Field(default=None)  # JSON array di URL S3 delle immagini allegate (max 2)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

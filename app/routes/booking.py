@@ -1097,7 +1097,15 @@ async def refuse_booking(booking_id: int, request: Request):
             raise HTTPException(status_code=400, detail="Non puoi rifiutare una prenotazione in questo stato")
         
         # ✅ Validazione: annullamento max 4 ore prima dell'inizio
-        booking_datetime = datetime.combine(booking.booking_date, booking.start_time)
+        # Converti booking_date e start_time nei tipi corretti
+        if isinstance(booking.booking_date, str):
+            booking_date = datetime.strptime(booking.booking_date, "%Y-%m-%d").date()
+        elif isinstance(booking.booking_date, datetime):
+            booking_date = booking.booking_date.date()
+        else:
+            booking_date = booking.booking_date
+        start_time_obj = datetime.strptime(booking.start_time, "%H:%M").time() if isinstance(booking.start_time, str) else booking.start_time
+        booking_datetime = datetime.combine(booking_date, start_time_obj)
         now = datetime.utcnow()
         time_until_booking = (booking_datetime - now).total_seconds() / 3600  # in ore
         

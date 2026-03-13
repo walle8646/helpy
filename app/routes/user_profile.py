@@ -6,7 +6,7 @@ from sqlmodel import select, and_, func
 from app.routes.auth import verify_token
 from app.logger_config import logger
 from app.utils.email import send_profile_verification_request
-from app.utils.ai_service import genera_aree_interesse, genera_tags
+from app.utils.ai_service import genera_aree_interesse, genera_tags, valida_profilo
 from typing import Optional
 import os
 import hashlib
@@ -285,73 +285,66 @@ async def update_profile(
             
             logger.info(f"✅ Profile updated for user: {db_user.email}")
             
-            # 🔍 DEBUG: Log dello stato di verifica
-            logger.info(f"🔍 DEBUG - was_verified_before: {was_verified_before}")
-            logger.info(f"🔍 DEBUG - is_verified (current): {db_user.is_verified}")
-            logger.info(f"🔍 DEBUG - user_type_id: {db_user.user_type_id}")
-            
             # Check if profile meets verification criteria
             has_professione = db_user.professione and db_user.professione.strip() != ""
             has_category = db_user.category_id is not None
             has_aree_interesse = db_user.aree_interesse and db_user.aree_interesse.strip() != ""
             has_descrizione = db_user.descrizione and len(db_user.descrizione.strip()) >= 200
             
-            logger.info(f"🔍 DEBUG - Professione filled: {has_professione} (value: '{db_user.professione}')")
-            logger.info(f"🔍 DEBUG - Category selected: {has_category} (value: {db_user.category_id})")
-            logger.info(f"🔍 DEBUG - Aree interesse filled: {has_aree_interesse} (value: '{db_user.aree_interesse}')")
-            logger.info(f"🔍 DEBUG - Descrizione ≥200: {has_descrizione} (length: {len(db_user.descrizione.strip()) if db_user.descrizione else 0})")
-            
             profile_complete = has_professione and has_category and has_aree_interesse and has_descrizione
-            logger.info(f"🔍 DEBUG - profile_complete: {profile_complete}")
-            logger.info(f"🔍 DEBUG - should send email: {profile_complete and not was_verified_before}")
+            logger.info(f"🔍 Profile complete: {profile_complete} for user {db_user.email}")
             
-            # Send notification to verifiers if criteria met and not already verified
-            if profile_complete and not was_verified_before:
-                logger.info(f"🔍 Profile verification criteria met for user {db_user.email}")
-                
-                # Get all verifiers and admins (user_type_id 2 and 3)
-                verifiers = session.exec(
-                    select(User).where(User.user_type_id.in_([2, 3]))
-                ).all()
-                
-                logger.info(f"🔍 DEBUG - Found {len(verifiers)} verifiers in database")
-                for v in verifiers:
-                    logger.info(f"  - Verifier: {v.email} (user_type_id: {v.user_type_id})")
-                
-                if verifiers:
-                    user_full_name = f"{db_user.nome or ''} {db_user.cognome or ''}".strip() or "Utente"
+            # ========== VALIDAZIONE AI DEL PROFILO ==========
+            ai_verified = False
+            ai_reason = ""
+            
+            if profile_complete:
+                try:
+                    validazione = await valida_profilo(
+                        descrizione=db_user.descrizione,
+                        professione=db_user.professione,
+                        aree_interesse=db_user.aree_interesse
+                    )
+                    ai_verified = validazione.get("approved", False)
+                    ai_reason = validazione.get("reason", "")
                     
-                    for verifier in verifiers:
-                        if verifier.email:
-                            try:
-                                logger.info(f"📧 Attempting to send email to {verifier.email}...")
-                                send_profile_verification_request(
-                                    to_email=verifier.email,
-                                    user_id=db_user.id,
-                                    user_name=user_full_name,
-                                    user_email=db_user.email
-                                )
-                                logger.info(f"✅ Verification request sent to {verifier.email}")
-                            except Exception as e:
-                                logger.error(f"❌ Failed to send email to {verifier.email}: {e}", exc_info=True)
-                        else:
-                            logger.warning(f"⚠️ Verifier ID {verifier.id} has no email address")
-                else:
-                    logger.warning("⚠️ No verifiers found in the system (user_type_id 2 or 3)")
-            elif not profile_complete:
-                logger.info("ℹ️ Profile not complete, email not sent")
-            elif was_verified_before:
-                logger.info("ℹ️ User already verified, email not sent")
+                    # Aggiorna il flag is_verified in base al risultato AI
+                    db_user.is_verified = ai_verified
+                    session.add(db_user)
+                    session.commit()
+                    session.refresh(db_user)
+                    
+                    if ai_verified:
+                        logger.info(f"✅ Profilo VERIFICATO automaticamente per {db_user.email}: {ai_reason}")
+                    else:
+                        logger.warning(f"❌ Profilo NON verificato per {db_user.email}: {ai_reason}")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Errore validazione AI profilo: {e}", exc_info=True)
+                    # In caso di errore AI, mantieni lo stato precedente
+                    ai_reason = "Errore durante la verifica automatica"
+            else:
+                # Profilo incompleto → non verificato
+                if db_user.is_verified:
+                    db_user.is_verified = False
+                    session.add(db_user)
+                    session.commit()
+                    logger.info(f"ℹ️ Profilo incompleto, verifica rimossa per {db_user.email}")
             
-            return JSONResponse({
+            response_data = {
                 "message": "Profilo aggiornato con successo!",
                 "user": {
                     "nome": db_user.nome,
-                    "cognome": db_user.cognome,  # ✅ AGGIUNGI questo
+                    "cognome": db_user.cognome,
                     "professione": db_user.professione
                 },
-                "verification_requested": profile_complete and not was_verified_before
-            })
+                "is_verified": db_user.is_verified
+            }
+            
+            if profile_complete and not ai_verified:
+                response_data["verification_warning"] = ai_reason
+            
+            return JSONResponse(response_data)
     
     except Exception as e:
         logger.error(f"Error updating profile: {e}", exc_info=True)

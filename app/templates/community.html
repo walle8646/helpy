@@ -1192,6 +1192,171 @@
         100% { transform: scale(1); }
     }
 
+    /* ========== IMAGE UPLOAD STYLES ========== */
+    .image-upload-area {
+        border: 2px dashed #ccc;
+        border-radius: 12px;
+        padding: 24px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: #fafafa;
+    }
+    .image-upload-area:hover {
+        border-color: #4caf50;
+        background: #f0faf0;
+    }
+    .image-upload-area.dragover {
+        border-color: #4caf50;
+        background: #e8f5e9;
+    }
+    .image-upload-icon {
+        font-size: 2rem;
+        color: #999;
+        margin-bottom: 8px;
+    }
+    .image-upload-text {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    .image-upload-text strong {
+        color: #4caf50;
+    }
+    .image-previews {
+        display: flex;
+        gap: 12px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+    }
+    .image-preview-item {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    .image-preview-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .image-preview-item .remove-image {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: rgba(220, 53, 69, 0.9);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        transition: background 0.2s;
+    }
+    .image-preview-item .remove-image:hover {
+        background: #dc3545;
+    }
+    .image-preview-item .upload-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.8rem;
+    }
+    .image-preview-item .upload-overlay .spinner {
+        width: 24px;
+        height: 24px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .image-upload-error {
+        color: #dc3545;
+        font-size: 0.85rem;
+        margin-top: 6px;
+        display: none;
+    }
+    /* Content row: description + images side by side */
+    .question-content-row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+    .question-content-row .question-description {
+        flex: 1;
+        margin-bottom: 0;
+    }
+    .question-content-row .question-images {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 0;
+    }
+    .question-content-row .question-images img {
+        width: 100%;
+        height: auto;
+        max-height: 180px;
+        object-fit: cover;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .question-content-row .question-images img:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    @media (max-width: 600px) {
+        .question-content-row {
+            flex-direction: column;
+        }
+    }
+    /* Lightbox */
+    .image-lightbox {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.85);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    .image-lightbox.active {
+        display: flex;
+    }
+    .image-lightbox img {
+        max-width: 90vw;
+        max-height: 90vh;
+        border-radius: 8px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .image-lightbox .close-lightbox {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        color: white;
+        font-size: 2rem;
+        cursor: pointer;
+        background: none;
+        border: none;
+        line-height: 1;
+    }
+
 </style>
 {% endblock %}
 
@@ -1381,10 +1546,24 @@
                     <!-- Titolo -->
                     <h4 class="question-title">{{ item.question.title }}</h4>
                     
-                    <!-- Descrizione -->
+                    <!-- Descrizione + Immagini -->
+                    {% set imgs = item.question.images | parse_json if item.question.images else [] %}
+                    {% if imgs %}
+                    <div class="question-content-row">
+                        <p class="question-description">
+                            {{ item.question.description[:200] }}{% if item.question.description|length > 200 %}...{% endif %}
+                        </p>
+                        <div class="question-images">
+                            {% for img_url in imgs %}
+                            <img src="{{ img_url }}" alt="Immagine allegata" loading="lazy" onclick="openLightbox('{{ img_url }}')">
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
                     <p class="question-description">
                         {{ item.question.description[:200] }}{% if item.question.description|length > 200 %}...{% endif %}
                     </p>
+                    {% endif %}
                     
                     <!-- Follow Counter - Cliccabile per consulenti -->
                     <div class="follow-counter" id="follow-counter-{{ item.question.id }}" style="display: none; color: #4caf50; font-size: 0.85rem; margin: 8px 0; font-weight: 500; cursor: pointer;" onclick="{% if user and user.is_verified %}openFollowersModal({{ item.question.id }}){% endif %}">
@@ -1730,7 +1909,7 @@
 <div class="modal" id="askModal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 class="modal-title">Fai una Domanda</h2>
+            <h2 class="modal-title">Crea una Richiesta</h2>
             <button class="modal-close" onclick="closeAskModal()">&times;</button>
         </div>
         
@@ -1793,9 +1972,34 @@
                 <input 
                     type="text" 
                     class="form-input" 
+                    id="questionTagsInput"
                     name="tags" 
                     placeholder="Es: design, logo, branding"
                 >
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                    <small style="color:#888;">Separati da virgola</small>
+                    <button type="button" id="generateQuestionTagsBtn" 
+                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.85em; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(102,126,234,.3);">
+                        🤖 Genera con AI
+                    </button>
+                </div>
+                <div id="generateQuestionTagsStatus" style="display: none; margin-top: 8px; padding: 10px 14px; border-radius: 8px; font-size: 0.9em;"></div>
+            </div>
+            
+            <!-- ========== UPLOAD IMMAGINI ========== -->
+            <div class="form-group">
+                <label class="form-label">Immagini (opzionale, max 2)</label>
+                <div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('imageFileInput').click()">
+                    <div class="image-upload-icon">📷</div>
+                    <div class="image-upload-text">
+                        <strong>Clicca</strong> o <strong>trascina</strong> per caricare immagini<br>
+                        <small>JPG, PNG o WebP • Max 5MB ciascuna • Max 2 immagini</small>
+                    </div>
+                </div>
+                <input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp" multiple style="display:none;" onchange="handleImageSelect(this.files)">
+                <input type="hidden" id="uploadedImagesInput" name="images" value="">
+                <div class="image-previews" id="imagePreviews"></div>
+                <div class="image-upload-error" id="imageUploadError"></div>
             </div>
             
             <button type="submit" class="submit-button">
@@ -1874,6 +2078,64 @@ function openAskModal() {
 function closeAskModal() {
     document.getElementById('askModal').classList.remove('active');
 }
+
+// ========== AI: GENERA TAG PER DOMANDA COMMUNITY ==========
+(function() {
+    const genBtn = document.getElementById('generateQuestionTagsBtn');
+    if (!genBtn) return;
+
+    genBtn.addEventListener('click', async () => {
+        const titolo = document.querySelector('#askForm input[name="title"]')?.value?.trim() || '';
+        const descrizione = document.getElementById('descriptionTextarea')?.value?.trim() || '';
+        const catSelect = document.getElementById('subcategorySelect');
+        const categoria = catSelect?.options[catSelect.selectedIndex]?.text?.trim() || '';
+        const tagsInput = document.getElementById('questionTagsInput');
+        const statusDiv = document.getElementById('generateQuestionTagsStatus');
+
+        if (!titolo || !descrizione) {
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fff3cd';
+            statusDiv.style.color = '#856404';
+            statusDiv.textContent = '⚠️ Inserisci titolo e descrizione prima di generare i tag.';
+            return;
+        }
+
+        genBtn.disabled = true;
+        genBtn.innerHTML = '⏳ Generazione...';
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#e8f4fd';
+        statusDiv.style.color = '#0c5460';
+        statusDiv.textContent = '🤖 L\'AI sta analizzando la tua richiesta...';
+
+        try {
+            const response = await fetch('/api/community/generate-tags', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titolo, descrizione, categoria })
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                tagsInput.value = data.tags_string;
+                statusDiv.style.background = '#d4edda';
+                statusDiv.style.color = '#155724';
+                statusDiv.textContent = '✅ Tag generati! Puoi modificarli prima di pubblicare.';
+            } else {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.textContent = '❌ ' + (data.error || 'Errore durante la generazione.');
+            }
+        } catch (error) {
+            statusDiv.style.background = '#f8d7da';
+            statusDiv.style.color = '#721c24';
+            statusDiv.textContent = '❌ Errore di connessione. Riprova.';
+            console.error('Error:', error);
+        } finally {
+            genBtn.disabled = false;
+            genBtn.innerHTML = '🤖 Genera con AI';
+        }
+    });
+})();
 
 function openAnonymousModal() {
     document.getElementById('anonymousConfirmModal').classList.add('active');
@@ -2038,6 +2300,11 @@ async function submitQuestion(e) {
     // Salva i dati del form per la sottomissione successiva
     pendingQuestionData = new FormData(e.target);
     
+    // Aggiungi le URL delle immagini caricate
+    if (uploadedImageUrls.length > 0) {
+        pendingQuestionData.set('images', JSON.stringify(uploadedImageUrls));
+    }
+    
     // Mostra il modal di conferma modalità anonima
     openAnonymousModal();
 }
@@ -2061,6 +2328,143 @@ async function submitQuestionFinal() {
     } catch (error) {
         console.error('Error:', error);
         alert('Errore di connessione');
+    }
+}
+
+// ========== IMAGE UPLOAD SYSTEM ==========
+let uploadedImageUrls = [];
+const MAX_IMAGES = 2;
+
+// Drag & Drop
+const uploadArea = document.getElementById('imageUploadArea');
+if (uploadArea) {
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        handleImageSelect(e.dataTransfer.files);
+    });
+}
+
+async function handleImageSelect(files) {
+    const errorDiv = document.getElementById('imageUploadError');
+    errorDiv.style.display = 'none';
+    
+    const remainingSlots = MAX_IMAGES - uploadedImageUrls.length;
+    if (remainingSlots <= 0) {
+        errorDiv.textContent = '⚠️ Hai già caricato il massimo di 2 immagini.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+    
+    for (const file of filesToProcess) {
+        // Validate type
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            errorDiv.textContent = '⚠️ Formato non supportato. Usa JPG, PNG o WebP.';
+            errorDiv.style.display = 'block';
+            continue;
+        }
+        // Validate size
+        if (file.size > 5 * 1024 * 1024) {
+            errorDiv.textContent = '⚠️ File troppo grande. Massimo 5MB.';
+            errorDiv.style.display = 'block';
+            continue;
+        }
+        
+        await uploadSingleImage(file);
+    }
+    
+    // Reset file input
+    document.getElementById('imageFileInput').value = '';
+}
+
+async function uploadSingleImage(file) {
+    const previewsDiv = document.getElementById('imagePreviews');
+    const errorDiv = document.getElementById('imageUploadError');
+    
+    // Create preview with loading overlay
+    const previewItem = document.createElement('div');
+    previewItem.className = 'image-preview-item';
+    
+    const localUrl = URL.createObjectURL(file);
+    previewItem.innerHTML = `
+        <img src="${localUrl}" alt="Anteprima">
+        <div class="upload-overlay"><div class="spinner"></div></div>
+    `;
+    previewsDiv.appendChild(previewItem);
+    
+    // Build FormData for upload
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', document.querySelector('[name="title"]')?.value || '');
+    formData.append('description', document.getElementById('descriptionTextarea')?.value || '');
+    
+    try {
+        const response = await fetch('/api/community/upload-image', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            // Remove loading overlay, add remove button
+            const overlay = previewItem.querySelector('.upload-overlay');
+            if (overlay) overlay.remove();
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-image';
+            removeBtn.type = 'button';
+            removeBtn.innerHTML = '×';
+            removeBtn.onclick = () => removeImage(data.url, previewItem);
+            previewItem.appendChild(removeBtn);
+            
+            uploadedImageUrls.push(data.url);
+            updateImagesInput();
+            updateUploadAreaVisibility();
+        } else {
+            // Upload/moderation failed
+            previewItem.remove();
+            errorDiv.textContent = '⚠️ ' + (data.error || 'Errore durante il caricamento');
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Errore upload:', error);
+        previewItem.remove();
+        errorDiv.textContent = '⚠️ Errore di connessione durante il caricamento.';
+        errorDiv.style.display = 'block';
+    }
+    
+    URL.revokeObjectURL(localUrl);
+}
+
+function removeImage(url, previewItem) {
+    uploadedImageUrls = uploadedImageUrls.filter(u => u !== url);
+    previewItem.remove();
+    updateImagesInput();
+    updateUploadAreaVisibility();
+    document.getElementById('imageUploadError').style.display = 'none';
+}
+
+function updateImagesInput() {
+    const input = document.getElementById('uploadedImagesInput');
+    input.value = uploadedImageUrls.length > 0 ? JSON.stringify(uploadedImageUrls) : '';
+}
+
+function updateUploadAreaVisibility() {
+    const area = document.getElementById('imageUploadArea');
+    if (uploadedImageUrls.length >= MAX_IMAGES) {
+        area.style.display = 'none';
+    } else {
+        area.style.display = '';
     }
 }
 
@@ -2753,6 +3157,25 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+
+// ========== LIGHTBOX ==========
+function openLightbox(imgUrl) {
+    const lb = document.getElementById('imageLightbox');
+    const lbImg = document.getElementById('lightboxImage');
+    lbImg.src = imgUrl;
+    lb.classList.add('active');
+}
+function closeLightbox() {
+    const lb = document.getElementById('imageLightbox');
+    lb.classList.remove('active');
+    document.getElementById('lightboxImage').src = '';
+}
 </script>
+
+<!-- Lightbox overlay -->
+<div class="image-lightbox" id="imageLightbox" onclick="closeLightbox()">
+    <button class="close-lightbox" onclick="closeLightbox()">&times;</button>
+    <img id="lightboxImage" src="" alt="Immagine ingrandita">
+</div>
 
 {% endblock %}

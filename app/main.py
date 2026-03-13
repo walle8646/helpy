@@ -39,6 +39,20 @@ templates = Jinja2Templates(directory="app/templates")
 # Aggiungi filtro personalizzato per nomi utenti
 templates.env.filters['display_name'] = get_display_name
 templates.env.filters['default_avatar'] = get_default_avatar
+
+# Filtro per parsing JSON (usato per le immagini community)
+import json as _json
+def _parse_json(value):
+    """Parse una stringa JSON in un oggetto Python. Ritorna lista vuota se invalido."""
+    if not value:
+        return []
+    try:
+        result = _json.loads(value)
+        return result if isinstance(result, list) else []
+    except (ValueError, TypeError):
+        return []
+templates.env.filters['parse_json'] = _parse_json
+
 app.state.templates = templates
 
 # Crea directory uploads

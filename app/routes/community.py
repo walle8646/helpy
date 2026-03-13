@@ -1,16 +1,19 @@
-from fastapi import APIRouter, Request, Form, Query, HTTPException
+from fastapi import APIRouter, Request, Form, Query, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import select, func, or_, and_
 from sqlalchemy import cast, String
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timedelta
 import os
+import json
+import base64
 
 from app.database import get_session
 from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, CommunityQuestionFollow, QuestionStatus, CategoryHierarchy, CategoryRequestNotification
 from app.routes.auth import verify_token
 from app.utils_user import get_display_name
 from app.utils.email import send_email
+from app.utils.ai_service import genera_tags, modera_immagine, valida_richiesta
 from loguru import logger
 
 router = APIRouter()
@@ -349,7 +352,8 @@ async def api_ask_question(
     title: str = Form(...),
     description: str = Form(...),
     primary_category_id: Optional[int] = Form(None),  # ✅ Categoria principale
-    category_id: Optional[int] = Form(None)  # ✅ Sottocategoria
+    category_id: Optional[int] = Form(None),  # ✅ Sottocategoria
+    images: Optional[str] = Form(None)  # JSON array di URL S3 delle immagini
 ):
     """API per creare nuova domanda"""
     
@@ -376,6 +380,18 @@ async def api_ask_question(
                 status_code=400
             )
         
+        # ========== VALIDAZIONE AI DEL CONTENUTO ==========
+        validazione = await valida_richiesta(title, description)
+        is_validated = validazione.get("approved", True)
+        
+        if not is_validated:
+            reason = validazione.get("reason", "Contenuto non approvato")
+            logger.warning(f"🚫 Richiesta rifiutata per user {current_user.id}: {reason}")
+            return JSONResponse(
+                {"error": f"La tua richiesta non è stata approvata: {reason}"},
+                status_code=400
+            )
+        
         with get_session() as session:
             # Crea domanda
             new_question = CommunityQuestion(
@@ -384,7 +400,9 @@ async def api_ask_question(
                 description=description,  # ✅ Usa description invece di content
                 primary_category_id=primary_category_id,  # ✅ Salva categoria principale
                 category_id=category_id,  # ✅ Salva subcategoria
-                status=QuestionStatus.OPEN
+                images=images if images else None,  # ✅ Salva URL immagini S3
+                status=QuestionStatus.OPEN,
+                validation=True  # ✅ Approvata dall'AI, visibile subito
             )
             
             session.add(new_question)
@@ -478,6 +496,112 @@ async def api_ask_question(
             {"error": "Errore durante la pubblicazione della domanda"},
             status_code=500
         )
+
+@router.post("/api/community/upload-image")
+async def upload_community_image(
+    request: Request,
+    file: UploadFile = File(...),
+    title: str = Form(""),
+    description: str = Form("")
+):
+    """
+    Upload di un'immagine per una richiesta della community.
+    L'immagine viene moderata tramite AI prima di essere salvata su S3.
+    """
+    try:
+        # Verifica autenticazione
+        current_user = verify_token(request)
+        if not current_user:
+            return JSONResponse({"error": "Devi essere loggato"}, status_code=401)
+        
+        # Verifica formato file
+        allowed_types = ["image/jpeg", "image/png", "image/webp"]
+        if file.content_type not in allowed_types:
+            return JSONResponse(
+                {"error": "Formato non supportato. Usa JPG, PNG o WebP."},
+                status_code=400
+            )
+        
+        # Leggi il file
+        contents = await file.read()
+        
+        # Max 5MB
+        if len(contents) > 5 * 1024 * 1024:
+            return JSONResponse(
+                {"error": "File troppo grande. Massimo 5MB."},
+                status_code=400
+            )
+        
+        # ========== MODERAZIONE AI ==========
+        image_b64 = base64.b64encode(contents).decode("utf-8")
+        moderation = await modera_immagine(image_b64, title, description)
+        
+        if not moderation.get("approved", False):
+            reason = moderation.get("reason", "Immagine non approvata")
+            logger.warning(f"🚫 Immagine rifiutata per user {current_user.id}: {reason}")
+            return JSONResponse(
+                {"error": f"Immagine rifiutata: {reason}"},
+                status_code=400
+            )
+        
+        # ========== UPLOAD SU S3 ==========
+        import boto3
+        
+        aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        s3_bucket = os.getenv("S3_BUCKET_NAME", "helpy-images")
+        s3_region = os.getenv("AWS_REGION", "eu-west-1")
+        
+        if not aws_access_key or not aws_secret_key:
+            logger.error("❌ AWS credentials non configurate per upload community")
+            return JSONResponse(
+                {"error": "Servizio di upload non disponibile"},
+                status_code=500
+            )
+        
+        try:
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_key,
+                region_name=s3_region
+            )
+            
+            # Genera nome unico
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            file_extension = file.filename.split(".")[-1].lower() if file.filename else "jpg"
+            s3_key = f"community-images/{current_user.id}_{timestamp}.{file_extension}"
+            
+            s3_client.put_object(
+                Bucket=s3_bucket,
+                Key=s3_key,
+                Body=contents,
+                ContentType=file.content_type,
+                CacheControl="max-age=31536000"
+            )
+            
+            s3_url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{s3_key}"
+            logger.info(f"✅ Immagine community caricata su S3: {s3_url}")
+            
+            return JSONResponse({
+                "success": True,
+                "url": s3_url
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Errore upload S3: {e}")
+            return JSONResponse(
+                {"error": "Errore durante il caricamento dell'immagine"},
+                status_code=500
+            )
+    
+    except Exception as e:
+        logger.error(f"❌ Errore upload immagine community: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore durante il caricamento"},
+            status_code=500
+        )
+
 
 @router.post("/api/community/{question_id}/view")
 async def increment_view(question_id: int):
@@ -622,6 +746,54 @@ async def track_contact(request: Request, question_id: int):
     except Exception as e:
         logger.error(f"Error tracking contact: {e}")
         return JSONResponse({"error": "Errore durante l'operazione"}, status_code=500)
+
+
+@router.post("/api/community/generate-tags")
+async def generate_question_tags(request: Request):
+    """Genera tag per una domanda della community usando AI"""
+    try:
+        user = verify_token(request)
+        if not user:
+            return JSONResponse({"error": "Non autenticato"}, status_code=401)
+        
+        body = await request.json()
+        titolo = body.get("titolo", "").strip()
+        descrizione = body.get("descrizione", "").strip()
+        categoria = body.get("categoria", "").strip()
+        
+        if not titolo or not descrizione:
+            return JSONResponse(
+                {"error": "Inserisci titolo e descrizione per generare i tag."},
+                status_code=400
+            )
+        
+        # Combina titolo e descrizione come "descrizione" per il servizio AI
+        testo_completo = f"{titolo}. {descrizione}"
+        
+        tags = await genera_tags(
+            descrizione=testo_completo,
+            aree_interesse=categoria,
+            professione=None
+        )
+        
+        # Limita a 8 tag per le domande community
+        tags = tags[:8]
+        
+        return JSONResponse({
+            "success": True,
+            "tags": tags,
+            "tags_string": ", ".join(tags)
+        })
+    
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    except Exception as e:
+        logger.error(f"❌ Errore generazione tags community: {e}", exc_info=True)
+        return JSONResponse(
+            {"error": "Errore durante la generazione dei tag. Riprova."},
+            status_code=500
+        )
+
 
 @router.get("/api/community/question-page")
 async def get_question_page(
