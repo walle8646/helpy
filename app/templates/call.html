@@ -627,7 +627,31 @@
     .clear-attachments-btn:hover {
         background: rgba(239, 68, 68, 0.3);
     }
-    
+
+    /* Upload progress indicator */
+    .attachment-item.uploading {
+        opacity: 0.7;
+    }
+    .attachment-item .upload-status {
+        font-size: 0.75rem;
+        margin-left: 4px;
+    }
+    .attachment-item .upload-status.success { color: #4caf50; }
+    .attachment-item .upload-status.error { color: #ef4444; }
+    .attachment-item .upload-status.pending { color: #f59e0b; }
+
+    .chat-attachment a {
+        color: #4caf50;
+        text-decoration: none;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.2s;
+        cursor: pointer;
+    }
+
     .chat-toggle {
         position: fixed;
         bottom: 130px;
@@ -974,11 +998,11 @@
         
         chatUI.attachmentsPreview.style.display = 'block';
         chatUI.attachmentsList.innerHTML = chatUI.attachments.map((file, idx) => `
-            <div class="attachment-item">
+            <div class="attachment-item" id="attachment-${idx}">
                 <div class="attachment-item-info">
-                    <i class="fas fa-file"></i>
+                    <i class="fas ${getFileIcon(file.name)}"></i>
                     <span class="attachment-item-name" title="${file.name}">${file.name}</span>
-                    <span class="attachment-item-size">${(file.size / 1024).toFixed(1)}KB</span>
+                    <span class="attachment-item-size">${formatFileSize(file.size)}</span>
                 </div>
                 <button class="attachment-item-remove" onclick="removeAttachment(${idx})" title="Rimuovi">
                     <i class="fas fa-times"></i>
@@ -1004,6 +1028,20 @@
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    
+    function getFileIcon(filename) {
+        const ext = (filename || '').split('.').pop().toLowerCase();
+        const icons = {
+            'pdf': 'fa-file-pdf',
+            'doc': 'fa-file-word', 'docx': 'fa-file-word',
+            'xls': 'fa-file-excel', 'xlsx': 'fa-file-excel', 'csv': 'fa-file-excel',
+            'ppt': 'fa-file-powerpoint', 'pptx': 'fa-file-powerpoint',
+            'zip': 'fa-file-archive', 'rar': 'fa-file-archive',
+            'txt': 'fa-file-alt',
+            'jpg': 'fa-file-image', 'jpeg': 'fa-file-image', 'png': 'fa-file-image', 'gif': 'fa-file-image', 'webp': 'fa-file-image'
+        };
+        return icons[ext] || 'fa-file';
     }
     
     // Event listeners per allegati
@@ -1670,29 +1708,29 @@
     // ========== CHAT FUNCTIONS ==========
     
     /**
-     * Gestisce il download degli allegati senza bloccare l'UI
+     * Gestisce il download degli allegati tramite link S3 diretto
      */
     function setupAttachmentDownloads() {
         document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('download-attachment')) {
+            // Trova l'elemento <a> più vicino (potrebbe essere cliccata l'icona interna)
+            const link = e.target.closest('.download-attachment');
+            if (link) {
                 e.preventDefault();
-                const filename = e.target.getAttribute('data-filename');
-                const name = e.target.getAttribute('data-name');
+                const url = link.getAttribute('data-url');
+                const name = link.getAttribute('data-name');
                 
-                const downloadUrl = `/api/booking/${bookingId}/chat/download/${filename}`;
-                
-                // Crea un iframe nascosto per il download (non blocca)
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = downloadUrl;
-                document.body.appendChild(iframe);
-                
-                // Rimuovi l'iframe dopo il download
-                setTimeout(() => {
-                    document.body.removeChild(iframe);
-                }, 1000);
-                
-                console.log(`📥 Download avviato: ${name}`);
+                if (url) {
+                    // Apri il link S3 in una nuova tab per il download
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.download = name || '';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    console.log(`📥 Download avviato: ${name}`);
+                }
             }
         });
     }
@@ -1719,17 +1757,17 @@
         if (message.attachments && message.attachments.length > 0) {
             html += '<div class="chat-message-attachments">';
             message.attachments.forEach(att => {
-                // Estrai il nome file dal percorso
-                const filename = att.file_path.split('/').pop() || att.filename;
-                const encodedFilename = encodeURIComponent(filename);
+                const filename = att.filename || 'file';
+                const fileUrl = att.url || '';
+                const fileIcon = getFileIcon(filename);
                 
                 html += `
                     <div class="chat-attachment">
-                        <i class="fas fa-file"></i>
-                        <a class="download-attachment" data-filename="${encodedFilename}" data-name="${att.filename}" title="${att.filename}">
-                            ${att.filename}
+                        <i class="fas ${fileIcon}"></i>
+                        <a class="download-attachment" data-url="${fileUrl}" data-name="${filename}" title="Scarica ${filename}">
+                            ${filename}
                         </a>
-                        <span class="attachment-size">${formatFileSize(att.file_size)}</span>
+                        <span class="attachment-size">${formatFileSize(att.file_size || 0)}</span>
                     </div>
                 `;
             });
@@ -1772,7 +1810,7 @@
     }
     
     /**
-     * Invia un messaggio di chat con allegati
+     * Invia un messaggio di chat con allegati (carica su S3 prima)
      */
     async function sendChatMessage() {
         // Protezione: evita invii multipli in rapida successione
@@ -1791,26 +1829,55 @@
         chatUI.input.disabled = true;
         
         try {
-            // Usa FormData se ci sono allegati, altrimenti usa JSON
-            let body, headers;
+            // Step 1: Carica gli allegati su S3 uno alla volta
+            const uploadedAttachments = [];
             
             if (hasAttachments) {
-                const formData = new FormData();
-                formData.append('message', messageText);
-                chatUI.attachments.forEach((file, idx) => {
-                    formData.append(`attachment_${idx}`, file);
-                });
-                body = formData;
-                headers = {}; // FormData aggiunge automaticamente il Content-Type corretto
-            } else {
-                body = JSON.stringify({ message: messageText });
-                headers = { 'Content-Type': 'application/json' };
+                for (let i = 0; i < chatUI.attachments.length; i++) {
+                    const file = chatUI.attachments[i];
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        
+                        const uploadResponse = await fetch(`/api/booking/${bookingId}/chat/upload-attachment`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (uploadResponse.ok) {
+                            const uploadData = await uploadResponse.json();
+                            uploadedAttachments.push({
+                                url: uploadData.url,
+                                filename: uploadData.filename,
+                                file_size: uploadData.file_size,
+                                file_type: uploadData.file_type
+                            });
+                            console.log(`✅ Allegato caricato: ${file.name}`);
+                        } else {
+                            const error = await uploadResponse.json();
+                            console.error(`❌ Errore upload ${file.name}:`, error.detail);
+                            alert(`Errore caricamento "${file.name}": ${error.detail || 'Errore sconosciuto'}`);
+                        }
+                    } catch (uploadErr) {
+                        console.error(`❌ Errore upload ${file.name}:`, uploadErr);
+                        alert(`Errore caricamento "${file.name}"`);
+                    }
+                }
+            }
+            
+            // Step 2: Invia il messaggio con i riferimenti degli allegati S3
+            if (!messageText && uploadedAttachments.length === 0) {
+                // Nessun messaggio e nessun allegato caricato con successo
+                return;
             }
             
             const response = await fetch(`/api/booking/${bookingId}/chat/send`, {
                 method: 'POST',
-                headers: headers,
-                body: body
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: messageText,
+                    attachments: uploadedAttachments
+                })
             });
             
             if (response.ok) {

@@ -20,6 +20,8 @@
     margin: 0 -24px 0 -40px;
     position: relative;
     z-index: 10;
+    margin-bottom: 100px;
+    overflow: visible;
 }
 
 .pub-hero-inner {
@@ -32,13 +34,16 @@
 }
 
 .pub-hero img {
-    width: 180px;
-    height: 180px;
+    width: 280px;
+    height: 280px;
     border-radius: 16px;
     border: 3px solid rgba(255,255,255,.85);
     box-shadow: 0 8px 24px rgba(0,0,0,.25);
     object-fit: cover;
     flex-shrink: 0;
+    position: relative;
+    top: 100px;
+    z-index: 20;
 }
 
 .pub-hero-text h1 {
@@ -456,7 +461,8 @@
         text-align: center;
         padding: 0 24px 32px;
     }
-    .pub-hero img { width: 130px; height: 130px; }
+    .pub-hero img { width: 180px; height: 180px; top: 60px; }
+    .pub-hero { margin-bottom: 60px; }
     .pub-hero-text h1 { font-size: 1.7em; }
     .pub-narrative-col { padding: 0; }
     .pub-stats-row { justify-content: center; }
@@ -468,9 +474,6 @@
 <div class="pub-page">
 <div class="profile-container" style="display: block; max-width: 100%; padding: 0;">
     <main class="main-content" style="padding: 0; gap: 0;">
-
-        <!-- Upcoming Appointments Banner -->
-        <div id="upcomingAppointmentsSection"></div>
 
         <!-- Hero compatto -->
         <div class="pub-hero">
@@ -489,7 +492,6 @@
                 <div class="pub-hero-text">
                     <h1>{{ user|display_name }}</h1>
                     <p class="pub-role">{{ user.professione or 'Professione non impostata' }}</p>
-                    <small style="color: rgba(255,255,255,.6);">{{ user.email }}</small>
                     {% if user_category %}
                     <div class="pub-cat-pill">{{ user_category.icon }} {{ user_category.name }}</div>
                     {% endif %}
@@ -509,6 +511,9 @@
         <div class="pub-layout">
             <!-- Colonna sinistra: contenuto -->
             <div class="pub-narrative-col">
+
+                <!-- Prossimi Appuntamenti -->
+                <div id="upcomingAppointmentsSection" style="margin-bottom: 24px;"></div>
 
                 <!-- Descrizione profilo (visibile) -->
                 {% if user.descrizione %}
@@ -685,8 +690,8 @@
                 </div>
 
                 {% if user.is_verified and user.category_id %}
-                <div class="pub-sidebar-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <button id="openCategoryRequestsBtn" style="width: 100%; padding: 14px; background: white; color: #5b2c8e; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 1em; position: relative; box-shadow: 0 4px 14px rgba(0,0,0,.1);">
+                <div class="pub-sidebar-card" style="background: linear-gradient(135deg, #1a4d2e 0%, #2d6a4f 100%);">
+                    <button id="openCategoryRequestsBtn" style="width: 100%; padding: 14px; background: white; color: #1a4d2e; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 1em; position: relative; box-shadow: 0 4px 14px rgba(0,0,0,.1);">
                         🔔 Richieste della tua Categoria
                         <span id="categoryRequestsBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: #dc3545; color: white; border-radius: 50%; width: 24px; height: 24px; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; border: 2px solid white;"></span>
                     </button>
@@ -696,12 +701,16 @@
                 <div class="pub-sidebar-card" style="background: white; color: #374151;">
                     <h3 style="color: #1a202c;">Account</h3>
                     <div style="text-align: left; font-size: .9em; line-height: 1.8;">
-                        <p style="margin: 0;"><strong>Email:</strong> {{ user.email }}</p>
                         <p style="margin: 0;"><strong>Membro dal:</strong> {{ user.created_at if user.created_at else 'N/A' }}</p>
                     </div>
-                    <a href="/reset-password" class="pub-sidebar-link" style="color: #6b7280;">
-                        🔑 Cambia Password
-                    </a>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
+                        <a href="/reset-password" class="pub-sidebar-link" style="color: #2d6a4f; text-decoration: none; padding: 10px 16px; background: #f0f8f0; border-radius: 8px; font-weight: 500; font-size: .9em; text-align: center; transition: all .2s;">
+                            🔑 Cambia Password
+                        </a>
+                        <a href="/logout" class="pub-sidebar-link" style="color: #dc3545; text-decoration: none; padding: 10px 16px; background: #fef2f2; border-radius: 8px; font-weight: 500; font-size: .9em; text-align: center; transition: all .2s;">
+                            🚪 Esci dall'account
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

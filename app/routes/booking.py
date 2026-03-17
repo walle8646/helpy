@@ -1472,25 +1472,105 @@ async def get_call_status_extended(
 
 # ========== CALL CHAT ENDPOINTS ==========
 
+@router.post("/api/booking/{booking_id}/chat/upload-attachment")
+async def upload_chat_attachment(
+    booking_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Carica un allegato su S3 per la chat della call"""
+    try:
+        import boto3
+        
+        with Session(engine) as session:
+            booking = session.exec(select(Booking).where(Booking.id == booking_id)).first()
+            if not booking:
+                raise HTTPException(status_code=404, detail="Booking non trovato")
+            if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+                raise HTTPException(status_code=403, detail="Non autorizzato")
+        
+        # Leggi il contenuto del file
+        contents = await file.read()
+        file_size = len(contents)
+        
+        # Limita a 50MB
+        if file_size > 50 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail=f"File troppo grande (max 50MB)")
+        
+        # Validazione tipo file
+        allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip', 'csv', 'ppt', 'pptx'}
+        file_extension = file.filename.split('.')[-1].lower() if file.filename and '.' in file.filename else ''
+        if file_extension not in allowed_extensions:
+            raise HTTPException(status_code=400, detail=f"Tipo file non supportato. Formati accettati: {', '.join(allowed_extensions)}")
+        
+        # Upload su S3
+        aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        s3_bucket = os.getenv("S3_BUCKET_NAME", "helpy-images")
+        s3_region = os.getenv("AWS_REGION", "eu-west-1")
+        
+        if not aws_access_key or not aws_secret_key:
+            raise HTTPException(status_code=500, detail="Servizio upload non disponibile")
+        
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key,
+            region_name=s3_region
+        )
+        
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+        safe_filename = file.filename.replace(' ', '_') if file.filename else f"file.{file_extension}"
+        s3_key = f"call-attachments/{booking_id}/{current_user.id}_{timestamp}_{safe_filename}"
+        
+        # Determina il content-type per il download
+        content_type = file.content_type or "application/octet-stream"
+        
+        s3_client.put_object(
+            Bucket=s3_bucket,
+            Key=s3_key,
+            Body=contents,
+            ContentType=content_type,
+            ContentDisposition=f'attachment; filename="{safe_filename}"'
+        )
+        
+        s3_url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{s3_key}"
+        logger.info(f"📎 Allegato call caricato su S3: {safe_filename} ({file_size} bytes) per booking {booking_id}")
+        
+        return {
+            "success": True,
+            "url": s3_url,
+            "filename": file.filename,
+            "file_size": file_size,
+            "file_type": content_type
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Errore upload allegato call: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/api/booking/{booking_id}/chat/send")
 async def send_call_message(
     booking_id: int,
-    current_user: User = Depends(get_current_user),
-    message: str = Form(default=""),
-    attachment_0: Optional[UploadFile] = File(default=None),
-    attachment_1: Optional[UploadFile] = File(default=None),
-    attachment_2: Optional[UploadFile] = File(default=None),
-    attachment_3: Optional[UploadFile] = File(default=None),
-    attachment_4: Optional[UploadFile] = File(default=None)
+    request: Request,
+    current_user: User = Depends(get_current_user)
 ):
-    """Invia un messaggio durante la call con allegati opzionali"""
+    """Invia un messaggio durante la call con allegati opzionali (URL S3)"""
     
     try:
         import json
-        from pathlib import Path
+        
+        body = await request.json()
+        message_text = body.get("message", "").strip()
+        attachments_data = body.get("attachments", [])  # Lista di {url, filename, file_size, file_type}
+        
+        if not message_text and not attachments_data:
+            raise HTTPException(status_code=400, detail="Messaggio o allegato richiesto")
         
         with Session(engine) as session:
-            # Verifica che il booking esista e che l'utente sia parte della call
             booking = session.exec(
                 select(Booking).where(Booking.id == booking_id)
             ).first()
@@ -1498,54 +1578,14 @@ async def send_call_message(
             if not booking:
                 raise HTTPException(status_code=404, detail="Booking non trovato")
             
-            # Verifica che l'utente sia il client o il consultant
             if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
                 raise HTTPException(status_code=403, detail="Non autorizzato")
-            
-            # Crea la cartella per gli allegati se non esiste
-            uploads_dir = Path("uploads/call_attachments")
-            uploads_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Raccogli i file da tutti i parametri attachment_X
-            files_list = [
-                attachment_0, attachment_1, attachment_2, 
-                attachment_3, attachment_4
-            ]
-            files_list = [f for f in files_list if f is not None]
-            
-            # Salva gli allegati
-            attachments_data = []
-            if files_list:
-                for file in files_list:
-                    if file.filename:
-                        # Genera un nome file unico
-                        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-                        unique_filename = f"{booking_id}_{current_user.id}_{timestamp}_{file.filename}"
-                        file_path = uploads_dir / unique_filename
-                        
-                        # Salva il file
-                        contents = await file.read()
-                        file_size = len(contents)
-                        
-                        # Limita a 50MB
-                        if file_size > 50 * 1024 * 1024:
-                            raise HTTPException(status_code=413, detail=f"File {file.filename} troppo grande (max 50MB)")
-                        
-                        with open(file_path, "wb") as f:
-                            f.write(contents)
-                        
-                        attachments_data.append({
-                            "filename": file.filename,
-                            "file_path": str(file_path),
-                            "file_size": file_size,
-                            "file_type": file.content_type
-                        })
             
             # Crea il messaggio
             call_msg = CallMessage(
                 booking_id=booking_id,
                 user_id=current_user.id,
-                message=message.strip(),
+                message=message_text,
                 attachments=json.dumps(attachments_data) if attachments_data else None
             )
             session.add(call_msg)
@@ -1624,57 +1664,7 @@ async def get_call_messages(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/booking/{booking_id}/chat/download/{file_id}")
-async def download_chat_attachment(
-    booking_id: int,
-    file_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    """Scarica un allegato da un messaggio della call"""
-    
-    try:
-        from fastapi.responses import FileResponse
-        from pathlib import Path
-        import urllib.parse
-        
-        with Session(engine) as session:
-            # Verifica che il booking esista e che l'utente sia parte della call
-            booking = session.exec(
-                select(Booking).where(Booking.id == booking_id)
-            ).first()
-            
-            if not booking:
-                raise HTTPException(status_code=404, detail="Booking non trovato")
-            
-            # Verifica che l'utente sia il client o il consultant
-            if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
-                raise HTTPException(status_code=403, detail="Non autorizzato")
-            
-            # Decodifica il file_id (è il nome file encodato)
-            filename = urllib.parse.unquote(file_id)
-            file_path = Path("uploads/call_attachments") / filename
-            
-            # Verifica che il file esista e sia dentro la cartella giusta
-            if not file_path.exists():
-                raise HTTPException(status_code=404, detail="File non trovato")
-            
-            # Verifica che il percorso sia sicuro (evita path traversal)
-            if not str(file_path.resolve()).startswith(str(Path("uploads/call_attachments").resolve())):
-                raise HTTPException(status_code=403, detail="Accesso negato")
-            
-            logger.info(f"📥 Download allegato: {filename} dal booking {booking_id} da {current_user.nome}")
-            
-            return FileResponse(
-                path=file_path,
-                filename=filename,
-                media_type="application/octet-stream"
-            )
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Errore download allegato: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# Download allegati non più necessario: i file sono su S3 con URL diretti
 
 
 # ========== AUTO RECORDING ENDPOINTS ==========

@@ -553,21 +553,16 @@ input[type="checkbox"] {
     overflow: hidden;
 }
 
-/* Upcoming Appointments Banner */
+/* Upcoming Appointments */
 .upcoming-appointments {
     width: 100%;
-    min-height: 120px;
-    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
-    border-radius: 12px;
-    margin-bottom: 10px;
-    padding: 1.5rem;
-    color: white;
-    position: relative;
 }
 
 .upcoming-appointments h3 {
-    margin: 0 0 1rem 0;
-    font-size: 1.2rem;
+    margin: 0 0 12px 0;
+    font-size: .95rem;
+    font-weight: 700;
+    color: #1a202c;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -575,24 +570,43 @@ input[type="checkbox"] {
 
 .appointments-list {
     display: flex;
-    gap: 1rem;
+    gap: 12px;
     overflow-x: auto;
-    padding-bottom: 0.5rem;
+    padding-bottom: 6px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+.appointments-list::-webkit-scrollbar {
+    height: 4px;
+}
+
+.appointments-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.appointments-list::-webkit-scrollbar-thumb {
+    background: #d4edda;
+    border-radius: 4px;
 }
 
 .appointment-card {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
+    background: #f0f8f0;
     border-radius: 12px;
-    padding: 1rem;
-    min-width: 300px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: all 0.3s;
+    padding: 14px 16px;
+    min-width: 260px;
+    max-width: 300px;
+    flex: 0 0 auto;
+    border: 1px solid #d4edda;
+    transition: all 0.25s;
+    color: #1a202c;
+    scroll-snap-align: start;
 }
 
 .appointment-card:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: #e2f3e5;
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(45,106,79,.1);
 }
 
 .appointment-header {
@@ -603,41 +617,43 @@ input[type="checkbox"] {
 }
 
 .appointment-avatar {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    border: 2px solid #2d6a4f;
 }
 
 .appointment-avatar-placeholder {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
+    background: #d4edda;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    font-size: 1rem;
 }
 
 .appointment-info h4 {
     margin: 0;
-    font-size: 1rem;
+    font-size: .95rem;
     font-weight: 600;
+    color: #1a202c;
 }
 
 .appointment-info p {
     margin: 0;
-    font-size: 0.85rem;
-    opacity: 0.9;
+    font-size: 0.82rem;
+    color: #6b7280;
 }
 
 .appointment-details {
     display: flex;
     gap: 1rem;
-    margin: 0.75rem 0;
-    font-size: 0.9rem;
+    margin: 0.5rem 0;
+    font-size: 0.85rem;
+    color: #4b5563;
 }
 
 .appointment-detail {
@@ -683,10 +699,10 @@ input[type="checkbox"] {
 }
 
 .btn-join:disabled {
-    background: rgba(255, 255, 255, 0.3);
-    color: rgba(255, 255, 255, 0.6);
+    background: #e5e9f0;
+    color: #9ca3af;
     cursor: not-allowed;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 2px solid #e5e9f0;
 }
 
 .btn-start-call {
@@ -702,8 +718,8 @@ input[type="checkbox"] {
 }
 
 .btn-start-call:disabled {
-    background: rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.5);
+    background: #e5e9f0;
+    color: #9ca3af;
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -722,9 +738,9 @@ input[type="checkbox"] {
 }
 
 .time-until {
-    font-size: 0.85rem;
-    opacity: 0.9;
-    margin-top: 0.5rem;
+    font-size: 0.82rem;
+    color: #2d6a4f;
+    margin-top: 0.4rem;
     font-style: italic;
 }
 
@@ -732,9 +748,9 @@ input[type="checkbox"] {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.85rem;
-    margin-top: 0.5rem;
-    opacity: 0.9;
+    font-size: 0.82rem;
+    margin-top: 0.4rem;
+    color: #4b5563;
 }
 
 .waiting-indicator i {
