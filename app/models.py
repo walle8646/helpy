@@ -63,9 +63,11 @@ class User(SQLModel, table=True):
     genere: Optional[str] = Field(default=None)  # M=Maschio, F=Femmina, None=Non specificato
     notify_category_requests: bool = Field(default=True)  # 🔔 Ricevi notifiche per richieste in categoria
     user_type_id: int = Field(default=1)  # 1=Utente, 2=Verificatore, 3=Amministratore
+    languages: Optional[str] = Field(default=None)  # JSON array: '["it","en","fr"]'
     
     # Timestamps
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    last_seen: Optional[datetime] = Field(default=None)
 
 class Consultation(SQLModel, table=True):
     """Prenotazione consulenza"""
@@ -367,3 +369,13 @@ class ConfigurationProperty(SQLModel, table=True):
     description: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class FavoriteConsultant(SQLModel, table=True):
+    """Consulenti preferiti salvati dagli utenti"""
+    __tablename__ = "favorite_consultants"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    consultant_id: int = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -39,6 +39,11 @@ def verify_token(request: Request) -> Optional[User]:
                 with get_session() as session:
                     user = session.get(User, user_id)
                     if user:
+                        from datetime import datetime
+                        user.last_seen = datetime.utcnow()
+                        session.add(user)
+                        session.commit()
+                        session.refresh(user)
                         return user
             
             return None
@@ -67,6 +72,13 @@ def verify_token(request: Request) -> Optional[User]:
             if not user:
                 logger.warning(f"⚠️ User {user_id} not found in database")
                 return None
+            
+            # Update last_seen
+            from datetime import datetime
+            user.last_seen = datetime.utcnow()
+            session.add(user)
+            session.commit()
+            session.refresh(user)
             
             return user
     

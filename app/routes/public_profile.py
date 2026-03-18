@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from app.models import User, Category, CategoryHierarchy
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from app.models import User, Category, CategoryHierarchy, FavoriteConsultant
 from app.database import get_session
 from app.logger_config import logger
 from app.utils.template_helpers import get_all_categories
@@ -51,13 +51,129 @@ def public_user_profile(request: Request, user_id: int):
         
         logger.info(f"Public profile viewed: {user.email} (ID: {user.id}) by {current_user.email if current_user else 'anonymous'}")
         
+        # Check if current user has favorited this consultant
+        is_favorited = False
+        if current_user and current_user.id != user.id:
+            fav = session.exec(
+                select(FavoriteConsultant).where(
+                    FavoriteConsultant.user_id == current_user.id,
+                    FavoriteConsultant.consultant_id == user.id
+                )
+            ).first()
+            is_favorited = fav is not None
+        
+        # Parse languages
+        user_languages = []
+        user_other_language = ''
+        if user.languages:
+            try:
+                lang_data = json.loads(user.languages)
+                user_languages = lang_data.get('codes', [])
+                user_other_language = lang_data.get('other', '')
+            except (json.JSONDecodeError, AttributeError):
+                pass
+        
+        # Compute last seen label
+        last_seen_label = None
+        if user.last_seen:
+            from datetime import datetime
+            now = datetime.utcnow()
+            diff = now - user.last_seen
+            minutes = int(diff.total_seconds() / 60)
+            if minutes < 5:
+                last_seen_label = "Online ora"
+            elif minutes < 60:
+                last_seen_label = f"Attivo {minutes} min fa"
+            elif minutes < 1440:
+                hours = minutes // 60
+                last_seen_label = f"Attivo {hours} or{'a' if hours == 1 else 'e'} fa"
+            elif minutes < 43200:
+                days = minutes // 1440
+                last_seen_label = f"Attivo {days} giorn{'o' if days == 1 else 'i'} fa"
+            else:
+                months = minutes // 43200
+                last_seen_label = f"Attivo {months} mes{'e' if months == 1 else 'i'} fa"
+        
         return request.app.state.templates.TemplateResponse("user_profile.html", {
             "request": request,
-            "user": user,  # Utente del profilo che stai visualizzando
-            "current_user": current_user,  # Utente loggato
+            "user": user,
+            "current_user": current_user,
             "category": category,
             "aree_interesse_list": aree_interesse_list,
             "subcategories": subcategories,
             "is_own_profile": current_user and current_user.id == user.id,
-            "categories": categories
+            "is_favorited": is_favorited,
+            "categories": categories,
+            "user_languages": user_languages,
+            "user_other_language": user_other_language,
+            "last_seen_label": last_seen_label
         })
+
+
+@router.post("/api/favorites/toggle/{consultant_id}")
+def toggle_favorite(request: Request, consultant_id: int):
+    """Aggiunge o rimuove un consulente dai preferiti"""
+    from app.routes.auth import verify_token
+    current_user = verify_token(request)
+    if not current_user:
+        return JSONResponse({"error": "Non autenticato"}, status_code=401)
+    
+    if current_user.id == consultant_id:
+        return JSONResponse({"error": "Non puoi salvare te stesso"}, status_code=400)
+    
+    with get_session() as session:
+        consultant = session.get(User, consultant_id)
+        if not consultant:
+            return JSONResponse({"error": "Utente non trovato"}, status_code=404)
+        
+        existing = session.exec(
+            select(FavoriteConsultant).where(
+                FavoriteConsultant.user_id == current_user.id,
+                FavoriteConsultant.consultant_id == consultant_id
+            )
+        ).first()
+        
+        if existing:
+            session.delete(existing)
+            session.commit()
+            return JSONResponse({"status": "removed", "message": "Rimosso dai preferiti"})
+        else:
+            fav = FavoriteConsultant(user_id=current_user.id, consultant_id=consultant_id)
+            session.add(fav)
+            session.commit()
+            return JSONResponse({"status": "added", "message": "Aggiunto ai preferiti"})
+
+
+@router.get("/api/favorites")
+def get_favorites(request: Request):
+    """Restituisce la lista dei consulenti preferiti dell'utente loggato"""
+    from app.routes.auth import verify_token
+    current_user = verify_token(request)
+    if not current_user:
+        return JSONResponse({"error": "Non autenticato"}, status_code=401)
+    
+    with get_session() as session:
+        favorites = session.exec(
+            select(FavoriteConsultant).where(
+                FavoriteConsultant.user_id == current_user.id
+            ).order_by(FavoriteConsultant.created_at.desc())
+        ).all()
+        
+        consultants = []
+        for fav in favorites:
+            consultant = session.get(User, fav.consultant_id)
+            if consultant:
+                category = session.get(Category, consultant.category_id) if consultant.category_id else None
+                consultants.append({
+                    "id": consultant.id,
+                    "nome": consultant.nome or "",
+                    "cognome": consultant.cognome or "",
+                    "professione": consultant.professione or "",
+                    "profile_picture": consultant.profile_picture,
+                    "prezzo_consulenza": consultant.prezzo_consulenza,
+                    "category_name": category.name if category else None,
+                    "category_icon": category.icon if category else None,
+                    "is_verified": consultant.is_verified
+                })
+        
+        return JSONResponse({"favorites": consultants})

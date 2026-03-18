@@ -39,7 +39,8 @@ def create_db_and_tables():
         AvailabilityBlock,  # ✅ Gestione disponibilità
         Booking,  # ✅ Gestione prenotazioni
         ConsultationOffer,  # ✅ Gestione offerte consulenze
-        ConfigurationProperty  # ✅ Configurazione globale
+        ConfigurationProperty,  # ✅ Configurazione globale
+        FavoriteConsultant  # ✅ Consulenti preferiti
     )
     
     SQLModel.metadata.create_all(engine)

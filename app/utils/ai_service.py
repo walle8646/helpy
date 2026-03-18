@@ -404,6 +404,115 @@ async def valida_richiesta(titolo: str, descrizione: str) -> dict:
         return {"approved": True, "reason": "Richiesta approvata"}
 
 
+async def controlla_duplicato(titolo: str, descrizione: str, domande_precedenti: list[dict]) -> dict:
+    """
+    Verifica tramite AI se una nuova richiesta è simile a una già fatta dallo stesso utente.
+    
+    Args:
+        titolo: titolo della nuova richiesta
+        descrizione: descrizione della nuova richiesta
+        domande_precedenti: lista di dict con {title, description} delle domande precedenti dell'utente
+    
+    Returns:
+        dict con {is_duplicate: bool, reason: str}
+    """
+    if not domande_precedenti:
+        return {"is_duplicate": False, "reason": "Nessuna domanda precedente"}
+    
+    try:
+        client = _get_client()
+        
+        # Formatta le domande precedenti
+        precedenti_text = "\n".join(
+            f"- Titolo: {q['title']}\n  Descrizione: {q['description'][:200]}"
+            for q in domande_precedenti
+        )
+        
+        logger.info(f"🔍 Controllo duplicato per: '{titolo[:50]}...' vs {len(domande_precedenti)} domande precedenti")
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Sei un assistente per Helpy, una piattaforma italiana di consulenze professionali. "
+                        "Devi verificare se una NUOVA richiesta è un duplicato o molto simile a richieste già fatte dallo stesso utente.\n\n"
+                        "Una richiesta è considerata DUPLICATA se:\n"
+                        "1. Tratta lo STESSO argomento specifico di una richiesta precedente\n"
+                        "2. Chiede essenzialmente la STESSA cosa, anche se formulata diversamente\n"
+                        "3. È una riformulazione o variazione minima di una domanda già fatta\n\n"
+                        "NON è un duplicato se:\n"
+                        "1. Tratta un argomento diverso, anche se nella stessa area tematica\n"
+                        "2. Chiede qualcosa di specificamente diverso\n"
+                        "3. Aggiunge un aspetto nuovo non coperto dalle domande precedenti\n\n"
+                        "Rispondi ESCLUSIVAMENTE con un oggetto JSON (senza markdown, senza backtick) nel formato:\n"
+                        '{"is_duplicate": true, "reason": "Questa richiesta è simile alla tua domanda precedente: [titolo simile]"}\n'
+                        'oppure {"is_duplicate": false, "reason": "Richiesta originale"}'
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"NUOVA RICHIESTA:\nTitolo: {titolo}\nDescrizione: {descrizione}\n\n"
+                        f"RICHIESTE PRECEDENTI DELLO STESSO UTENTE:\n{precedenti_text}"
+                    )
+                }
+            ],
+            temperature=0.1,
+            max_tokens=200
+        )
+        
+        choice = response.choices[0]
+        result = choice.message.content
+        
+        if not result or not result.strip():
+            return {"is_duplicate": False, "reason": "Richiesta originale"}
+        
+        result = result.strip()
+        logger.info(f"🔍 Risposta controllo duplicato: {result[:200]}")
+        
+        # Parsing JSON robusto
+        duplicate_result = None
+        
+        try:
+            duplicate_result = json.loads(result)
+        except json.JSONDecodeError:
+            pass
+        
+        if duplicate_result is None:
+            cleaned = result.strip('`').strip()
+            if cleaned.startswith('json'):
+                cleaned = cleaned[4:].strip()
+            try:
+                duplicate_result = json.loads(cleaned)
+            except json.JSONDecodeError:
+                pass
+        
+        if duplicate_result is None:
+            import re
+            json_match = re.search(r'\{[^{}]*"is_duplicate"\s*:\s*(true|false)[^{}]*\}', result, re.IGNORECASE)
+            if json_match:
+                try:
+                    duplicate_result = json.loads(json_match.group())
+                except json.JSONDecodeError:
+                    pass
+        
+        if duplicate_result is None:
+            logger.warning(f"⚠️ Controllo duplicato: impossibile parsare JSON: {result[:200]}")
+            return {"is_duplicate": False, "reason": "Richiesta originale"}
+        
+        is_dup = duplicate_result.get("is_duplicate", False)
+        reason = duplicate_result.get("reason", "Richiesta duplicata" if is_dup else "Richiesta originale")
+        
+        logger.info(f"🔍 Controllo duplicato: {'🔴 Duplicata' if is_dup else '🟢 Originale'} - {reason}")
+        return {"is_duplicate": is_dup, "reason": reason}
+        
+    except Exception as e:
+        logger.error(f"❌ Errore controllo duplicato: {e}", exc_info=True)
+        return {"is_duplicate": False, "reason": "Richiesta originale"}
+
+
 async def valida_profilo(descrizione: str, professione: str = None, aree_interesse: str = None) -> dict:
     """
     Valida la descrizione del profilo di un consulente tramite AI.

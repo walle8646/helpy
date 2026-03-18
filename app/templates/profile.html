@@ -68,7 +68,8 @@
     margin-top: 14px;
 }
 
-.pub-hero-skills span {
+.pub-hero-skills span,
+.pub-hero-skills a.pub-skill-tag {
     padding: 4px 12px;
     border-radius: 14px;
     background: rgba(255,255,255,.15);
@@ -77,11 +78,15 @@
     font-size: .82em;
     font-weight: 500;
     border: 1px solid rgba(255,255,255,.18);
-    transition: background .2s;
+    transition: background .2s, transform .15s;
+    text-decoration: none;
+    cursor: pointer;
 }
 
-.pub-hero-skills span:hover {
-    background: rgba(255,255,255,.25);
+.pub-hero-skills span:hover,
+.pub-hero-skills a.pub-skill-tag:hover {
+    background: rgba(255,255,255,.3);
+    transform: translateY(-1px);
 }
 
 .pub-hero-text .pub-cat-pill {
@@ -498,7 +503,7 @@
                     {% if aree_interesse_list %}
                     <div class="pub-hero-skills">
                         {% for area in aree_interesse_list %}
-                        <span>{{ area }}</span>
+                        <a href="/consultants?search={{ area|urlencode }}" class="pub-skill-tag">{{ area }}</a>
                         {% endfor %}
                     </div>
                     {% endif %}
@@ -524,10 +529,16 @@
                 {% endif %}
 
                 <!-- Liked Questions Section -->
-                <section class="card" id="likedQuestionsTopSection" style="display:none;">
-                    <h2>❤️ Domande a cui hai messo Like</h2>
+                <section class="pub-narrative" id="likedQuestionsTopSection" style="display:none; margin-bottom: 32px;">
+                    <div class="pub-section-label">❤️ Domande a cui hai messo Like</div>
                     <div id="likedQuestionsContainerTop" class="liked-questions-grid">
-                        <p style="color:#888; text-align: center; grid-column: 1 / -1;">Caricamento...</p>
+                    </div>
+                </section>
+
+                <!-- Consulenti Preferiti Section -->
+                <section class="pub-narrative" id="favoritesSection" style="display:none; margin-bottom: 32px;">
+                    <div class="pub-section-label">❤️ I tuoi Consulenti Preferiti</div>
+                    <div id="favoritesContainer" class="favorites-scroll">
                     </div>
                 </section>
 
@@ -630,6 +641,39 @@
                         <!-- Tags nascosti per la ricerca (generati da AI al salvataggio) -->
                         <input type="hidden" id="tagsInput" name="tags" value='{{ user.tags or "" }}'>
 
+                        <div class="form-section">
+                            <div class="form-section-title">🌐 Lingue Parlate</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; transition: all .2s;">
+                                    <input type="checkbox" name="lang_it" value="it" {% if user_languages and 'it' in user_languages %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #2d6a4f;">
+                                    🇮🇹 Italiano
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; transition: all .2s;">
+                                    <input type="checkbox" name="lang_en" value="en" {% if user_languages and 'en' in user_languages %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #2d6a4f;">
+                                    🇬🇧 Inglese
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; transition: all .2s;">
+                                    <input type="checkbox" name="lang_fr" value="fr" {% if user_languages and 'fr' in user_languages %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #2d6a4f;">
+                                    🇫🇷 Francese
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; transition: all .2s;">
+                                    <input type="checkbox" name="lang_es" value="es" {% if user_languages and 'es' in user_languages %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #2d6a4f;">
+                                    🇪🇸 Spagnolo
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; transition: all .2s;">
+                                    <input type="checkbox" name="lang_de" value="de" {% if user_languages and 'de' in user_languages %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #2d6a4f;">
+                                    🇩🇪 Tedesco
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; transition: all .2s;">
+                                    <input type="checkbox" name="lang_other" id="langOtherCheckbox" value="other" {% if user_languages and 'other' in user_languages %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #2d6a4f;">
+                                    🌍 Altro
+                                </label>
+                            </div>
+                            <div id="otherLanguageField" style="display: {% if user_other_language %}block{% else %}none{% endif %}; margin-top: 10px;">
+                                <input type="text" name="other_language" value="{{ user_other_language or '' }}" placeholder="Specifica la lingua..." style="padding: 10px 14px; border: 1px solid #d1d8e0; border-radius: 8px; font-size: .95em; width: 100%;">
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label>Prezzo della Consulenza Orario (€) <span style="color: #d32f2f;">*</span></label>
                             <input type="number" name="prezzo_consulenza" value="{{ user.prezzo_consulenza or 150 }}" min="15" step="5" required>
@@ -654,10 +698,9 @@
                     </form>
                 </section>
                 <!-- User Questions Section -->
-                <section class="card" id="userQuestionsSection" style="display:none;">
-                    <h2>💬 Le tue Domande nella Community</h2>
+                <section class="pub-narrative" id="userQuestionsSection" style="display:none; margin-bottom: 32px;">
+                    <div class="pub-section-label">💬 Le tue Domande nella Community</div>
                     <div id="userQuestionsContainer" class="liked-questions-grid">
-                        <p style="color:#888; text-align: center; grid-column: 1 / -1;">Caricamento...</p>
                     </div>
                 </section>
             </div>
@@ -786,6 +829,14 @@
         if(viewSection) viewSection.style.display = 'block';
     });
 
+    // Toggle "Altro" language field
+    const langOtherCb = document.getElementById('langOtherCheckbox');
+    if (langOtherCb) {
+        langOtherCb.addEventListener('change', () => {
+            document.getElementById('otherLanguageField').style.display = langOtherCb.checked ? 'block' : 'none';
+        });
+    }
+
     profileForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -801,6 +852,18 @@
             formData.delete('is_anonymous');
             formData.append('is_anonymous', isAnonymousCheckbox.checked ? 'true' : 'false');
         }
+        
+        // Collect languages into JSON
+        const langCodes = [];
+        ['it','en','fr','es','de','other'].forEach(code => {
+            const cb = profileForm.querySelector(`input[name="lang_${code}"]`);
+            if (cb && cb.checked) langCodes.push(code);
+        });
+        const otherLang = profileForm.querySelector('input[name="other_language"]')?.value || '';
+        formData.delete('lang_it'); formData.delete('lang_en'); formData.delete('lang_fr');
+        formData.delete('lang_es'); formData.delete('lang_de'); formData.delete('lang_other');
+        formData.delete('other_language');
+        formData.set('languages', JSON.stringify({codes: langCodes, other: otherLang}));
         
         const params = new URLSearchParams(formData);
         
@@ -1334,19 +1397,17 @@
             if (!data.questions || data.questions.length === 0) { section.style.display = 'none'; return; }
             section.style.display = 'block';
             container.innerHTML = data.questions.map(q => `
-                <div class="liked-question-card" onclick="navigateToQuestion(${q.id})" style="cursor: pointer;">
-                    <div class="question-category"><small>ID: ${q.category_id || 'Generale'}</small></div>
+                <a href="/community/question/${q.id}" class="liked-question-card">
+                    <span class="q-cat-badge">${q.category_icon || '💬'} ${q.category_name || 'Generale'}</span>
                     <h3 class="question-title">${q.title}</h3>
                     <p class="question-description">${q.description}</p>
                     <div class="question-footer">
-                        <div class="question-meta">
-                            <span class="meta-item"><i class="fas fa-thumbs-up"></i> ${q.upvotes}</span>
-                            <span class="meta-item"><i class="fas fa-eye"></i> ${q.views}</span>
-                            <span class="meta-item"><i class="fas fa-calendar"></i> ${q.created_at}</span>
-                        </div>
-                        <p class="question-author"><small>da <strong>${q.author_name}</strong></small></p>
+                        <span class="meta-item">👍 ${q.upvotes}</span>
+                        <span class="meta-item">👁 ${q.views}</span>
+                        <span class="meta-item">📅 ${q.created_at}</span>
                     </div>
-                </div>
+                    ${q.author_name ? `<div class="q-author">da <strong>${q.author_name}</strong></div>` : ''}
+                </a>
             `).join('');
         } catch (error) {
             console.error('Error loading liked questions:', error);
@@ -1363,18 +1424,16 @@
             if (!data.questions || data.questions.length === 0) { section.style.display = 'none'; return; }
             section.style.display = 'block';
             container.innerHTML = data.questions.map(q => `
-                <div class="liked-question-card" onclick="navigateToQuestion(${q.id})" style="cursor: pointer;">
-                    <div class="question-category"><small>ID: ${q.category_id || 'Generale'}</small></div>
+                <a href="/community/question/${q.id}" class="liked-question-card">
+                    <span class="q-cat-badge">${q.category_icon || '💬'} ${q.category_name || 'Generale'}</span>
                     <h3 class="question-title">${q.title}</h3>
                     <p class="question-description">${q.description}</p>
                     <div class="question-footer">
-                        <div class="question-meta">
-                            <span class="meta-item"><i class="fas fa-thumbs-up"></i> ${q.upvotes}</span>
-                            <span class="meta-item"><i class="fas fa-eye"></i> ${q.views}</span>
-                            <span class="meta-item"><i class="fas fa-calendar"></i> ${q.created_at}</span>
-                        </div>
+                        <span class="meta-item">👍 ${q.upvotes}</span>
+                        <span class="meta-item">👁 ${q.views}</span>
+                        <span class="meta-item">📅 ${q.created_at}</span>
                     </div>
-                </div>
+                </a>
             `).join('');
         } catch (error) {
             console.error('Error loading user questions:', error);
@@ -1432,6 +1491,43 @@
     loadUpcomingAppointments();
     loadLikedQuestions();
     loadUserQuestions();
+    loadFavoriteConsultants();
+
+    // ========== FAVORITE CONSULTANTS ==========
+    async function loadFavoriteConsultants() {
+        try {
+            const response = await fetch('/api/favorites');
+            if (!response.ok) return;
+            const data = await response.json();
+            const favorites = data.favorites || [];
+            
+            const section = document.getElementById('favoritesSection');
+            const container = document.getElementById('favoritesContainer');
+            
+            if (favorites.length === 0) return;
+            
+            section.style.display = 'block';
+            container.innerHTML = favorites.map(c => {
+                const avatarSrc = c.profile_picture || '/static/avatar-default.svg';
+                const catLabel = c.category_icon && c.category_name ? `${c.category_icon} ${c.category_name}` : '';
+                const priceLabel = c.prezzo_consulenza ? `€${c.prezzo_consulenza}/h` : '';
+                return `
+                    <a href="/user/${c.id}" class="fav-consultant-card">
+                        <img src="${avatarSrc}" alt="${c.nome}"
+                             onerror="this.onerror=null; this.src='/static/avatar-default.svg'">
+                        <div class="fav-card-info">
+                            <span class="fav-card-name">${c.nome} ${c.cognome || ''}</span>
+                            <span class="fav-card-role">${c.professione || ''}</span>
+                            ${catLabel ? `<span class="fav-card-cat">${catLabel}</span>` : ''}
+                            ${priceLabel ? `<span class="fav-card-price">${priceLabel}</span>` : ''}
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error loading favorites:', error);
+        }
+    }
 
     // ========== CATEGORY REQUESTS MODAL ==========
     const openCategoryRequestsBtn = document.getElementById('openCategoryRequestsBtn');

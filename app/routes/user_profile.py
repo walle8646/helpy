@@ -56,15 +56,28 @@ async def user_profile(request: Request):
             
             logger.info(f"✅ Profile loaded for user: {fresh_user.email}")
             
+            # Parse languages
+            user_languages = []
+            user_other_language = ''
+            if fresh_user.languages:
+                try:
+                    lang_data = json.loads(fresh_user.languages)
+                    user_languages = lang_data.get('codes', [])
+                    user_other_language = lang_data.get('other', '')
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            
             return request.app.state.templates.TemplateResponse(
                 "profile.html",
                 {
                     "request": request,
-                    "user": fresh_user,  # Passa l'oggetto User direttamente, come in public_profile.py
-                    "current_user": fresh_user,  # Per il navbar
+                    "user": fresh_user,
+                    "current_user": fresh_user,
                     "categories": categories,
-                    "aree_interesse_list": aree_interesse_list,  # ✅ Lista processata
-                    "user_category": user_category  # ✅ La categoria
+                    "aree_interesse_list": aree_interesse_list,
+                    "user_category": user_category,
+                    "user_languages": user_languages,
+                    "user_other_language": user_other_language
                 }
             )
     
@@ -83,7 +96,7 @@ async def get_liked_questions(request: Request):
             return JSONResponse({"error": "Non autenticato"}, status_code=401)
         
         with get_session() as session:
-            from app.models import CommunityQuestion, CommunityLike, User as UserModel
+            from app.models import CommunityQuestion, CommunityLike, User as UserModel, Category
             
             # Query per recuperare le ultime 6 domande amate ordinate per data decrescente
             liked_questions = session.exec(
@@ -98,6 +111,7 @@ async def get_liked_questions(request: Request):
             for q in liked_questions:
                 # Recupera l'autore della domanda
                 author = session.get(UserModel, q.user_id)
+                cat = session.get(Category, q.category_id) if q.category_id else None
                 
                 questions_data.append({
                     "id": q.id,
@@ -106,6 +120,8 @@ async def get_liked_questions(request: Request):
                     "author_name": author.nome if author else "Utente Anonimo",
                     "author_id": q.user_id,
                     "category_id": q.category_id,
+                    "category_name": cat.name if cat else "Generale",
+                    "category_icon": cat.icon if cat else "💬",
                     "upvotes": q.upvotes,
                     "views": q.views,
                     "created_at": q.created_at.strftime("%d/%m/%Y"),
@@ -134,7 +150,7 @@ async def get_user_questions(request: Request):
             return JSONResponse({"error": "Non autenticato"}, status_code=401)
         
         with get_session() as session:
-            from app.models import CommunityQuestion, User as UserModel
+            from app.models import CommunityQuestion, User as UserModel, Category
             
             # Query per recuperare le ultime 4 domande scritte dall'utente
             user_questions = session.exec(
@@ -148,6 +164,7 @@ async def get_user_questions(request: Request):
             for q in user_questions:
                 # Recupera l'autore della domanda (dovrebbe essere l'utente stesso)
                 author = session.get(UserModel, q.user_id)
+                cat = session.get(Category, q.category_id) if q.category_id else None
                 
                 questions_data.append({
                     "id": q.id,
@@ -156,6 +173,8 @@ async def get_user_questions(request: Request):
                     "author_name": author.nome if author else "Utente Anonimo",
                     "author_id": q.user_id,
                     "category_id": q.category_id,
+                    "category_name": cat.name if cat else "Generale",
+                    "category_icon": cat.icon if cat else "💬",
                     "upvotes": q.upvotes,
                     "views": q.views,
                     "created_at": q.created_at.strftime("%d/%m/%Y"),
@@ -217,7 +236,9 @@ async def update_profile(
     notify_category_requests: Optional[bool] = Form(None),  # ✅ NUOVO: notifiche categoria
     selected_subcategories: str = Form(None),  # ✅ NUOVO: JSON array di subcategory IDs
     genere: Optional[str] = Form(None),  # ✅ Genere: M/F/None
-    tags: str = Form(None)  # 🏷️ JSON array di tags generati da AI
+    tags: str = Form(None),  # 🏷️ JSON array di tags generati da AI
+    languages: str = Form(None),  # 🌐 JSON array di language codes
+    other_language: str = Form(None)  # 🌍 Altra lingua specificata
 ):
     """Aggiorna profilo utente"""
     try:
@@ -278,6 +299,9 @@ async def update_profile(
             if tags is not None:
                 db_user.tags = tags
                 logger.info(f"🏷️ Tags updated for user {db_user.id}: {tags}")
+            if languages is not None:
+                db_user.languages = languages
+                logger.info(f"🌐 Languages updated for user {db_user.id}: {languages}")
             
             session.add(db_user)
             session.commit()

@@ -13,7 +13,7 @@ from app.models import User, Category, CommunityQuestion, CommunityLike, Communi
 from app.routes.auth import verify_token
 from app.utils_user import get_display_name
 from app.utils.email import send_email
-from app.utils.ai_service import genera_tags, modera_immagine, valida_richiesta
+from app.utils.ai_service import genera_tags, modera_immagine, valida_richiesta, controlla_duplicato
 from loguru import logger
 
 router = APIRouter()
@@ -266,18 +266,18 @@ async def community_page(
             user_questions_count = 0
             
             if current_user:
-                # Calcola data di 7 giorni fa
-                seven_days_ago = datetime.now() - timedelta(days=7)
+                # Calcola inizio della giornata corrente (mezzanotte)
+                today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
                 
-                logger.info(f"🔍 Checking questions for user {current_user.id} since {seven_days_ago}")
+                logger.info(f"🔍 Checking questions for user {current_user.id} since {today_start}")
                 
-                # Recupera le domande dell'utente negli ultimi 7 giorni per debug
+                # Recupera le domande dell'utente nella giornata corrente
                 user_recent_questions = session.exec(
                     select(CommunityQuestion)
                     .where(
                         and_(
                             CommunityQuestion.user_id == current_user.id,
-                            CommunityQuestion.created_at >= seven_days_ago
+                            CommunityQuestion.created_at >= today_start
                         )
                     )
                 ).all()
@@ -288,11 +288,11 @@ async def community_page(
                 for q in user_recent_questions:
                     logger.info(f"  📝 Question ID {q.id}: '{q.title}' - Created: {q.created_at}")
                 
-                # Se ha già fatto 2 o più domande, non può crearne altre
-                can_create_question = user_questions_count < 2
+                # Se ha già fatto 5 o più domande oggi, non può crearne altre
+                can_create_question = user_questions_count < 5
                 
                 logger.info(
-                    f"👤 User {current_user.nome} (ID: {current_user.id}) - Questions in last 7 days: {user_questions_count}/2 "
+                    f"👤 User {current_user.nome} (ID: {current_user.id}) - Questions today: {user_questions_count}/5 "
                     f"- Can create: {can_create_question}"
                 )
             
@@ -379,6 +379,49 @@ async def api_ask_question(
                 {"error": "La descrizione deve essere di almeno 20 caratteri"},
                 status_code=400
             )
+        
+        # ========== CONTROLLO LIMITE GIORNALIERO ==========
+        with get_session() as session:
+            today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            user_today_questions = session.exec(
+                select(CommunityQuestion)
+                .where(
+                    and_(
+                        CommunityQuestion.user_id == current_user.id,
+                        CommunityQuestion.created_at >= today_start
+                    )
+                )
+            ).all()
+            
+            if len(user_today_questions) >= 5:
+                return JSONResponse(
+                    {"error": "Hai raggiunto il limite di 5 richieste al giorno. Riprova domani!"},
+                    status_code=429
+                )
+            
+            # ========== CONTROLLO DUPLICATO AI ==========
+            # Recupera tutte le domande precedenti dell'utente
+            all_user_questions = session.exec(
+                select(CommunityQuestion)
+                .where(CommunityQuestion.user_id == current_user.id)
+                .order_by(CommunityQuestion.created_at.desc())
+                .limit(50)
+            ).all()
+            
+            domande_precedenti = [
+                {"title": q.title, "description": q.description}
+                for q in all_user_questions
+            ]
+        
+        if domande_precedenti:
+            duplicato = await controlla_duplicato(title, description, domande_precedenti)
+            if duplicato.get("is_duplicate", False):
+                reason = duplicato.get("reason", "Richiesta simile già presente")
+                logger.warning(f"🔴 Richiesta duplicata per user {current_user.id}: {reason}")
+                return JSONResponse(
+                    {"error": f"{reason}. Prova a formulare una richiesta diversa."},
+                    status_code=400
+                )
         
         # ========== VALIDAZIONE AI DEL CONTENUTO ==========
         validazione = await valida_richiesta(title, description)

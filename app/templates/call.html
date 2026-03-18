@@ -1812,6 +1812,16 @@
     /**
      * Invia un messaggio di chat con allegati (carica su S3 prima)
      */
+    /**
+     * Fetch con timeout tramite AbortController per evitare blocchi permanenti
+     */
+    function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        return fetch(url, { ...options, signal: controller.signal })
+            .finally(() => clearTimeout(timeoutId));
+    }
+
     async function sendChatMessage() {
         // Protezione: evita invii multipli in rapida successione
         if (chatUI.isSending) {
@@ -1827,6 +1837,15 @@
         chatUI.isSending = true;
         chatUI.sendBtn.disabled = true;
         chatUI.input.disabled = true;
+
+        // Timeout di sicurezza: sblocca l'UI dopo 30 secondi anche se il fetch non risponde
+        const safetyTimeout = setTimeout(() => {
+            console.warn('⚠️ Safety timeout: sblocco UI dopo 30s di attesa');
+            chatUI.isSending = false;
+            chatUI.sendBtn.disabled = false;
+            chatUI.input.disabled = false;
+            chatUI.input.focus();
+        }, 30000);
         
         try {
             // Step 1: Carica gli allegati su S3 uno alla volta
@@ -1839,10 +1858,11 @@
                         const formData = new FormData();
                         formData.append('file', file);
                         
-                        const uploadResponse = await fetch(`/api/booking/${bookingId}/chat/upload-attachment`, {
-                            method: 'POST',
-                            body: formData
-                        });
+                        const uploadResponse = await fetchWithTimeout(
+                            `/api/booking/${bookingId}/chat/upload-attachment`,
+                            { method: 'POST', body: formData },
+                            30000  // 30s per upload file
+                        );
                         
                         if (uploadResponse.ok) {
                             const uploadData = await uploadResponse.json();
@@ -1860,7 +1880,11 @@
                         }
                     } catch (uploadErr) {
                         console.error(`❌ Errore upload ${file.name}:`, uploadErr);
-                        alert(`Errore caricamento "${file.name}"`);
+                        if (uploadErr.name === 'AbortError') {
+                            alert(`Timeout caricamento "${file.name}": il server non risponde`);
+                        } else {
+                            alert(`Errore caricamento "${file.name}"`);
+                        }
                     }
                 }
             }
@@ -1871,14 +1895,18 @@
                 return;
             }
             
-            const response = await fetch(`/api/booking/${bookingId}/chat/send`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: messageText,
-                    attachments: uploadedAttachments
-                })
-            });
+            const response = await fetchWithTimeout(
+                `/api/booking/${bookingId}/chat/send`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: messageText,
+                        attachments: uploadedAttachments
+                    })
+                },
+                15000  // 15s per invio messaggio
+            );
             
             if (response.ok) {
                 const message = await response.json();
@@ -1896,8 +1924,13 @@
             }
         } catch (error) {
             console.error('❌ Errore send chat:', error);
-            alert('Errore di connessione');
+            if (error.name === 'AbortError') {
+                alert('Timeout: il server non ha risposto in tempo. Riprova.');
+            } else {
+                alert('Errore di connessione');
+            }
         } finally {
+            clearTimeout(safetyTimeout);
             chatUI.isSending = false;
             chatUI.sendBtn.disabled = false;
             chatUI.input.disabled = false;

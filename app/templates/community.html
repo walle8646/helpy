@@ -2739,7 +2739,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% elif user and not can_create_question %}
 <div class="ask-button-sticky-bottom" style="background: #ccc; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 8px;">
     <i class="fas fa-exclamation-circle"></i>
-    <span>Hai raggiunto il limite di 2 richieste ogni 7 giorni ({{ user_questions_count }}/2)</span>
+    <span>Hai raggiunto il limite di 5 richieste al giorno ({{ user_questions_count }}/5)</span>
 </div>
 {% else %}
 <a href="/login" class="ask-button-sticky-bottom">
