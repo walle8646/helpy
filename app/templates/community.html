@@ -306,6 +306,26 @@
         color: #666;
         line-height: 1.6;
         margin-bottom: 16px;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .question-description.expanded {
+        -webkit-line-clamp: unset;
+        display: block;
+    }
+    .desc-toggle {
+        color: #4caf50;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: -10px;
+        margin-bottom: 12px;
+        display: none;
+    }
+    .desc-toggle:hover {
+        text-decoration: underline;
     }
     
     .question-footer {
@@ -1299,62 +1319,114 @@
         flex: 1;
         margin-bottom: 0;
     }
-    .question-content-row .question-images {
-        flex: 1;
+    .question-content-row .question-images-wrap {
+        flex: 0 0 220px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        margin: 0;
+        gap: 6px;
     }
-    .question-content-row .question-images img {
+    .question-images-main img {
         width: 100%;
-        height: auto;
-        max-height: 180px;
+        height: 180px;
         object-fit: cover;
         border-radius: 8px;
         cursor: pointer;
         transition: transform 0.2s, box-shadow 0.2s;
         box-shadow: 0 1px 4px rgba(0,0,0,0.1);
     }
-    .question-content-row .question-images img:hover {
+    .question-images-main img:hover {
         transform: scale(1.02);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .question-images-thumbs {
+        display: flex;
+        gap: 6px;
+    }
+    .question-images-thumbs img {
+        width: 50px;
+        height: 50px;
+        object-fit: cover;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        opacity: 0.85;
+    }
+    .question-images-thumbs img:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        opacity: 1;
     }
     @media (max-width: 600px) {
         .question-content-row {
             flex-direction: column;
         }
+        .question-content-row .question-images-wrap {
+            flex: none;
+        }
     }
-    /* Lightbox */
+    /* Lightbox Gallery */
     .image-lightbox {
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.85);
+        background: rgba(0,0,0,0.9);
         z-index: 10000;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
     }
     .image-lightbox.active {
         display: flex;
     }
     .image-lightbox img {
         max-width: 90vw;
-        max-height: 90vh;
+        max-height: 85vh;
         border-radius: 8px;
         box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        user-select: none;
     }
     .image-lightbox .close-lightbox {
         position: absolute;
-        top: 20px;
+        top: 16px;
         right: 20px;
         color: white;
-        font-size: 2rem;
+        font-size: 2.2rem;
         cursor: pointer;
         background: none;
         border: none;
         line-height: 1;
+        z-index: 10001;
+    }
+    .lightbox-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(255,255,255,0.15);
+        border: none;
+        color: white;
+        font-size: 2rem;
+        cursor: pointer;
+        padding: 12px 16px;
+        border-radius: 50%;
+        transition: background 0.2s;
+        z-index: 10001;
+        line-height: 1;
+    }
+    .lightbox-nav:hover {
+        background: rgba(255,255,255,0.3);
+    }
+    .lightbox-nav.prev { left: 16px; }
+    .lightbox-nav.next { right: 16px; }
+    .lightbox-counter {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255,255,255,0.8);
+        font-size: 0.9rem;
+        background: rgba(0,0,0,0.5);
+        padding: 4px 14px;
+        border-radius: 20px;
     }
 
 </style>
@@ -1550,19 +1622,30 @@
                     {% set imgs = item.question.images | parse_json if item.question.images else [] %}
                     {% if imgs %}
                     <div class="question-content-row">
-                        <p class="question-description">
-                            {{ item.question.description[:200] }}{% if item.question.description|length > 200 %}...{% endif %}
-                        </p>
-                        <div class="question-images">
-                            {% for img_url in imgs %}
-                            <img src="{{ img_url }}" alt="Immagine allegata" loading="lazy" onclick="openLightbox('{{ img_url }}')">
-                            {% endfor %}
+                        <div style="flex:1;">
+                            <p class="question-description" id="desc-{{ item.question.id }}">
+                                {{ item.question.description }}
+                            </p>
+                            <span class="desc-toggle" id="toggle-{{ item.question.id }}" onclick="toggleDesc({{ item.question.id }})">Leggi tutto</span>
+                        </div>
+                        <div class="question-images-wrap" data-images="{{ item.question.images }}">
+                            <div class="question-images-main">
+                                <img src="{{ imgs[0] }}" alt="Immagine allegata" loading="lazy" data-gallery-index="0" class="gallery-trigger">
+                            </div>
+                            {% if imgs | length > 1 %}
+                            <div class="question-images-thumbs">
+                                {% for img_url in imgs[1:] %}
+                                <img src="{{ img_url }}" alt="Immagine allegata" loading="lazy" data-gallery-index="{{ loop.index }}" class="gallery-trigger">
+                                {% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     {% else %}
-                    <p class="question-description">
-                        {{ item.question.description[:200] }}{% if item.question.description|length > 200 %}...{% endif %}
+                    <p class="question-description" id="desc-{{ item.question.id }}">
+                        {{ item.question.description }}
                     </p>
+                    <span class="desc-toggle" id="toggle-{{ item.question.id }}" onclick="toggleDesc({{ item.question.id }})">Leggi tutto</span>
                     {% endif %}
                     
                     <!-- Follow Counter - Cliccabile per consulenti -->
@@ -1601,8 +1684,8 @@
                     
                     <!-- Bottone Messaggia o Compila Profilo (controlla se l'utente LOGGATO è verificato) -->
                     {% if user and item.author.id != user.id %}
-                        {% if user.is_verified and not item.author.is_anonymous %}
-                        <!-- Utente LOGGATO verificato e autore non anonimo: può messaggiare -->
+                        {% if user.is_verified %}
+                        <!-- Utente LOGGATO verificato: può messaggiare -->
                         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                             <button class="btn-message-verified btn-contact-author"
                                data-question-id="{{ item.question.id }}"
@@ -1626,17 +1709,6 @@
                             </button>
                             
                             <!-- Bottone Segui e Richiedi (destra) -->
-                            <button 
-                                class="btn-follow-question" 
-                                data-question-id="{{ item.question.id }}"
-                                onclick="toggleFollowQuestion({{ item.question.id }})"
-                                title="Segui questa domanda">
-                                <i class="fas fa-heart"></i> Segui e Richiedi
-                            </button>
-                        </div>
-                        {% elif user.is_verified and item.author.is_anonymous %}
-                        <!-- Autore anonimo: mostra solo il bottone Segui -->
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 12px;">
                             <button 
                                 class="btn-follow-question" 
                                 data-question-id="{{ item.question.id }}"
@@ -1961,10 +2033,10 @@
             
             <div class="form-group">
                 <label class="form-label">Sottocategoria</label>
-                <select class="form-select" id="subcategorySelect" name="category_id" required>
+                <select class="form-select" id="subcategorySelect" name="category_id">
                     <option value="">Seleziona una sottocategoria...</option>
                 </select>
-                <small style="color:#888; margin-top:4px; display:block;">Seleziona prima una categoria principale</small>
+                <small id="subcategoryHint" style="color:#888; margin-top:4px; display:block;">Seleziona prima una categoria principale</small>
             </div>
             
             <div class="form-group">
@@ -1993,7 +2065,7 @@
                     <div class="image-upload-icon">📷</div>
                     <div class="image-upload-text">
                         <strong>Clicca</strong> o <strong>trascina</strong> per caricare immagini<br>
-                        <small>JPG, PNG o WebP • Max 5MB ciascuna • Max 2 immagini</small>
+                        <small>JPG, PNG o WebP • Max 5MB ciascuna • Max 5 immagini</small>
                     </div>
                 </div>
                 <input type="file" id="imageFileInput" accept="image/jpeg,image/png,image/webp" multiple style="display:none;" onchange="handleImageSelect(this.files)">
@@ -2062,22 +2134,183 @@
 </div>
 
 <script>
-function openAskModal() {
+// ========== TOGGLE DESCRIZIONE ==========
+function toggleDesc(id) {
+    const desc = document.getElementById('desc-' + id);
+    const toggle = document.getElementById('toggle-' + id);
+    if (desc.classList.contains('expanded')) {
+        desc.classList.remove('expanded');
+        toggle.textContent = 'Leggi tutto';
+    } else {
+        desc.classList.add('expanded');
+        toggle.textContent = 'Mostra meno';
+    }
+}
+
+// Mostra "Leggi tutto" solo se il testo è effettivamente troncato
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.question-description').forEach(function(desc) {
+        const id = desc.id.replace('desc-', '');
+        const toggle = document.getElementById('toggle-' + id);
+        if (toggle && desc.scrollHeight > desc.clientHeight + 1) {
+            toggle.style.display = 'block';
+        }
+    });
+});
+
+// ========== SALVATAGGIO BOZZA IN LOCALE ==========
+const DRAFT_KEY = 'helpy_community_draft';
+
+function saveDraft() {
+    try {
+        const draft = {
+            title: document.querySelector('#askForm input[name="title"]')?.value || '',
+            description: document.getElementById('descriptionTextarea')?.value || '',
+            primary_category_id: document.getElementById('primaryCategorySelect')?.value || '',
+            category_id: document.getElementById('subcategorySelect')?.value || '',
+            tags: document.getElementById('questionTagsInput')?.value || '',
+            images: (typeof uploadedImageUrls !== 'undefined') ? uploadedImageUrls : [],
+            savedAt: Date.now()
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch(e) { console.error('Errore salvataggio bozza:', e); }
+}
+
+function clearDraft() {
+    localStorage.removeItem(DRAFT_KEY);
+}
+
+function getDraft() {
+    try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return null;
+        const draft = JSON.parse(raw);
+        // Scarta bozze più vecchie di 24 ore
+        if (draft.savedAt && (Date.now() - draft.savedAt) > 86400000) {
+            clearDraft();
+            return null;
+        }
+        return draft;
+    } catch(e) { return null; }
+}
+
+async function restoreDraft() {
+    const draft = getDraft();
+    if (!draft) return false;
+
+    const hasSomething = draft.title || draft.description || draft.tags;
+    if (!hasSomething) return false;
+
+    // Ripristina campi di testo
+    const titleInput = document.querySelector('#askForm input[name="title"]');
+    if (titleInput && draft.title) titleInput.value = draft.title;
+
+    const descArea = document.getElementById('descriptionTextarea');
+    if (descArea && draft.description) {
+        descArea.value = draft.description;
+        document.getElementById('charCount').textContent = draft.description.length;
+        const charCountSpan = document.getElementById('charCount').parentElement;
+        if (draft.description.length < 150) {
+            charCountSpan.style.color = '#dc3545';
+            charCountSpan.style.fontWeight = '600';
+        } else {
+            charCountSpan.style.color = '#28a745';
+            charCountSpan.style.fontWeight = '500';
+        }
+    }
+
+    const tagsInput = document.getElementById('questionTagsInput');
+    if (tagsInput && draft.tags) tagsInput.value = draft.tags;
+
+    // Ripristina categoria principale e carica sottocategorie
+    const primarySelect = document.getElementById('primaryCategorySelect');
+    if (primarySelect && draft.primary_category_id) {
+        primarySelect.value = draft.primary_category_id;
+        const subcategorySelect = document.getElementById('subcategorySelect');
+        const subcategoryHint = document.getElementById('subcategoryHint');
+        try {
+            const response = await fetch(`/api/profile/subcategories/${draft.primary_category_id}`);
+            const data = await response.json();
+            if (data.subcategories && data.subcategories.length > 0) {
+                subcategorySelect.innerHTML = '<option value="">Seleziona una sottocategoria...</option>' +
+                    data.subcategories.map(sub =>
+                        `<option value="${sub.id}">${sub.icon} ${sub.name}</option>`
+                    ).join('') +
+                    '<option value="altro">\ud83d\udccc Altro</option>';
+                subcategoryHint.innerHTML = 'Scegliere una sottocategoria aiuta nella ricerca, ma se non la trovi <a href="#" onclick="document.getElementById(\'subcategorySelect\').value=\'altro\'; return false;" style="color:#4caf50; text-decoration:underline;">clicca qui</a>';
+                if (draft.category_id) {
+                    subcategorySelect.value = draft.category_id;
+                }
+            }
+        } catch (e) {
+            console.error('Errore ripristino sottocategorie:', e);
+        }
+    }
+
+    // Ripristina immagini
+    if (draft.images && draft.images.length > 0 && typeof uploadedImageUrls !== 'undefined') {
+        uploadedImageUrls = draft.images;
+        const previewsDiv = document.getElementById('imagePreviews');
+        if (previewsDiv) {
+            draft.images.forEach(url => {
+                const previewItem = document.createElement('div');
+                previewItem.className = 'image-preview-item';
+                previewItem.innerHTML = `
+                    <img src="${url}" alt="Anteprima">
+                    <button type="button" class="remove-image-btn" onclick="removeImage('${url}', this)">&times;</button>
+                `;
+                previewsDiv.appendChild(previewItem);
+            });
+            document.getElementById('uploadedImagesInput').value = JSON.stringify(uploadedImageUrls);
+        }
+    }
+
+    return true;
+}
+
+async function openAskModal() {
     document.getElementById('askModal').classList.add('active');
-    // Reset i select quando si apre il modal
-    document.getElementById('primaryCategorySelect').value = '';
-    document.getElementById('subcategorySelect').value = '';
-    document.getElementById('subcategorySelect').innerHTML = '<option value="">Seleziona una sottocategoria...</option>';
-    
-    // Reset descrizione e conteggio
-    document.getElementById('descriptionTextarea').value = '';
-    document.getElementById('charCount').textContent = '0';
-    document.getElementById('charError').style.display = 'none';
+
+    const draft = getDraft();
+    const hasDraft = draft && (draft.title || draft.description || draft.tags);
+
+    if (hasDraft) {
+        await restoreDraft();
+    } else {
+        document.querySelector('#askForm input[name="title"]').value = '';
+        document.getElementById('primaryCategorySelect').value = '';
+        document.getElementById('subcategorySelect').value = '';
+        document.getElementById('subcategorySelect').innerHTML = '<option value="">Seleziona una sottocategoria...</option>';
+        document.getElementById('subcategoryHint').innerHTML = 'Seleziona prima una categoria principale';
+        document.getElementById('descriptionTextarea').value = '';
+        document.getElementById('charCount').textContent = '0';
+        document.getElementById('charError').style.display = 'none';
+        document.getElementById('questionTagsInput').value = '';
+    }
 }
 
 function closeAskModal() {
+    // Salva la bozza prima di chiudere
+    saveDraft();
     document.getElementById('askModal').classList.remove('active');
 }
+
+// Auto-salvataggio bozza su ogni modifica dei campi
+document.addEventListener('DOMContentLoaded', function() {
+    // Salva su input per campi di testo
+    ['#askForm input[name="title"]', '#descriptionTextarea', '#questionTagsInput'].forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) {
+            el.addEventListener('input', saveDraft);
+            el.addEventListener('change', saveDraft);
+        }
+    });
+    // Salva su change per i select
+    ['#primaryCategorySelect', '#subcategorySelect'].forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) el.addEventListener('change', saveDraft);
+    });
+});
 
 // ========== AI: GENERA TAG PER DOMANDA COMMUNITY ==========
 (function() {
@@ -2199,8 +2432,11 @@ document.getElementById('primaryCategorySelect').addEventListener('change', asyn
     const categoryId = e.target.value;
     const subcategorySelect = document.getElementById('subcategorySelect');
     
+    const subcategoryHint = document.getElementById('subcategoryHint');
+    
     if (!categoryId) {
         subcategorySelect.innerHTML = '<option value="">Seleziona una sottocategoria...</option>';
+        subcategoryHint.innerHTML = 'Seleziona prima una categoria principale';
         return;
     }
     
@@ -2209,16 +2445,20 @@ document.getElementById('primaryCategorySelect').addEventListener('change', asyn
         const data = await response.json();
         
         if (data.subcategories && data.subcategories.length > 0) {
-            subcategorySelect.innerHTML = '<option value="">Nessuna sottocategoria</option>' + 
+            subcategorySelect.innerHTML = '<option value="">Seleziona una sottocategoria...</option>' + 
                 data.subcategories.map(sub => 
                     `<option value="${sub.id}">${sub.icon} ${sub.name}</option>`
-                ).join('');
+                ).join('') +
+                '<option value="altro">📌 Altro</option>';
+            subcategoryHint.innerHTML = 'Scegliere una sottocategoria aiuta nella ricerca, ma se non la trovi <a href="#" onclick="document.getElementById(\'subcategorySelect\').value=\'altro\'; return false;" style="color:#4caf50; text-decoration:underline;">clicca qui</a>';
         } else {
-            subcategorySelect.innerHTML = '<option value="">Nessuna sottocategoria</option>';
+            subcategorySelect.innerHTML = '<option value="">Nessuna sottocategoria disponibile</option>';
+            subcategoryHint.innerHTML = 'Nessuna sottocategoria disponibile per questa categoria';
         }
     } catch (error) {
         console.error('Errore nel caricamento sottocategorie:', error);
         subcategorySelect.innerHTML = '<option value="">Errore nel caricamento</option>';
+        subcategoryHint.innerHTML = '';
     }
 });
 
@@ -2290,10 +2530,11 @@ async function submitQuestion(e) {
     
     charError.style.display = 'none';
     
-    // Validazione sottocategoria obbligatoria
-    if (!subcategorySelect.value || subcategorySelect.value === '') {
-        alert('⚠️ Devi selezionare una sottocategoria');
-        subcategorySelect.focus();
+    // Verifica che una categoria principale sia selezionata
+    const primaryCatSelect = document.getElementById('primaryCategorySelect');
+    if (!primaryCatSelect.value || primaryCatSelect.value === '') {
+        alert('⚠️ Devi selezionare una categoria principale');
+        primaryCatSelect.focus();
         return;
     }
     
@@ -2321,6 +2562,7 @@ async function submitQuestionFinal() {
         const data = await response.json();
         
         if (response.ok) {
+            clearDraft();
             window.location.href = data.redirect_url;
         } else {
             alert(data.error || 'Errore durante la pubblicazione');
@@ -2333,7 +2575,7 @@ async function submitQuestionFinal() {
 
 // ========== IMAGE UPLOAD SYSTEM ==========
 let uploadedImageUrls = [];
-const MAX_IMAGES = 2;
+const MAX_IMAGES = 5;
 
 // Drag & Drop
 const uploadArea = document.getElementById('imageUploadArea');
@@ -2430,6 +2672,7 @@ async function uploadSingleImage(file) {
             uploadedImageUrls.push(data.url);
             updateImagesInput();
             updateUploadAreaVisibility();
+            saveDraft();
         } else {
             // Upload/moderation failed
             previewItem.remove();
@@ -2451,6 +2694,7 @@ function removeImage(url, previewItem) {
     previewItem.remove();
     updateImagesInput();
     updateUploadAreaVisibility();
+    saveDraft();
     document.getElementById('imageUploadError').style.display = 'none';
 }
 
@@ -3158,24 +3402,85 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-// ========== LIGHTBOX ==========
-function openLightbox(imgUrl) {
+// ========== IMAGE GALLERY ==========
+let galleryImages = [];
+let galleryIndex = 0;
+
+function openGallery(images, index) {
+    galleryImages = images;
+    galleryIndex = index;
+    showGalleryImage();
     const lb = document.getElementById('imageLightbox');
-    const lbImg = document.getElementById('lightboxImage');
-    lbImg.src = imgUrl;
     lb.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
+
+function showGalleryImage() {
+    document.getElementById('lightboxImage').src = galleryImages[galleryIndex];
+    const counter = document.getElementById('lightboxCounter');
+    const prevBtn = document.getElementById('lightboxPrev');
+    const nextBtn = document.getElementById('lightboxNext');
+    if (galleryImages.length > 1) {
+        counter.textContent = (galleryIndex + 1) + ' / ' + galleryImages.length;
+        counter.style.display = 'block';
+        prevBtn.style.display = 'block';
+        nextBtn.style.display = 'block';
+    } else {
+        counter.style.display = 'none';
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+    }
+}
+
+function galleryPrev(e) {
+    e.stopPropagation();
+    galleryIndex = (galleryIndex - 1 + galleryImages.length) % galleryImages.length;
+    showGalleryImage();
+}
+
+function galleryNext(e) {
+    e.stopPropagation();
+    galleryIndex = (galleryIndex + 1) % galleryImages.length;
+    showGalleryImage();
+}
+
 function closeLightbox() {
     const lb = document.getElementById('imageLightbox');
     lb.classList.remove('active');
     document.getElementById('lightboxImage').src = '';
+    document.body.style.overflow = '';
+    galleryImages = [];
 }
+
+document.addEventListener('keydown', function(e) {
+    const lb = document.getElementById('imageLightbox');
+    if (!lb || !lb.classList.contains('active')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') { galleryIndex = (galleryIndex - 1 + galleryImages.length) % galleryImages.length; showGalleryImage(); }
+    if (e.key === 'ArrowRight') { galleryIndex = (galleryIndex + 1) % galleryImages.length; showGalleryImage(); }
+});
+
+// Gallery click delegation — reads images from data-images attribute
+document.addEventListener('click', function(e) {
+    const img = e.target.closest('.gallery-trigger');
+    if (!img) return;
+    const wrap = img.closest('.question-images-wrap');
+    if (!wrap || !wrap.dataset.images) return;
+    try {
+        const images = JSON.parse(wrap.dataset.images);
+        const idx = parseInt(img.dataset.galleryIndex, 10) || 0;
+        openGallery(images, idx);
+    } catch(err) { console.error('Gallery parse error', err); }
+});
 </script>
 
-<!-- Lightbox overlay -->
+<!-- Gallery Lightbox overlay -->
 <div class="image-lightbox" id="imageLightbox" onclick="closeLightbox()">
     <button class="close-lightbox" onclick="closeLightbox()">&times;</button>
-    <img id="lightboxImage" src="" alt="Immagine ingrandita">
+    <button class="lightbox-nav prev" id="lightboxPrev" onclick="galleryPrev(event)">&#8249;</button>
+    <img id="lightboxImage" src="" alt="Immagine ingrandita" onclick="event.stopPropagation()">
+    <button class="lightbox-nav next" id="lightboxNext" onclick="galleryNext(event)">&#8250;</button>
+    <div class="lightbox-counter" id="lightboxCounter"></div>
 </div>
 
 {% endblock %}

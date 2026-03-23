@@ -352,10 +352,18 @@ async def api_ask_question(
     title: str = Form(...),
     description: str = Form(...),
     primary_category_id: Optional[int] = Form(None),  # ✅ Categoria principale
-    category_id: Optional[int] = Form(None),  # ✅ Sottocategoria
+    category_id: Optional[str] = Form(None),  # ✅ Sottocategoria (str per gestire "altro")
     images: Optional[str] = Form(None)  # JSON array di URL S3 delle immagini
 ):
     """API per creare nuova domanda"""
+    
+    # Gestisci "altro" come nessuna sottocategoria
+    resolved_category_id = None
+    if category_id and category_id != "altro":
+        try:
+            resolved_category_id = int(category_id)
+        except ValueError:
+            resolved_category_id = None
     
     try:
         # Verifica autenticazione
@@ -442,7 +450,7 @@ async def api_ask_question(
                 title=title,
                 description=description,  # ✅ Usa description invece di content
                 primary_category_id=primary_category_id,  # ✅ Salva categoria principale
-                category_id=category_id,  # ✅ Salva subcategoria
+                category_id=resolved_category_id,  # ✅ Salva subcategoria (None se "altro")
                 images=images if images else None,  # ✅ Salva URL immagini S3
                 status=QuestionStatus.OPEN,
                 validation=True  # ✅ Approvata dall'AI, visibile subito
@@ -459,7 +467,7 @@ async def api_ask_question(
             
             # ========== NOTIFICA CONSULENTI ==========
             # Trova tutti i consulenti che hanno la stessa categoria e notify_category_requests=true
-            category_to_search = primary_category_id or category_id
+            category_to_search = primary_category_id or resolved_category_id
             
             if category_to_search:
                 consultants = session.exec(
@@ -759,17 +767,16 @@ async def track_contact(request: Request, question_id: int):
             ).first()
             
             if not existing_contact:
-                # Crea nuovo contatto e incrementa counter (SOLO PRIMA VOLTA)
+                # Crea nuovo contatto (il counter verrà incrementato solo quando il messaggio viene inviato)
                 new_contact = CommunityContact(
                     question_id=question_id,
-                    user_id=current_user.id
+                    user_id=current_user.id,
+                    message_sent=False
                 )
                 session.add(new_contact)
-                question.views += 1
-                session.add(question)
                 session.commit()
                 
-                logger.info(f"✅ User {current_user.id} contacted author of question {question_id} (first time)")
+                logger.info(f"✅ User {current_user.id} contacted author of question {question_id} (pending message)")
                 
                 return JSONResponse({
                     "success": True,

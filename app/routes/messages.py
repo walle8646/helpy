@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Form, HTTPException, Query, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
-from app.models import User, Conversation, Message, Booking, ConfigurationProperty
+from app.models import User, Conversation, Message, Booking, ConfigurationProperty, CommunityContact, CommunityQuestion
 from sqlmodel import select, or_, and_, func
 from datetime import datetime, timedelta
 from app.logger_config import logger
@@ -401,7 +401,35 @@ async def send_message(
             session.commit()
             session.refresh(message)
             
-            # 📧🔔 Invia notifica al destinatario SE should_notify è True
+            # � Incrementa contatore community se questo è il primo messaggio per un contatto pendente
+            try:
+                pending_contacts = session.exec(
+                    select(CommunityContact)
+                    .join(CommunityQuestion, CommunityContact.question_id == CommunityQuestion.id)
+                    .where(
+                        and_(
+                            CommunityContact.user_id == user_id,
+                            CommunityContact.message_sent == False,
+                            CommunityQuestion.user_id == other_user_id
+                        )
+                    )
+                ).all()
+                
+                for contact in pending_contacts:
+                    contact.message_sent = True
+                    session.add(contact)
+                    question = session.get(CommunityQuestion, contact.question_id)
+                    if question:
+                        question.views += 1
+                        session.add(question)
+                        logger.info(f"📬 Community contact confirmed: user {user_id} → question {contact.question_id} (views: {question.views})")
+                
+                if pending_contacts:
+                    session.commit()
+            except Exception as cc_error:
+                logger.error(f"⚠️ Errore aggiornamento contatti community: {cc_error}")
+            
+            # �📧🔔 Invia notifica al destinatario SE should_notify è True
             if should_notify:
                 try:
                     base_url = os.getenv("BASE_URL", "http://localhost:8080")

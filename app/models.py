@@ -136,7 +136,7 @@ class CommunityQuestion(SQLModel, table=True):
     views: int = Field(default=0)  # Ora rappresenta quanti utenti UNICI hanno cliccato "Messaggia"
     upvotes: int = Field(default=0)
     validation: bool = Field(default=False, index=True)  # 🆕 Flag di validazione - se False, la domanda non è visibile
-    images: Optional[str] = Field(default=None)  # JSON array di URL S3 delle immagini allegate (max 2)
+    images: Optional[str] = Field(default=None)  # JSON array di URL S3 delle immagini allegate (max 5)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -164,6 +164,7 @@ class CommunityContact(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     question_id: int = Field(foreign_key="community_questions.id", index=True)
     user_id: int = Field(foreign_key="user.id", index=True)  # Chi ha cliccato Messaggia
+    message_sent: bool = Field(default=False)  # True quando il consulente invia effettivamente un messaggio
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Config:
