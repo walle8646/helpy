@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, Form, File
+from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, Form, File, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select, func
 from datetime import datetime, timedelta, time
@@ -515,8 +515,11 @@ async def get_upcoming_bookings(request: Request):
             # Calcola i minuti fino all'inizio
             time_until = (booking_datetime - now).total_seconds() / 60
             
-            # FILTRO: Salta appuntamenti passati (prima di ora)
-            if time_until < -booking.duration_minutes:
+            # Se qualcuno è in call, mostra sempre il booking (anche se il tempo è scaduto)
+            someone_in_call = booking.client_joined_at is not None or booking.consultant_joined_at is not None
+            
+            # FILTRO: Salta appuntamenti passati, MA tieni quelli con call attiva
+            if time_until < -booking.duration_minutes and not someone_in_call:
                 continue
             
             print(f"DEBUG: booking_date={booking_date}, booking_datetime={booking_datetime}, now={now}, time_until={time_until}")
@@ -939,7 +942,8 @@ async def stop_booking_recording(booking_id: int, request: Request):
                 channel_name = f"booking_{booking_id}"
                 
                 try:
-                    result = stop_recording(
+                    result = await asyncio.to_thread(
+                        stop_recording,
                         booking.recording_resource_id,
                         booking.recording_sid,
                         channel_name,
@@ -986,11 +990,12 @@ async def stop_booking_recording(booking_id: int, request: Request):
         if not booking.recording_sid or not booking.recording_resource_id:
             raise HTTPException(status_code=400, detail="Dati recording mancanti")
         
-        # Ferma recording
+        # Ferma recording (in thread separato per non bloccare event loop)
         recorder_uid = 0
         channel_name = f"booking_{booking_id}"
         
-        result = stop_recording(
+        result = await asyncio.to_thread(
+            stop_recording,
             booking.recording_resource_id,
             booking.recording_sid,
             channel_name,
@@ -1472,6 +1477,28 @@ async def get_call_status_extended(
 
 # ========== CALL CHAT ENDPOINTS ==========
 
+# Lazy singleton per il client S3 degli allegati chat
+_chat_s3_client = None
+
+def _get_chat_s3_client():
+    """Restituisce un client S3 riutilizzabile (creato una sola volta)"""
+    global _chat_s3_client
+    if _chat_s3_client is None:
+        import boto3
+        aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        s3_region = os.getenv("AWS_REGION", "eu-west-1")
+        if not aws_access_key or not aws_secret_key:
+            return None
+        _chat_s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key,
+            region_name=s3_region
+        )
+    return _chat_s3_client
+
+
 @router.post("/api/booking/{booking_id}/chat/upload-attachment")
 async def upload_chat_attachment(
     booking_id: int,
@@ -1480,10 +1507,11 @@ async def upload_chat_attachment(
 ):
     """Carica un allegato su S3 per la chat della call"""
     try:
-        import boto3
-        
         with Session(engine) as session:
-            booking = session.exec(select(Booking).where(Booking.id == booking_id)).first()
+            booking = session.exec(
+                select(Booking.client_user_id, Booking.consultant_user_id)
+                .where(Booking.id == booking_id)
+            ).first()
             if not booking:
                 raise HTTPException(status_code=404, detail="Booking non trovato")
             if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
@@ -1503,21 +1531,13 @@ async def upload_chat_attachment(
         if file_extension not in allowed_extensions:
             raise HTTPException(status_code=400, detail=f"Tipo file non supportato. Formati accettati: {', '.join(allowed_extensions)}")
         
-        # Upload su S3
-        aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
-        aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        s3_bucket = os.getenv("S3_BUCKET_NAME", "helpy-images")
-        s3_region = os.getenv("AWS_REGION", "eu-west-1")
-        
-        if not aws_access_key or not aws_secret_key:
+        # Ottieni client S3 riutilizzabile
+        s3_client = _get_chat_s3_client()
+        if not s3_client:
             raise HTTPException(status_code=500, detail="Servizio upload non disponibile")
         
-        s3_client = boto3.client(
-            "s3",
-            aws_access_key_id=aws_access_key,
-            aws_secret_access_key=aws_secret_key,
-            region_name=s3_region
-        )
+        s3_bucket = os.getenv("S3_BUCKET_NAME", "helpy-images")
+        s3_region = os.getenv("AWS_REGION", "eu-west-1")
         
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
         safe_filename = file.filename.replace(' ', '_') if file.filename else f"file.{file_extension}"
@@ -1526,7 +1546,9 @@ async def upload_chat_attachment(
         # Determina il content-type per il download
         content_type = file.content_type or "application/octet-stream"
         
-        s3_client.put_object(
+        # Esegui l'upload in un thread separato per non bloccare l'event loop
+        await asyncio.to_thread(
+            s3_client.put_object,
             Bucket=s3_bucket,
             Key=s3_key,
             Body=contents,
@@ -1570,9 +1592,13 @@ async def send_call_message(
         if not message_text and not attachments_data:
             raise HTTPException(status_code=400, detail="Messaggio o allegato richiesto")
         
+        # Usa current_user già disponibile dal Depends (evita query extra)
+        user_name = f"{current_user.nome} {current_user.cognome}" if current_user.nome and current_user.cognome else current_user.email
+        
         with Session(engine) as session:
             booking = session.exec(
-                select(Booking).where(Booking.id == booking_id)
+                select(Booking.client_user_id, Booking.consultant_user_id)
+                .where(Booking.id == booking_id)
             ).first()
             
             if not booking:
@@ -1592,17 +1618,14 @@ async def send_call_message(
             session.commit()
             session.refresh(call_msg)
             
-            # Ottieni l'utente per il nome
-            user = session.exec(select(User).where(User.id == current_user.id)).first()
-            
-            logger.info(f"💬 Messaggio call inviato nel booking {booking_id} da {user.nome} {user.cognome} con {len(attachments_data)} allegati")
+            logger.info(f"💬 Messaggio call inviato nel booking {booking_id} da {user_name} con {len(attachments_data)} allegati")
             
             return {
                 "id": call_msg.id,
                 "user_id": call_msg.user_id,
-                "user_name": f"{user.nome} {user.cognome}" if user.nome and user.cognome else user.email,
+                "user_name": user_name,
                 "message": call_msg.message,
-                "attachments": json.loads(call_msg.attachments) if call_msg.attachments else [],
+                "attachments": attachments_data,
                 "created_at": call_msg.created_at.isoformat()
             }
     except HTTPException:
@@ -1615,9 +1638,10 @@ async def send_call_message(
 @router.get("/api/booking/{booking_id}/chat/messages")
 async def get_call_messages(
     booking_id: int,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    after_id: Optional[int] = None
 ):
-    """Ottiene tutti i messaggi della call"""
+    """Ottiene i messaggi della call, opzionalmente solo quelli dopo after_id"""
     
     try:
         import json
@@ -1635,22 +1659,31 @@ async def get_call_messages(
             if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
                 raise HTTPException(status_code=403, detail="Non autorizzato")
             
-            # Ottieni tutti i messaggi ordinati per data
-            messages = session.exec(
-                select(CallMessage)
-                .where(CallMessage.booking_id == booking_id)
-                .order_by(CallMessage.created_at)
-            ).all()
+            # Query messaggi, filtra per after_id se presente
+            query = select(CallMessage).where(CallMessage.booking_id == booking_id)
+            if after_id is not None:
+                query = query.where(CallMessage.id > after_id)
+            query = query.order_by(CallMessage.created_at)
             
-            # Costruisci la risposta con info dell'utente e allegati
+            messages = session.exec(query).all()
+            
+            if not messages:
+                return {"messages": []}
+            
+            # Fetch tutti gli utenti coinvolti in una sola query
+            user_ids = list(set(msg.user_id for msg in messages))
+            users = session.exec(select(User).where(User.id.in_(user_ids))).all()
+            user_map = {u.id: u for u in users}
+            
+            # Costruisci la risposta
             messages_data = []
             for msg in messages:
-                user = session.exec(select(User).where(User.id == msg.user_id)).first()
+                user = user_map.get(msg.user_id)
                 attachments = json.loads(msg.attachments) if msg.attachments else []
                 messages_data.append({
                     "id": msg.id,
                     "user_id": msg.user_id,
-                    "user_name": f"{user.nome} {user.cognome}" if user.nome and user.cognome else user.email,
+                    "user_name": f"{user.nome} {user.cognome}" if user and user.nome and user.cognome else (user.email if user else "Utente"),
                     "message": msg.message,
                     "attachments": attachments,
                     "created_at": msg.created_at.isoformat()
@@ -1669,13 +1702,54 @@ async def get_call_messages(
 
 # ========== AUTO RECORDING ENDPOINTS ==========
 
+def _stop_recording_background(booking_id: int, resource_id: str, sid: str, channel_name: str):
+    """Background task: ferma recording e salva risultato nel DB"""
+    from app.utils.agora_recording import stop_recording, get_recording_url
+    logger.info(f"🎥 [BG] Background recording stop for booking {booking_id}")
+    try:
+        result = stop_recording(resource_id, sid, channel_name, 0)
+        logger.info(f"🎥 [BG] stop_recording result: {result}")
+        
+        with Session(engine) as session:
+            booking = session.get(Booking, booking_id)
+            if not booking:
+                return
+            if result:
+                file_name = result["file_name"]
+                recording_url = get_recording_url(file_name)
+                booking.recording_url = recording_url
+                booking.recording_duration = result.get("mix_duration", 0)
+                booking.recording_status = "completed"
+                booking.recording_completed_at = datetime.utcnow()
+                logger.info(f"✅ [BG] Recording saved: {recording_url}")
+            else:
+                booking.recording_status = "failed"
+                logger.warning(f"⚠️ [BG] Recording stop returned no result")
+            booking.updated_at = datetime.utcnow()
+            session.add(booking)
+            session.commit()
+    except Exception as e:
+        logger.error(f"❌ [BG] Error stopping recording: {e}", exc_info=True)
+        try:
+            with Session(engine) as session:
+                booking = session.get(Booking, booking_id)
+                if booking:
+                    booking.recording_status = "failed"
+                    booking.updated_at = datetime.utcnow()
+                    session.add(booking)
+                    session.commit()
+        except Exception:
+            pass
+
+
 @router.post("/api/booking/{booking_id}/leave")
-async def leave_booking(booking_id: int, request: Request):
+async def leave_booking(booking_id: int, request: Request, background_tasks: BackgroundTasks):
     """Segna che l'utente è uscito dalla call - ferma recording se nessuno rimane"""
     print(f"\n🔔 [LEAVE] Function called for booking {booking_id}")
     current_user = get_current_user(request)
     if not current_user:
-        raise HTTPException(status_code=401, detail="Non autenticato")
+        # sendBeacon potrebbe non avere sessione — ignora silenziosamente
+        return {"success": True, "message": "Leave acknowledged"}
     
     print(f"🔔 [LEAVE] Current user: {current_user.email}")
     
@@ -1708,83 +1782,39 @@ async def leave_booking(booking_id: int, request: Request):
         anyone_in_call = client_still_in or consultant_still_in
         
         print(f"🔔 [LEAVE] After update - client_still_in={client_still_in}, consultant_still_in={consultant_still_in}, anyone_in_call={anyone_in_call}")
-        logger.info(f"   - Client still in: {client_still_in}, Consultant still in: {consultant_still_in}, Anyone in: {anyone_in_call}")
         
-        # 🎥 Se nessuno rimane in call e la registrazione è attiva, ferma
+        # 🎥 Se nessuno rimane in call e la registrazione è attiva, ferma in background
+        # Usa un update atomico: imposta "stopping" solo se ancora "recording"
+        should_stop = False
+        recording_resource_id = booking.recording_resource_id
+        recording_sid = booking.recording_sid
+        
         if not anyone_in_call and booking.recording_status == "recording":
-            print(f"🔔 [LEAVE] ✅ SHOULD STOP RECORDING: anyone_in_call={anyone_in_call}, recording_status={booking.recording_status}")
-            logger.info(f"🎥 All users left - stopping recording for booking {booking_id}")
-            try:
-                from app.utils.agora_recording import stop_recording, get_recording_url
-                import asyncio
-                
-                recorder_uid = 0
+            booking.recording_status = "stopping"
+            session.add(booking)
+            session.commit()
+            session.refresh(booking)
+            # Verifica che siamo noi ad averlo impostato a "stopping"
+            if booking.recording_status == "stopping":
+                should_stop = True
+                logger.info(f"🎥 All users left - scheduling background recording stop for booking {booking_id}")
                 channel_name = f"booking_{booking_id}"
-                
-                logger.info(
-                    "🎯 Recording stop context | booking=%s resource_id=%s sid=%s channel=%s",
+                background_tasks.add_task(
+                    _stop_recording_background,
                     booking_id,
-                    booking.recording_resource_id,
-                    booking.recording_sid,
-                    channel_name,
+                    recording_resource_id,
+                    recording_sid,
+                    channel_name
                 )
-
-                wait_seconds = 15
-                print(
-                    f"🔔 [LEAVE] ⏳ Waiting {wait_seconds} seconds before stopping recording (let Agora save to S3)..."
-                )
-                logger.info(f"⏳ Waiting {wait_seconds} seconds for Agora to flush recording to S3...")
-                await asyncio.sleep(wait_seconds)
-
-                print(
-                    f"🔔 [LEAVE] Calling stop_recording with SID={booking.recording_sid}, ResourceID={booking.recording_resource_id}"
-                )
-                logger.info(
-                    "🎥 Stopping recording for booking %s after wait of %ss",
-                    booking_id,
-                    wait_seconds,
-                )
-                
-                result = stop_recording(
-                    booking.recording_resource_id,
-                    booking.recording_sid,
-                    channel_name,
-                    recorder_uid
-                )
-                
-                print(f"🔔 [LEAVE] stop_recording result: {result}")
-                
-                if result:
-                    file_name = result["file_name"]
-                    recording_url = get_recording_url(file_name)
-                    
-                    booking.recording_url = recording_url
-                    booking.recording_duration = result.get("mix_duration", 0)
-                    booking.recording_status = "completed"
-                    booking.recording_completed_at = now
-                    
-                    logger.info(f"✅ Recording stopped and saved: {recording_url}")
-                else:
-                    print(f"🔔 [LEAVE] ⚠️ Recording stop returned no result")
-                    logger.warning(f"⚠️ Recording stop returned no result")
-                    booking.recording_status = "failed"
-                    
-            except Exception as e:
-                print(f"🔔 [LEAVE] ❌ Error: {e}")
-                logger.error(f"❌ Error stopping recording for booking {booking_id}: {e}", exc_info=True)
-                booking.recording_status = "failed"
         else:
-            print(f"🔔 [LEAVE] ⚠️ NOT stopping recording: anyone_in_call={anyone_in_call}, recording_status={booking.recording_status}")
+            session.add(booking)
+            session.commit()
             if anyone_in_call:
                 logger.info(f"ℹ️ User left but others still in call - keeping recording active")
             else:
                 logger.info(f"ℹ️ Recording not active (status={booking.recording_status}) - nothing to stop")
         
-        session.add(booking)
-        session.commit()
-        session.refresh(booking)
-        
-        print(f"🔔 [LEAVE] Booking saved - final recording_status={booking.recording_status}")
+        print(f"🔔 [LEAVE] Booking saved - recording stop scheduled in background: {should_stop}")
         
         return {
             "success": True,

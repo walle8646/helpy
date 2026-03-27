@@ -8,15 +8,13 @@ import time
 import requests
 import base64
 import boto3
-import logging
+from loguru import logger
 from datetime import datetime
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 from app.utils.agora_token import generate_access_token
 
 load_dotenv()
-
-logger = logging.getLogger(__name__)
 
 # Credenziali Agora per le chiamate video (App ID + App Certificate)
 AGORA_APP_ID = os.getenv("AGORA_APP_ID")
@@ -84,10 +82,24 @@ def _extract_recording_file_info(data: Dict[str, Any]) -> Optional[Dict[str, Any
     """Estrae le informazioni del file dal payload di risposta Agora."""
     server_response = data.get("serverResponse", {})
     file_list = server_response.get("fileList", [])
+    file_list_mode = server_response.get("fileListMode", "json")
 
     if not file_list:
         logger.warning("⚠️ Nessun file presente nella risposta della registrazione")
         return None
+
+    # Agora può restituire fileList come stringa (fileListMode="string") o come lista JSON
+    if file_list_mode == "string" or isinstance(file_list, str):
+        # fileList è direttamente il nome del file (es: "sid_channel.m3u8")
+        logger.info(f"📁 fileList is string: {file_list}")
+        return {
+            "file_name": file_list,
+            "track_type": "audio_and_video",
+            "uid": "0",
+            "mix_duration": 0,
+            "is_playable": True,
+            "slice_start_time": 0,
+        }
 
     recording_file = file_list[0]
 
@@ -187,24 +199,28 @@ def start_recording(channel_name: str, uid: int, rtc_token: str) -> Optional[Dic
         logger.info(f"✓ [acquire] Got resourceId: {resource_id}")
 
         
-        # Step 2: Start recording with Access Token
+        # Step 2: Start recording with RTC Token
         start_url = f"{AGORA_RECORDING_API.format(AGORA_APP_ID)}/resourceid/{resource_id}/mode/mix/start"
         logger.info(f"   - Start URL: {start_url}")
         
-        # Genera Access Token per Cloud Recording API (non RTC Token!)
-        access_token = generate_access_token(expiration_seconds=3600)
-        logger.info(f"🔐 [start] Generated Access Token for Cloud Recording API")
+        # Il token nel payload è l'RTC token che il bot recorder usa per entrare nel canale
+        # rtc_token può essere un dict (da generate_agora_token) o una stringa
+        if isinstance(rtc_token, dict):
+            token_str = rtc_token.get("token", rtc_token)
+        else:
+            token_str = rtc_token
+        logger.info(f"🔐 [start] Using RTC Token for recorder to join channel")
         
         start_payload = {
             "cname": channel_name,
             "uid": str(uid),
             "clientRequest": {
-                "token": access_token,  # Access Token, non RTC Token!
+                "token": token_str,  # RTC Token per il bot recorder
                 "recordingConfig": {
                     "channelType": 0,  # 0 = communication, 1 = live broadcast
-                    "streamMode": "default",
+                    "streamMode": "standard",  # "standard" necessario per avFileType MP4
                     "videoStreamType": 0,
-                    "maxIdleTime": 300,  # 5 minutes - increased from 30 to handle longer calls
+                    "maxIdleTime": 600,  # 10 minutes - tolera brevi disconnessioni
                     "transcodingConfig": {
                         "width": 1280,
                         "height": 720,
@@ -213,13 +229,16 @@ def start_recording(channel_name: str, uid: int, rtc_token: str) -> Optional[Dic
                         "mixedVideoLayout": 1  # 1 = floating layout
                     }
                 },
+                "recordingFileConfig": {
+                    "avFileType": ["hls", "mp4"]  # Genera sia HLS che MP4
+                },
                 "storageConfig": {
                     "vendor": 1,  # 1 = AWS S3
-                    "region": get_agora_region_code(AWS_S3_REGION),  # Codice numerico per Agora
+                    "region": get_agora_region_code(AWS_S3_REGION),
                     "bucket": AWS_S3_BUCKET_NAME,
                     "accessKey": AWS_ACCESS_KEY_ID,
-                    "secretKey": AWS_SECRET_ACCESS_KEY
-                    # NO fileNamePrefix - non supportato da Agora API
+                    "secretKey": AWS_SECRET_ACCESS_KEY,
+                    "fileNamePrefix": [channel_name]  # es: ["booking_52"] → file salvati in booking_52/
                 }
             }
         }
@@ -227,8 +246,17 @@ def start_recording(channel_name: str, uid: int, rtc_token: str) -> Optional[Dic
         logger.info(f"🔄 [start] Sending start request with storageConfig:")
         logger.info(f"   - bucket: {AWS_S3_BUCKET_NAME}")
         logger.info(f"   - region: {AWS_S3_REGION} (Agora code: {get_agora_region_code(AWS_S3_REGION)})")
-        logger.info(f"   - token: Access Token (for Cloud Recording API)")
-        logger.info(f"   - Full payload: {start_payload}")
+        logger.info(f"   - token: RTC Token (for recorder to join channel)")
+        
+        # Log payload senza credenziali sensibili
+        safe_payload = {**start_payload}
+        safe_payload["clientRequest"] = {**start_payload["clientRequest"]}
+        safe_payload["clientRequest"]["storageConfig"] = {
+            k: ("***" if k in ("accessKey", "secretKey") else v)
+            for k, v in start_payload["clientRequest"]["storageConfig"].items()
+        }
+        safe_payload["clientRequest"]["token"] = token_str[:20] + "..."
+        logger.info(f"   - Payload: {safe_payload}")
         
         response = requests.post(start_url, json=start_payload, headers=headers)
         
@@ -297,22 +325,48 @@ def stop_recording(resource_id: str, sid: str, channel_name: str, uid: int) -> O
             query_result = query_recording(resource_id, sid, channel_name, uid)
             if query_result:
                 logger.info(f"✅ [stop_recording] Recording info recovered via query: {query_result['file_name']}")
-            else:
-                logger.warning("⚠️ [stop_recording] Unable to recover recording info after auto-stop on first attempt")
-                logger.info("🔄 [stop_recording] Retrying query in 5 seconds...")
-                time.sleep(5)
-                query_result = query_recording(resource_id, sid, channel_name, uid)
-                if query_result:
-                    logger.info(f"✅ [stop_recording] Recording info recovered on retry: {query_result['file_name']}")
-                else:
-                    logger.warning("⚠️ [stop_recording] Second query attempt also failed to retrieve recording info")
-            return query_result
+                return query_result
+            
+            # Fallback: cerca direttamente i file su S3 usando il SID
+            logger.info("🔄 [stop_recording] Query API failed, searching S3 directly for recording files...")
+            s3_result = _find_recording_on_s3(sid, channel_name)
+            if s3_result:
+                logger.info(f"✅ [stop_recording] Recording found on S3: {s3_result['file_name']}")
+                return s3_result
+            
+            logger.warning("⚠️ [stop_recording] Recording not found on S3 either. It may still be processing.")
+            # Ultimo tentativo: aspetta e cerca S3 di nuovo
+            logger.info("🔄 [stop_recording] Waiting 10s for S3 upload to complete...")
+            time.sleep(10)
+            s3_result = _find_recording_on_s3(sid, channel_name)
+            if s3_result:
+                logger.info(f"✅ [stop_recording] Recording found on S3 after wait: {s3_result['file_name']}")
+                return s3_result
+            
+            logger.warning("⚠️ [stop_recording] Could not recover recording after all attempts")
+            return None
 
         if response.status_code == 400:
-            logger.error(f"❌ [stop] Bad request stopping recording: {response.text}")
+            logger.warning(f"⚠️ [stop] Bad request (400) stopping recording: {response.text}")
             try:
                 error_payload = response.json()
-                logger.error(f"❌ [stop] Parsed error payload: {error_payload}")
+                error_code = error_payload.get("code", 0)
+                logger.warning(f"⚠️ [stop] Error code: {error_code}")
+                if error_code == 49:
+                    # Code 49 = recording already stopping/stopped by another call
+                    logger.info("🔄 [stop] Recording already stopped (code 49), searching S3 for files...")
+                    time.sleep(5)
+                    s3_result = _find_recording_on_s3(sid, channel_name)
+                    if s3_result:
+                        logger.info(f"✅ [stop] Recording found on S3 after code 49: {s3_result['file_name']}")
+                        return s3_result
+                    logger.info("🔄 [stop] Waiting 10s more for MP4 generation...")
+                    time.sleep(10)
+                    s3_result = _find_recording_on_s3(sid, channel_name)
+                    if s3_result:
+                        logger.info(f"✅ [stop] Recording found on S3 after wait: {s3_result['file_name']}")
+                        return s3_result
+                    logger.warning("⚠️ [stop] Could not find recording after code 49")
             except ValueError:
                 logger.error("❌ [stop] Response body is not valid JSON")
             return None
@@ -331,6 +385,86 @@ def stop_recording(resource_id: str, sid: str, channel_name: str, uid: int) -> O
         
     except Exception as e:
         logger.error(f"❌ Errore in stop_recording: {str(e)}")
+        return None
+
+
+def _find_recording_on_s3(sid: str, channel_name: str) -> Optional[Dict[str, Any]]:
+    """
+    Cerca i file di registrazione direttamente su S3.
+    Con fileNamePrefix=[channel_name], i file sono in: channel_name/sid_channel_name/*.mp4
+    """
+    try:
+        s3_client = boto3.client(
+            's3',
+            region_name=AWS_S3_REGION,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+        )
+        
+        # Prima cerca nella cartella del canale (fileNamePrefix)
+        response = s3_client.list_objects_v2(
+            Bucket=AWS_S3_BUCKET_NAME,
+            Prefix=f"{channel_name}/",
+            MaxKeys=50
+        )
+        
+        files = response.get('Contents', [])
+        logger.info(f"🔍 [S3 search] Found {len(files)} files with prefix '{channel_name}/'")
+        
+        if not files:
+            # Fallback: cerca per SID
+            response = s3_client.list_objects_v2(
+                Bucket=AWS_S3_BUCKET_NAME,
+                Prefix=sid[:20],
+                MaxKeys=50
+            )
+            files = response.get('Contents', [])
+            logger.info(f"🔍 [S3 search] Found {len(files)} files with SID prefix")
+        
+        if not files:
+            # Ultimo fallback: elenca tutto
+            response = s3_client.list_objects_v2(
+                Bucket=AWS_S3_BUCKET_NAME,
+                MaxKeys=100
+            )
+            files = response.get('Contents', [])
+            logger.info(f"🔍 [S3 search] Bucket has {len(files)} total files")
+        
+        # Filtra per file MP4 (o video in generale) correlati al SID o al canale
+        mp4_files = []
+        video_files = []
+        for f in files:
+            key = f['Key']
+            key_lower = key.lower()
+            if sid in key or channel_name in key:
+                if key_lower.endswith('.mp4'):
+                    mp4_files.append(f)
+                    logger.info(f"   📁 MP4 match: {key} ({f['Size']} bytes)")
+                elif key_lower.endswith(('.m3u8', '.ts', '.webm')):
+                    video_files.append(f)
+                    logger.info(f"   📁 Video match: {key} ({f['Size']} bytes)")
+        
+        # Preferisci MP4, altrimenti prendi qualsiasi video
+        candidates = mp4_files or video_files
+        
+        if not candidates:
+            logger.info("🔍 [S3 search] No matching recording files found")
+            return None
+        
+        # Prendi il file più grande (il video mixato completo)
+        best_file = max(candidates, key=lambda f: f['Size'])
+        
+        return {
+            "file_name": best_file['Key'],
+            "track_type": "audio_and_video",
+            "uid": "0",
+            "mix_duration": 0,
+            "is_playable": True,
+            "slice_start_time": 0
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ [S3 search] Error: {e}")
         return None
 
 

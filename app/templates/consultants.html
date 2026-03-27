@@ -201,8 +201,12 @@
 
                             <!-- Rating e recensioni alla fine -->
                             <div class="consultant-stats">
-                                <span class="rating">⭐ {{ item.bollini }}</span>
-                                <span class="reviews">({{ item.consulenze_vendute }} recensioni)</span>
+                                {% if item.review_count > 0 %}
+                                <span class="rating">⭐ {{ item.review_avg }}/5</span>
+                                <span class="reviews">({{ item.review_count }} recension{{ 'e' if item.review_count == 1 else 'i' }})</span>
+                                {% else %}
+                                <span class="reviews">Nessuna recensione</span>
+                                {% endif %}
                             </div>
                         </a>
                     </div>

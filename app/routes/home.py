@@ -20,11 +20,11 @@ async def home(request: Request):
     
     with get_session() as session:
         try:
-            # Carica consulenti featured (con bollini > 0)
+            # Carica consulenti featured
             featured_consultants_query = (
                 select(User)
-                .where(User.bollini > 0)
-                .order_by(User.bollini.desc())
+                .where(User.consulenze_vendute > 0)
+                .order_by(User.consulenze_vendute.desc())
                 .limit(4)
             )
             featured_users = session.exec(featured_consultants_query).all()

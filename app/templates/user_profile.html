@@ -495,6 +495,41 @@
     font-weight: 500;
     border: 1px solid #d4edda;
 }
+
+/* ===== REVIEWS ===== */
+.pub-reviews-summary { margin-bottom: 16px; }
+.pub-avg-rating { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pub-avg-score { font-size: 1.8rem; font-weight: 700; color: #f5a623; }
+.pub-avg-stars { color: #f5a623; font-size: 1.2rem; }
+.pub-avg-count { color: #888; font-size: .85rem; }
+.pub-reviews-list { display: flex; flex-direction: column; gap: 12px; }
+.pub-review-card {
+    background: #fafafa;
+    border-radius: 10px;
+    padding: 16px;
+    border: 1px solid #eee;
+}
+.pub-review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.pub-review-header strong { color: #333; font-size: .9rem; }
+.pub-review-date { color: #aaa; font-size: .8rem; }
+.pub-review-ratings {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+    font-size: .85rem;
+    color: #555;
+}
+.pub-review-comment {
+    color: #444;
+    font-size: .9rem;
+    line-height: 1.5;
+    margin: 0;
+}
 </style>
 {% endblock %}
 
@@ -570,20 +605,46 @@
                     {% endif %}
 
                     <!-- Statistiche inline -->
-                    {% if user.consulenze_vendute > 0 or user.bollini > 0 %}
+                    {% if user.consulenze_vendute > 0 %}
                     <div class="pub-stats-row">
-                        {% if user.consulenze_vendute > 0 %}
                         <div class="pub-stat">
                             <strong>{{ user.consulenze_vendute }}</strong>
                             <span>consulenz{{ 'a' if user.consulenze_vendute == 1 else 'e' }} completat{{ 'a' if user.consulenze_vendute == 1 else 'e' }}</span>
                         </div>
-                        {% endif %}
-                        {% if user.bollini > 0 %}
-                        <div class="pub-stat">
-                            <strong>{{ user.bollini }} 🏅</strong>
-                            <span>bollini guadagnati</span>
+                    </div>
+                    {% endif %}
+
+                    <!-- Recensioni -->
+                    {% if reviews %}
+                    <div class="pub-section-label">⭐ Recensioni ({{ reviews|length }})</div>
+                    <div class="pub-reviews-summary">
+                        <div class="pub-avg-rating">
+                            <span class="pub-avg-score">{{ avg_rating }}</span>
+                            <span class="pub-avg-stars">
+                                {% for i in range(1, 6) %}
+                                    {% if avg_rating >= i %}★{% elif avg_rating >= i - 0.5 %}★{% else %}☆{% endif %}
+                                {% endfor %}
+                            </span>
+                            <span class="pub-avg-count">su {{ reviews|length }} recension{{ 'e' if reviews|length == 1 else 'i' }}</span>
                         </div>
-                        {% endif %}
+                    </div>
+                    <div class="pub-reviews-list">
+                        {% for r in reviews[:10] %}
+                        <div class="pub-review-card">
+                            <div class="pub-review-header">
+                                <strong>{{ r.reviewer|display_name }}</strong>
+                                <span class="pub-review-date">{{ r.created_at.strftime('%d/%m/%Y') }}</span>
+                            </div>
+                            <div class="pub-review-ratings">
+                                <span title="Aiuto concreto">🎯 {{ r.rating_helpful }}/5</span>
+                                <span title="Preparazione">📚 {{ r.rating_prepared }}/5</span>
+                                <span title="Comunicazione">💬 {{ r.rating_communication }}/5</span>
+                            </div>
+                            {% if r.comment %}
+                            <p class="pub-review-comment">{{ r.comment }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
                     </div>
                     {% endif %}
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form, HTTPException
+﻿from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
 from app.models import User
@@ -7,7 +7,7 @@ import time
 import hashlib
 from typing import Optional
 from app.logger_config import logger
-from app.utils.email import generate_verification_code  # ✅ RIMUOVI send_verification_email da qui
+from app.utils.email import generate_verification_code  # âœ… RIMUOVI send_verification_email da qui
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -20,30 +20,29 @@ from sendgrid.helpers.mail import Mail
 
 router = APIRouter()
 
+# Cache last_seen per evitare UPDATE al DB ad ogni richiesta
+# Aggiorna last_seen solo ogni 5 minuti per utente
+_last_seen_cache: dict[int, float] = {}
+_LAST_SEEN_INTERVAL = 300  # 5 minuti in secondi
+
 def verify_token(request: Request) -> Optional[User]:
     """
     Verifica token JWT e restituisce utente autenticato
     """
     try:
-        # ✅ Leggi token dalla sessione
+        # âœ… Leggi token dalla sessione
         token = request.session.get("access_token")
         
         if not token:
-            logger.warning("⚠️ No access_token in session")
             logger.debug(f"Session keys: {list(request.session.keys())}")
             
-            # Fallback: controlla se c'è user_id nella sessione (sessione senza JWT)
+            # Fallback: controlla se c'Ã¨ user_id nella sessione (sessione senza JWT)
             user_id = request.session.get("user_id")
             if user_id:
-                logger.info(f"🔄 Fallback: Found user_id in session: {user_id}")
                 with get_session() as session:
                     user = session.get(User, user_id)
                     if user:
-                        from datetime import datetime
-                        user.last_seen = datetime.utcnow()
-                        session.add(user)
-                        session.commit()
-                        session.refresh(user)
+                        _maybe_update_last_seen(session, user)
                         return user
             
             return None
@@ -55,30 +54,25 @@ def verify_token(request: Request) -> Optional[User]:
             user_id = payload.get("user_id")
             
             if not user_id:
-                logger.warning("⚠️ No user_id in token payload")
+                logger.warning("âš ï¸ No user_id in token payload")
                 return None
         
         except jwt.ExpiredSignatureError:
-            logger.warning("⚠️ Token expired")
+            logger.warning("âš ï¸ Token expired")
             return None
         except jwt.InvalidTokenError as e:
-            logger.warning(f"⚠️ Invalid token: {str(e)}")
+            logger.warning(f"âš ï¸ Invalid token: {str(e)}")
             return None
         
-        # ✅ Ottieni utente dal database
+        # âœ… Ottieni utente dal database
         with get_session() as session:
             user = session.get(User, user_id)
             
             if not user:
-                logger.warning(f"⚠️ User {user_id} not found in database")
+                logger.warning(f"âš ï¸ User {user_id} not found in database")
                 return None
             
-            # Update last_seen
-            from datetime import datetime
-            user.last_seen = datetime.utcnow()
-            session.add(user)
-            session.commit()
-            session.refresh(user)
+            _maybe_update_last_seen(session, user)
             
             return user
     
@@ -86,7 +80,19 @@ def verify_token(request: Request) -> Optional[User]:
         logger.error(f"Error verifying token: {str(e)}", exc_info=True)
         return None
 
-# Alias per compatibilità
+
+def _maybe_update_last_seen(session, user: User):
+    """Aggiorna last_seen solo se sono passati piÃ¹ di 5 minuti dall'ultimo aggiornamento"""
+    now = time.time()
+    last_update = _last_seen_cache.get(user.id, 0)
+    if now - last_update > _LAST_SEEN_INTERVAL:
+        user.last_seen = datetime.utcnow()
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        _last_seen_cache[user.id] = now
+
+# Alias per compatibilitÃ 
 def get_current_user(request: Request) -> Optional[User]:
     """Alias di verify_token"""
     return verify_token(request)
@@ -129,7 +135,7 @@ async def login(
         request.session["user_email"] = user.email
         request.session["user_nome"] = user.nome or "User"
         
-        logger.info(f"✅ User logged in: {user.email}")
+        logger.info(f"âœ… User logged in: {user.email}")
         
         return RedirectResponse(url="/profile", status_code=303)
 
@@ -160,7 +166,7 @@ async def api_login(
                     status_code=401
                 )
             
-            # ✅ Genera token JWT
+            # âœ… Genera token JWT
             JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
             token_data = {
                 "user_id": user.id,
@@ -169,14 +175,14 @@ async def api_login(
             }
             access_token = jwt.encode(token_data, JWT_SECRET, algorithm="HS256")
             
-            # ✅ SALVA TOKEN IN SESSION (IMPORTANTE!)
+            # âœ… SALVA TOKEN IN SESSION (IMPORTANTE!)
             request.session["access_token"] = access_token
             request.session["user_id"] = user.id
             request.session["user_email"] = user.email
             request.session["user_nome"] = user.nome
             
-            logger.info(f"✅ User logged in: {user.nome} ({user.email})")
-            logger.info(f"🔑 Session data: {request.session}")  # Debug
+            logger.info(f"âœ… User logged in: {user.nome} ({user.email})")
+            logger.info(f"ðŸ”‘ Session data: {request.session}")  # Debug
             
             return JSONResponse({
                 "success": True,
@@ -210,10 +216,10 @@ async def api_register(
             
             if existing:
                 if existing.confirmed == 1:
-                    logger.warning(f"❌ Registration attempt with existing email: {email}")
+                    logger.warning(f"âŒ Registration attempt with existing email: {email}")
                     return JSONResponse({
-                        "error": "Email già registrata",
-                        "message": "Questa email è già registrata. Hai già un account?",
+                        "error": "Email giÃ  registrata",
+                        "message": "Questa email Ã¨ giÃ  registrata. Hai giÃ  un account?",
                         "redirect_url": "/login",
                         "show_login_link": True
                     }, status_code=400)
@@ -223,10 +229,10 @@ async def api_register(
                     session.add(existing)
                     session.commit()
                     
-                    # ✅ Ora funziona con 3 parametri
+                    # âœ… Ora funziona con 3 parametri
                     send_verification_email(email, code, existing.nome or "User")
                     
-                    logger.info(f"♻️ Resent confirmation code to: {email}")
+                    logger.info(f"â™»ï¸ Resent confirmation code to: {email}")
                     
                     return JSONResponse({
                         "message": "Codice di verifica inviato nuovamente!",
@@ -243,7 +249,6 @@ async def api_register(
                 nome=nome,
                 cognome=cognome,
                 confirmed=0,
-                bollini=0,
                 confirmation_code=code
             )
             
@@ -251,13 +256,13 @@ async def api_register(
             session.commit()
             session.refresh(new_user)
             
-            # ✅ Ora funziona con 3 parametri
+            # âœ… Ora funziona con 3 parametri
             email_sent = send_verification_email(email, code, nome)
             
             if not email_sent:
-                logger.warning(f"⚠️ User registered but email failed: {email}")
+                logger.warning(f"âš ï¸ User registered but email failed: {email}")
             
-            logger.info(f"✅ New user registered: {email} (ID: {new_user.id}) - Code: {code}")
+            logger.info(f"âœ… New user registered: {email} (ID: {new_user.id}) - Code: {code}")
             
             return JSONResponse({
                 "message": "Registrazione completata! Controlla la tua email per il codice di verifica.",
@@ -287,10 +292,10 @@ async def verify_email(
                 return JSONResponse({"error": "Email non trovata"}, status_code=404)
             
             if user.confirmed == 1:
-                return JSONResponse({"error": "Email già verificata"}, status_code=400)
+                return JSONResponse({"error": "Email giÃ  verificata"}, status_code=400)
             
             if user.confirmation_code != code:
-                logger.warning(f"❌ Invalid code for {email}")
+                logger.warning(f"âŒ Invalid code for {email}")
                 return JSONResponse({"error": "Codice non valido"}, status_code=400)
             
             user.confirmed = 1
@@ -302,7 +307,7 @@ async def verify_email(
             request.session["user_email"] = user.email
             request.session["user_nome"] = user.nome or "User"
             
-            logger.info(f"✅ Email verified for: {email}")
+            logger.info(f"âœ… Email verified for: {email}")
             
             return JSONResponse({
                 "message": "Email verificata con successo!",
@@ -335,7 +340,7 @@ async def resend_verification(
                 return JSONResponse({"error": "Email non trovata"}, status_code=404)
             
             if user.confirmed == 1:
-                return JSONResponse({"error": "Email già verificata"}, status_code=400)
+                return JSONResponse({"error": "Email giÃ  verificata"}, status_code=400)
             
             code = generate_verification_code()
             user.confirmation_code = code
@@ -344,7 +349,7 @@ async def resend_verification(
             
             send_verification_email(email, code, user.nome or "User")
             
-            logger.info(f"♻️ Resent code to {email}")
+            logger.info(f"â™»ï¸ Resent code to {email}")
             
             return JSONResponse({"message": "Codice inviato nuovamente!"}, status_code=200)
     
@@ -358,7 +363,7 @@ async def register(
     email: str = Form(...),
     password: str = Form(...),
     nome: str = Form(...),
-    cognome: str = Form(None)  # ✅ AGGIUNGI cognome
+    cognome: str = Form(None)  # âœ… AGGIUNGI cognome
 ):
     """Registrazione con form HTML (redirect)"""
     with get_session() as session:
@@ -367,25 +372,24 @@ async def register(
         if existing:
             return request.app.state.templates.TemplateResponse(
                 "register.html",
-                {"request": request, "error": "Email già registrata"}
+                {"request": request, "error": "Email giÃ  registrata"}
             )
         
         password_hash = hashlib.md5(password.encode()).hexdigest()
         
-        # ✅ AGGIUNGI cognome
+        # âœ… AGGIUNGI cognome
         new_user = User(
             email=email,
             password_md5=password_hash,
             nome=nome,
-            cognome=cognome,  # ✅ AGGIUNGI questo
+            cognome=cognome,  # âœ… AGGIUNGI questo
             confirmed=0,
-            bollini=0
         )
         
         session.add(new_user)
         session.commit()
         
-        logger.info(f"✅ New user registered (HTML): {email}")
+        logger.info(f"âœ… New user registered (HTML): {email}")
         
         return RedirectResponse("/login?registered=true", status_code=302)
 
@@ -430,7 +434,7 @@ async def request_password_reset(
             # Invia email con codice
             send_reset_password_email(email, user.nome or "Utente", reset_code)
             
-            logger.info(f"🔐 Reset password requested for: {email} - Code: {reset_code}")
+            logger.info(f"ðŸ” Reset password requested for: {email} - Code: {reset_code}")
             
             return JSONResponse({
                 "success": True,
@@ -474,7 +478,7 @@ async def reset_password(
         
         # Verifica codice
         if request.session['reset_code'] != code:
-            logger.warning(f"❌ Invalid reset code for {email}")
+            logger.warning(f"âŒ Invalid reset code for {email}")
             return JSONResponse({"error": "Codice non valido"}, status_code=400)
         
         # Verifica timestamp (codice valido 10 minuti = 600 secondi)
@@ -496,7 +500,7 @@ async def reset_password(
             session.add(user)
             session.commit()
             
-            logger.info(f"✅ Password reset successful for: {email}")
+            logger.info(f"âœ… Password reset successful for: {email}")
         
         # Pulisci sessione
         request.session.pop('reset_code', None)
@@ -516,10 +520,10 @@ async def reset_password(
 
 def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
     """Invia email con codice reset password"""
-    # ✅ Usa la funzione esistente (adattala al tuo caso)
+    # âœ… Usa la funzione esistente (adattala al tuo caso)
     from app.utils.email import send_verification_email  # O il nome corretto
     
-    subject = "🔐 Reset Password - Helpy"
+    subject = "ðŸ” Reset Password - Helpy"
     
     html_body = f"""
     <!DOCTYPE html>
@@ -539,19 +543,19 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
     <body>
         <div class="container">
             <div class="header">
-                <h1>🔐 Reset Password</h1>
+                <h1>ðŸ” Reset Password</h1>
                 <p style="color: #666; font-size: 16px;">Ciao {nome},</p>
                 <p style="color: #666;">Hai richiesto di reimpostare la tua password su Helpy.</p>
             </div>
             
             <p style="text-align: center; font-size: 16px; margin-bottom: 8px; color: #333;">
-                Il tuo codice di verifica è:
+                Il tuo codice di verifica Ã¨:
             </p>
             
             <div class="code">{reset_code}</div>
             
             <div class="warning">
-                <strong>⚠️ Importante:</strong> Questo codice è valido per <strong>10 minuti</strong>.
+                <strong>âš ï¸ Importante:</strong> Questo codice Ã¨ valido per <strong>10 minuti</strong>.
             </div>
             
             <p style="text-align: center; margin-top: 32px; color: #666;">
@@ -559,7 +563,7 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
             </p>
             
             <div class="footer">
-                <p>© 2025 Helpy - Get Advice from People Who Can Help</p>
+                <p>Â© 2025 Helpy - Get Advice from People Who Can Help</p>
             </div>
         </div>
     </body>
@@ -567,12 +571,12 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
     """
     
     try:
-        # ✅ Usa la funzione esistente (adatta i parametri)
+        # âœ… Usa la funzione esistente (adatta i parametri)
         send_verification_email(email, nome, reset_code)
-        logger.info(f"✅ Reset password email sent to {email}")
+        logger.info(f"âœ… Reset password email sent to {email}")
         return True
     except Exception as e:
-        logger.error(f"❌ Failed to send reset email to {email}: {e}")
+        logger.error(f"âŒ Failed to send reset email to {email}: {e}")
         return False
 
 def send_verification_email(to_email: str, code: str, nome: str = "User") -> bool:
@@ -588,7 +592,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         bool: True se email inviata con successo
     """
     logger.info("=" * 80)
-    logger.info("📧 INVIO EMAIL VIA SENDGRID API")
+    logger.info("ðŸ“§ INVIO EMAIL VIA SENDGRID API")
     logger.info("=" * 80)
     
     try:
@@ -596,18 +600,18 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         api_key = os.getenv('SENDGRID_API_KEY') or os.getenv('SMTP_PASSWORD')
         from_email = os.getenv('FROM_EMAIL', 'noreply@helpy.com')
         
-        logger.info("📋 STEP 1: Configurazione caricata")
-        logger.info(f"   ├─ API_KEY: {'✅ SET' if api_key else '❌ NOT SET'}")
-        logger.info(f"   ├─ FROM_EMAIL: {from_email}")
-        logger.info(f"   ├─ TO_EMAIL: {to_email}")
-        logger.info(f"   └─ NOME: {nome}")
+        logger.info("ðŸ“‹ STEP 1: Configurazione caricata")
+        logger.info(f"   â”œâ”€ API_KEY: {'âœ… SET' if api_key else 'âŒ NOT SET'}")
+        logger.info(f"   â”œâ”€ FROM_EMAIL: {from_email}")
+        logger.info(f"   â”œâ”€ TO_EMAIL: {to_email}")
+        logger.info(f"   â””â”€ NOME: {nome}")
         
         if not api_key:
-            logger.error("❌ SENDGRID_API_KEY non configurata!")
+            logger.error("âŒ SENDGRID_API_KEY non configurata!")
             return False
         
         # ========== STEP 2: Costruisci messaggio HTML ==========
-        logger.info("📝 STEP 2: Costruzione messaggio...")
+        logger.info("ðŸ“ STEP 2: Costruzione messaggio...")
         
         html_content = f"""
         <!DOCTYPE html>
@@ -624,13 +628,13 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         </head>
         <body>
             <div class="container">
-                <h1>🦊 Benvenuto su Helpy, {nome}!</h1>
+                <h1>ðŸ¦Š Benvenuto su Helpy, {nome}!</h1>
                 <p>Grazie per esserti registrato. Ecco il tuo codice di verifica:</p>
                 <div class="code">{code}</div>
                 <p>Inserisci questo codice nella pagina di registrazione per completare la verifica del tuo account.</p>
-                <p><strong>Importante:</strong> Questo codice è valido per 10 minuti.</p>
+                <p><strong>Importante:</strong> Questo codice Ã¨ valido per 10 minuti.</p>
                 <div class="footer">
-                    <p>Se non hai richiesto questa email, ignorala.<br>© 2025 Helpy - Tutti i diritti riservati</p>
+                    <p>Se non hai richiesto questa email, ignorala.<br>Â© 2025 Helpy - Tutti i diritti riservati</p>
                 </div>
             </div>
         </body>
@@ -645,32 +649,32 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
             html_content=html_content
         )
         
-        logger.info("✅ STEP 2: Messaggio costruito")
-        logger.info(f"   ├─ Subject: Codice di Verifica Helpy")
-        logger.info(f"   ├─ From: {from_email}")
-        logger.info(f"   ├─ To: {to_email}")
-        logger.info(f"   └─ Codice: {code}")
+        logger.info("âœ… STEP 2: Messaggio costruito")
+        logger.info(f"   â”œâ”€ Subject: Codice di Verifica Helpy")
+        logger.info(f"   â”œâ”€ From: {from_email}")
+        logger.info(f"   â”œâ”€ To: {to_email}")
+        logger.info(f"   â””â”€ Codice: {code}")
         
         # ========== STEP 4: Invia via API ==========
-        logger.info("📤 STEP 3: Invio via SendGrid API...")
+        logger.info("ðŸ“¤ STEP 3: Invio via SendGrid API...")
         
         try:
             sg = SendGridAPIClient(api_key)
             response = sg.send(message)
             
-            logger.info(f"✅ STEP 3: Email inviata!")
-            logger.info(f"   ├─ Status Code: {response.status_code}")
-            logger.info(f"   ├─ Headers: {dict(response.headers)}")
-            logger.info(f"   └─ Body: {response.body}")
+            logger.info(f"âœ… STEP 3: Email inviata!")
+            logger.info(f"   â”œâ”€ Status Code: {response.status_code}")
+            logger.info(f"   â”œâ”€ Headers: {dict(response.headers)}")
+            logger.info(f"   â””â”€ Body: {response.body}")
             
             logger.info("=" * 80)
-            logger.info("🎉 EMAIL INVIATA CON SUCCESSO!")
+            logger.info("ðŸŽ‰ EMAIL INVIATA CON SUCCESSO!")
             logger.info("=" * 80)
             
             return True
         
         except Exception as e:
-            logger.error(f"❌ STEP 3: Errore SendGrid API: {type(e).__name__}")
+            logger.error(f"âŒ STEP 3: Errore SendGrid API: {type(e).__name__}")
             logger.error(f"   Messaggio: {str(e)}")
             
             # Log dettagli errore SendGrid
@@ -683,7 +687,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
     
     except Exception as e:
         logger.error("=" * 80)
-        logger.error(f"❌ ERRORE FATALE INVIO EMAIL")
+        logger.error(f"âŒ ERRORE FATALE INVIO EMAIL")
         logger.error(f"   Tipo: {type(e).__name__}")
         logger.error(f"   Messaggio: {e}")
         logger.error("=" * 80)
@@ -710,10 +714,10 @@ async def api_register(
             
             if existing:
                 if existing.confirmed == 1:
-                    logger.warning(f"❌ Registration attempt with existing email: {email}")
+                    logger.warning(f"âŒ Registration attempt with existing email: {email}")
                     return JSONResponse({
-                        "error": "Email già registrata",
-                        "message": "Questa email è già registrata. Hai già un account?",
+                        "error": "Email giÃ  registrata",
+                        "message": "Questa email Ã¨ giÃ  registrata. Hai giÃ  un account?",
                         "redirect_url": "/login",
                         "show_login_link": True
                     }, status_code=400)
@@ -723,10 +727,10 @@ async def api_register(
                     session.add(existing)
                     session.commit()
                     
-                    # ✅ Ora funziona con 3 parametri
+                    # âœ… Ora funziona con 3 parametri
                     send_verification_email(email, code, existing.nome or "User")
                     
-                    logger.info(f"♻️ Resent confirmation code to: {email}")
+                    logger.info(f"â™»ï¸ Resent confirmation code to: {email}")
                     
                     return JSONResponse({
                         "message": "Codice di verifica inviato nuovamente!",
@@ -743,7 +747,6 @@ async def api_register(
                 nome=nome,
                 cognome=cognome,
                 confirmed=0,
-                bollini=0,
                 confirmation_code=code
             )
             
@@ -751,13 +754,13 @@ async def api_register(
             session.commit()
             session.refresh(new_user)
             
-            # ✅ Ora funziona con 3 parametri
+            # âœ… Ora funziona con 3 parametri
             email_sent = send_verification_email(email, code, nome)
             
             if not email_sent:
-                logger.warning(f"⚠️ User registered but email failed: {email}")
+                logger.warning(f"âš ï¸ User registered but email failed: {email}")
             
-            logger.info(f"✅ New user registered: {email} (ID: {new_user.id}) - Code: {code}")
+            logger.info(f"âœ… New user registered: {email} (ID: {new_user.id}) - Code: {code}")
             
             return JSONResponse({
                 "message": "Registrazione completata! Controlla la tua email per il codice di verifica.",
@@ -787,10 +790,10 @@ async def verify_email(
                 return JSONResponse({"error": "Email non trovata"}, status_code=404)
             
             if user.confirmed == 1:
-                return JSONResponse({"error": "Email già verificata"}, status_code=400)
+                return JSONResponse({"error": "Email giÃ  verificata"}, status_code=400)
             
             if user.confirmation_code != code:
-                logger.warning(f"❌ Invalid code for {email}")
+                logger.warning(f"âŒ Invalid code for {email}")
                 return JSONResponse({"error": "Codice non valido"}, status_code=400)
             
             user.confirmed = 1
@@ -802,7 +805,7 @@ async def verify_email(
             request.session["user_email"] = user.email
             request.session["user_nome"] = user.nome or "User"
             
-            logger.info(f"✅ Email verified for: {email}")
+            logger.info(f"âœ… Email verified for: {email}")
             
             return JSONResponse({
                 "message": "Email verificata con successo!",
@@ -835,7 +838,7 @@ async def resend_verification(
                 return JSONResponse({"error": "Email non trovata"}, status_code=404)
             
             if user.confirmed == 1:
-                return JSONResponse({"error": "Email già verificata"}, status_code=400)
+                return JSONResponse({"error": "Email giÃ  verificata"}, status_code=400)
             
             code = generate_verification_code()
             user.confirmation_code = code
@@ -844,7 +847,7 @@ async def resend_verification(
             
             send_verification_email(email, code, user.nome or "User")
             
-            logger.info(f"♻️ Resent code to {email}")
+            logger.info(f"â™»ï¸ Resent code to {email}")
             
             return JSONResponse({"message": "Codice inviato nuovamente!"}, status_code=200)
     
@@ -858,7 +861,7 @@ async def register(
     email: str = Form(...),
     password: str = Form(...),
     nome: str = Form(...),
-    cognome: str = Form(None)  # ✅ AGGIUNGI cognome
+    cognome: str = Form(None)  # âœ… AGGIUNGI cognome
 ):
     """Registrazione con form HTML (redirect)"""
     with get_session() as session:
@@ -867,25 +870,24 @@ async def register(
         if existing:
             return request.app.state.templates.TemplateResponse(
                 "register.html",
-                {"request": request, "error": "Email già registrata"}
+                {"request": request, "error": "Email giÃ  registrata"}
             )
         
         password_hash = hashlib.md5(password.encode()).hexdigest()
         
-        # ✅ AGGIUNGI cognome
+        # âœ… AGGIUNGI cognome
         new_user = User(
             email=email,
             password_md5=password_hash,
             nome=nome,
-            cognome=cognome,  # ✅ AGGIUNGI questo
+            cognome=cognome,  # âœ… AGGIUNGI questo
             confirmed=0,
-            bollini=0
         )
         
         session.add(new_user)
         session.commit()
         
-        logger.info(f"✅ New user registered (HTML): {email}")
+        logger.info(f"âœ… New user registered (HTML): {email}")
         
         return RedirectResponse("/login?registered=true", status_code=302)
 
@@ -930,7 +932,7 @@ async def request_password_reset(
             # Invia email con codice
             send_reset_password_email(email, user.nome or "Utente", reset_code)
             
-            logger.info(f"🔐 Reset password requested for: {email} - Code: {reset_code}")
+            logger.info(f"ðŸ” Reset password requested for: {email} - Code: {reset_code}")
             
             return JSONResponse({
                 "success": True,
@@ -974,7 +976,7 @@ async def reset_password(
         
         # Verifica codice
         if request.session['reset_code'] != code:
-            logger.warning(f"❌ Invalid reset code for {email}")
+            logger.warning(f"âŒ Invalid reset code for {email}")
             return JSONResponse({"error": "Codice non valido"}, status_code=400)
         
         # Verifica timestamp (codice valido 10 minuti = 600 secondi)
@@ -996,7 +998,7 @@ async def reset_password(
             session.add(user)
             session.commit()
             
-            logger.info(f"✅ Password reset successful for: {email}")
+            logger.info(f"âœ… Password reset successful for: {email}")
         
         # Pulisci sessione
         request.session.pop('reset_code', None)
@@ -1016,10 +1018,10 @@ async def reset_password(
 
 def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
     """Invia email con codice reset password"""
-    # ✅ Usa la funzione esistente (adattala al tuo caso)
+    # âœ… Usa la funzione esistente (adattala al tuo caso)
     from app.utils.email import send_verification_email  # O il nome corretto
     
-    subject = "🔐 Reset Password - Helpy"
+    subject = "ðŸ” Reset Password - Helpy"
     
     html_body = f"""
     <!DOCTYPE html>
@@ -1039,19 +1041,19 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
     <body>
         <div class="container">
             <div class="header">
-                <h1>🔐 Reset Password</h1>
+                <h1>ðŸ” Reset Password</h1>
                 <p style="color: #666; font-size: 16px;">Ciao {nome},</p>
                 <p style="color: #666;">Hai richiesto di reimpostare la tua password su Helpy.</p>
             </div>
             
             <p style="text-align: center; font-size: 16px; margin-bottom: 8px; color: #333;">
-                Il tuo codice di verifica è:
+                Il tuo codice di verifica Ã¨:
             </p>
             
             <div class="code">{reset_code}</div>
             
             <div class="warning">
-                <strong>⚠️ Importante:</strong> Questo codice è valido per <strong>10 minuti</strong>.
+                <strong>âš ï¸ Importante:</strong> Questo codice Ã¨ valido per <strong>10 minuti</strong>.
             </div>
             
             <p style="text-align: center; margin-top: 32px; color: #666;">
@@ -1059,7 +1061,7 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
             </p>
             
             <div class="footer">
-                <p>© 2025 Helpy - Get Advice from People Who Can Help</p>
+                <p>Â© 2025 Helpy - Get Advice from People Who Can Help</p>
             </div>
         </div>
     </body>
@@ -1067,12 +1069,12 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
     """
     
     try:
-        # ✅ Usa la funzione esistente (adatta i parametri)
+        # âœ… Usa la funzione esistente (adatta i parametri)
         send_verification_email(email, nome, reset_code)
-        logger.info(f"✅ Reset password email sent to {email}")
+        logger.info(f"âœ… Reset password email sent to {email}")
         return True
     except Exception as e:
-        logger.error(f"❌ Failed to send reset email to {email}: {e}")
+        logger.error(f"âŒ Failed to send reset email to {email}: {e}")
         return False
 
 def send_verification_email(to_email: str, code: str, nome: str = "User") -> bool:
@@ -1088,7 +1090,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         bool: True se email inviata con successo
     """
     logger.info("=" * 80)
-    logger.info("📧 INVIO EMAIL VIA SENDGRID API")
+    logger.info("ðŸ“§ INVIO EMAIL VIA SENDGRID API")
     logger.info("=" * 80)
     
     try:
@@ -1096,18 +1098,18 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         api_key = os.getenv('SENDGRID_API_KEY') or os.getenv('SMTP_PASSWORD')
         from_email = os.getenv('FROM_EMAIL', 'noreply@helpy.com')
         
-        logger.info("📋 STEP 1: Configurazione caricata")
-        logger.info(f"   ├─ API_KEY: {'✅ SET' if api_key else '❌ NOT SET'}")
-        logger.info(f"   ├─ FROM_EMAIL: {from_email}")
-        logger.info(f"   ├─ TO_EMAIL: {to_email}")
-        logger.info(f"   └─ NOME: {nome}")
+        logger.info("ðŸ“‹ STEP 1: Configurazione caricata")
+        logger.info(f"   â”œâ”€ API_KEY: {'âœ… SET' if api_key else 'âŒ NOT SET'}")
+        logger.info(f"   â”œâ”€ FROM_EMAIL: {from_email}")
+        logger.info(f"   â”œâ”€ TO_EMAIL: {to_email}")
+        logger.info(f"   â””â”€ NOME: {nome}")
         
         if not api_key:
-            logger.error("❌ SENDGRID_API_KEY non configurata!")
+            logger.error("âŒ SENDGRID_API_KEY non configurata!")
             return False
         
         # ========== STEP 2: Costruisci messaggio HTML ==========
-        logger.info("📝 STEP 2: Costruzione messaggio...")
+        logger.info("ðŸ“ STEP 2: Costruzione messaggio...")
         
         html_content = f"""
         <!DOCTYPE html>
@@ -1124,13 +1126,13 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         </head>
         <body>
             <div class="container">
-                <h1>🦊 Benvenuto su Helpy, {nome}!</h1>
+                <h1>ðŸ¦Š Benvenuto su Helpy, {nome}!</h1>
                 <p>Grazie per esserti registrato. Ecco il tuo codice di verifica:</p>
                 <div class="code">{code}</div>
                 <p>Inserisci questo codice nella pagina di registrazione per completare la verifica del tuo account.</p>
-                <p><strong>Importante:</strong> Questo codice è valido per 10 minuti.</p>
+                <p><strong>Importante:</strong> Questo codice Ã¨ valido per 10 minuti.</p>
                 <div class="footer">
-                    <p>Se non hai richiesto questa email, ignorala.<br>© 2025 Helpy - Tutti i diritti riservati</p>
+                    <p>Se non hai richiesto questa email, ignorala.<br>Â© 2025 Helpy - Tutti i diritti riservati</p>
                 </div>
             </div>
         </body>
@@ -1145,32 +1147,32 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
             html_content=html_content
         )
         
-        logger.info("✅ STEP 2: Messaggio costruito")
-        logger.info(f"   ├─ Subject: Codice di Verifica Helpy")
-        logger.info(f"   ├─ From: {from_email}")
-        logger.info(f"   ├─ To: {to_email}")
-        logger.info(f"   └─ Codice: {code}")
+        logger.info("âœ… STEP 2: Messaggio costruito")
+        logger.info(f"   â”œâ”€ Subject: Codice di Verifica Helpy")
+        logger.info(f"   â”œâ”€ From: {from_email}")
+        logger.info(f"   â”œâ”€ To: {to_email}")
+        logger.info(f"   â””â”€ Codice: {code}")
         
         # ========== STEP 4: Invia via API ==========
-        logger.info("📤 STEP 3: Invio via SendGrid API...")
+        logger.info("ðŸ“¤ STEP 3: Invio via SendGrid API...")
         
         try:
             sg = SendGridAPIClient(api_key)
             response = sg.send(message)
             
-            logger.info(f"✅ STEP 3: Email inviata!")
-            logger.info(f"   ├─ Status Code: {response.status_code}")
-            logger.info(f"   ├─ Headers: {dict(response.headers)}")
-            logger.info(f"   └─ Body: {response.body}")
+            logger.info(f"âœ… STEP 3: Email inviata!")
+            logger.info(f"   â”œâ”€ Status Code: {response.status_code}")
+            logger.info(f"   â”œâ”€ Headers: {dict(response.headers)}")
+            logger.info(f"   â””â”€ Body: {response.body}")
             
             logger.info("=" * 80)
-            logger.info("🎉 EMAIL INVIATA CON SUCCESSO!")
+            logger.info("ðŸŽ‰ EMAIL INVIATA CON SUCCESSO!")
             logger.info("=" * 80)
             
             return True
         
         except Exception as e:
-            logger.error(f"❌ STEP 3: Errore SendGrid API: {type(e).__name__}")
+            logger.error(f"âŒ STEP 3: Errore SendGrid API: {type(e).__name__}")
             logger.error(f"   Messaggio: {str(e)}")
             
             # Log dettagli errore SendGrid
@@ -1183,7 +1185,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
     
     except Exception as e:
         logger.error("=" * 80)
-        logger.error(f"❌ ERRORE FATALE INVIO EMAIL")
+        logger.error(f"âŒ ERRORE FATALE INVIO EMAIL")
         logger.error(f"   Tipo: {type(e).__name__}")
         logger.error(f"   Messaggio: {e}")
         logger.error("=" * 80)

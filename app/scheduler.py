@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from sqlmodel import Session, select
 from app.database import engine
-from app.models import Notification, Booking, User
+from app.models import Notification, Booking, User, Review
 from app.logger_config import logger
 from app.utils.notification_service import send_notification
 import os
@@ -187,6 +187,75 @@ def schedule_booking_reminders(booking_id: int, booking_datetime: datetime, clie
         
     except Exception as e:
         logger.error(f"❌ Errore nello scheduling notifiche per booking {booking_id}: {e}")
+
+
+def send_review_reminder_notification(booking_id: int, client_id: int, review_token: str):
+    """
+    Invia un promemoria via email per lasciare una recensione.
+    Eseguita automaticamente 24h dopo la richiesta.
+    """
+    try:
+        with Session(engine) as session:
+            # Controlla se la recensione è già stata fatta
+            existing = session.exec(
+                select(Review).where(Review.booking_id == booking_id)
+            ).first()
+            if existing:
+                logger.info(f"Review già presente per booking {booking_id}, skip reminder")
+                return
+
+            booking = session.get(Booking, booking_id)
+            if not booking:
+                return
+
+            client = session.get(User, client_id)
+            consultant = session.get(User, booking.consultant_user_id)
+            if not client or not consultant:
+                return
+
+            consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant.nome else consultant.email.split('@')[0]
+            base_url = os.getenv('BASE_URL', 'http://localhost:8080')
+            review_url = f"{base_url}/review/{review_token}?booking_id={booking_id}"
+            booking_date_str = booking.booking_date.strftime('%d/%m/%Y')
+
+            send_notification(
+                user_id=client_id,
+                type_key='review_reminder',
+                title='Ricordati di lasciare una recensione',
+                message=f'Non hai ancora recensito la tua consulenza con {consultant_name}',
+                template_data={
+                    'user_name': client.nome or client.email.split('@')[0],
+                    'consultant_name': consultant_name,
+                    'review_url': review_url,
+                    'date': booking_date_str,
+                    'time': booking.start_time,
+                },
+                related_booking_id=booking_id,
+                action_url=review_url
+            )
+
+            logger.info(f"🔔 Promemoria recensione inviato a user {client_id} per booking {booking_id}")
+
+    except Exception as e:
+        logger.error(f"❌ Errore invio promemoria recensione: {e}")
+
+
+def schedule_review_reminder(booking_id: int, client_id: int, review_token: str, run_date: datetime):
+    """
+    Schedula un promemoria per la recensione a 24h.
+    """
+    try:
+        scheduler.add_job(
+            send_review_reminder_notification,
+            trigger=DateTrigger(run_date=run_date),
+            args=[booking_id, client_id, review_token],
+            id=f"review_reminder_{booking_id}",
+            replace_existing=True,
+            misfire_grace_time=3600  # 1 ora di tolleranza
+        )
+        logger.info(f"📅 Schedulato promemoria recensione per booking {booking_id} alle {run_date}")
+    except Exception as e:
+        logger.error(f"❌ Errore scheduling promemoria recensione: {e}")
 
 
 def start_scheduler():

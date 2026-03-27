@@ -50,7 +50,6 @@ class User(SQLModel, table=True):
     prezzo_consulenza: Optional[int] = None
     consulenze_vendute: int = Field(default=0)
     consulenze_acquistate: int = Field(default=0)
-    bollini: int = Field(default=0)
     descrizione: Optional[str] = None
     aree_interesse: Optional[str] = None
     tags: Optional[str] = None  # JSON array di tag generati da AI per la ricerca
@@ -370,6 +369,52 @@ class ConfigurationProperty(SQLModel, table=True):
     description: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Review(SQLModel, table=True):
+    """Recensioni post-consulenza lasciate dai clienti ai consulenti"""
+    __tablename__ = "reviews"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    booking_id: int = Field(foreign_key="booking.id", index=True)
+    reviewer_user_id: int = Field(foreign_key="user.id", index=True)       # Il cliente
+    consultant_user_id: int = Field(foreign_key="user.id", index=True)     # Il consulente
+    
+    rating_helpful: int       # 1-5: "Ti ha aiutato concretamente?"
+    rating_prepared: int      # 1-5: "Era preparato sull'argomento?"
+    rating_communication: int # 1-5: "Capacità comunicativa?"
+    comment: Optional[str] = Field(default=None, max_length=2000)
+    
+    review_token: Optional[str] = Field(default=None, unique=True, index=True)  # Token per link email
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Dispute(SQLModel, table=True):
+    """Contestazioni aperte dai clienti su una consulenza"""
+    __tablename__ = "disputes"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    booking_id: int = Field(foreign_key="booking.id", index=True)
+    client_user_id: int = Field(foreign_key="user.id", index=True)
+    consultant_user_id: int = Field(foreign_key="user.id", index=True)
+    
+    description: str = Field(max_length=5000)  # Descrizione del problema
+    status: str = Field(default="open")  # open, in_review, resolved, rejected
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default=None)
+
+
+class DisputeMessage(SQLModel, table=True):
+    """Messaggi nello scambio di una contestazione"""
+    __tablename__ = "dispute_messages"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    dispute_id: int = Field(foreign_key="disputes.id", index=True)
+    sender_user_id: Optional[int] = Field(default=None, foreign_key="user.id")  # None = messaggio admin/sistema
+    is_admin: bool = Field(default=False)
+    message: str = Field(max_length=5000)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class FavoriteConsultant(SQLModel, table=True):

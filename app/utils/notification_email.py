@@ -324,6 +324,94 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
     </div>
 </body>
 </html>
+""",
+            'review_request.html': """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #f5a623 0%, #f7c948 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #fffcf0; padding: 30px; border-radius: 0 0 10px 10px; }}
+        .button {{ display: inline-block; background: #f5a623; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-size: 16px; font-weight: bold; }}
+        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f5a623; }}
+        .footer {{ text-align: center; color: #999; font-size: 12px; margin-top: 30px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⭐ Lascia una Recensione</h1>
+        </div>
+        <div class="content">
+            <p>Ciao <strong>{user_name}</strong>,</p>
+            <p>Come è andata la tua consulenza con <strong>{consultant_name}</strong>?</p>
+            
+            <div class="details">
+                <p><strong>📅 Data:</strong> {date}</p>
+                <p><strong>🕐 Orario:</strong> {time}</p>
+            </div>
+            
+            <p>La tua opinione è preziosa e aiuta altri utenti a scegliere il consulente giusto. Ci vogliono solo 30 secondi!</p>
+            
+            <a href="{review_url}" class="button">⭐ Lascia la tua Recensione</a>
+            
+            <p style="margin-top: 30px; font-size: 14px; color: #666;">
+                Grazie per contribuire alla community di Helpy!
+            </p>
+        </div>
+        <div class="footer">
+            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+        </div>
+    </div>
+</body>
+</html>
+""",
+            'review_reminder.html': """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+        .content {{ background: #fff9e6; padding: 30px; border-radius: 0 0 10px 10px; }}
+        .button {{ display: inline-block; background: #e67e22; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-size: 16px; font-weight: bold; }}
+        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e67e22; }}
+        .footer {{ text-align: center; color: #999; font-size: 12px; margin-top: 30px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔔 Non dimenticare la Recensione!</h1>
+        </div>
+        <div class="content">
+            <p>Ciao <strong>{user_name}</strong>,</p>
+            <p>Non hai ancora lasciato una recensione per la tua consulenza con <strong>{consultant_name}</strong>.</p>
+            
+            <div class="details">
+                <p><strong>📅 Data:</strong> {date}</p>
+                <p><strong>🕐 Orario:</strong> {time}</p>
+            </div>
+            
+            <p>Ci vogliono solo 30 secondi e aiuterai altri utenti a trovare il consulente perfetto!</p>
+            
+            <a href="{review_url}" class="button">⭐ Lascia la tua Recensione</a>
+            
+            <p style="margin-top: 30px; font-size: 14px; color: #666;">
+                Se hai già lasciato una recensione, ignora questo messaggio.
+            </p>
+        </div>
+        <div class="footer">
+            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+        </div>
+    </div>
+</body>
+</html>
 """
         }
         

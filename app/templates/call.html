@@ -798,6 +798,198 @@
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
     }
+
+    /* ===== REVIEW MODAL ===== */
+    .review-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+    }
+    .review-overlay.active { display: flex; }
+    .review-modal {
+        background: #fff;
+        border-radius: 16px;
+        max-width: 480px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 32px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .review-modal h2 {
+        margin: 0 0 8px 0;
+        font-size: 1.4rem;
+        color: #1a1a2e;
+    }
+    .review-modal .review-subtitle {
+        color: #666;
+        margin: 0 0 24px 0;
+        font-size: 0.95rem;
+    }
+    .review-question {
+        margin-bottom: 20px;
+    }
+    .review-question label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #333;
+        font-size: 0.95rem;
+    }
+    .star-rating {
+        display: flex;
+        gap: 4px;
+        direction: rtl;
+        justify-content: flex-end;
+    }
+    .star-rating input { display: none; }
+    .star-rating label {
+        font-size: 1.8rem;
+        color: #ddd;
+        cursor: pointer;
+        transition: color 0.15s;
+        font-weight: normal;
+        margin: 0;
+    }
+    .star-rating label:hover,
+    .star-rating label:hover ~ label,
+    .star-rating input:checked ~ label {
+        color: #f5a623;
+    }
+    .review-comment textarea {
+        width: 100%;
+        min-height: 80px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 0.95rem;
+        resize: vertical;
+        font-family: inherit;
+        box-sizing: border-box;
+    }
+    .review-comment textarea:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    .review-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 24px;
+    }
+    .review-btn-submit {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border: none;
+        padding: 14px;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+    .review-btn-submit:hover { opacity: 0.9; }
+    .review-btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .review-btn-email {
+        background: transparent;
+        color: #667eea;
+        border: 2px solid #667eea;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .review-btn-email:hover { background: #f0f0ff; }
+    .review-btn-dispute {
+        background: none;
+        border: none;
+        color: #e74c3c;
+        font-size: 0.85rem;
+        cursor: pointer;
+        margin-top: 8px;
+        text-decoration: underline;
+    }
+    .review-btn-dispute:hover { color: #c0392b; }
+    .dispute-form-container {
+        display: none;
+        margin-top: 16px;
+        padding: 20px;
+        background: #fff5f5;
+        border: 1px solid #fed7d7;
+        border-radius: 10px;
+    }
+    .dispute-form-container h3 {
+        color: #c62828;
+        font-size: 1rem;
+        margin: 0 0 8px 0;
+    }
+    .dispute-form-container p {
+        font-size: 0.85rem;
+        color: #666;
+        margin: 0 0 12px 0;
+    }
+    .dispute-form-container textarea {
+        width: 100%;
+        min-height: 100px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 0.9rem;
+        resize: vertical;
+        font-family: inherit;
+        box-sizing: border-box;
+    }
+    .dispute-form-container textarea:focus {
+        outline: none;
+        border-color: #e74c3c;
+    }
+    .dispute-char-count {
+        text-align: right;
+        font-size: 0.8rem;
+        color: #999;
+        margin-top: 4px;
+    }
+    .dispute-btn-submit {
+        width: 100%;
+        background: #e74c3c;
+        color: #fff;
+        border: none;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 12px;
+        transition: opacity 0.2s;
+    }
+    .dispute-btn-submit:hover { opacity: 0.9; }
+    .dispute-btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .dispute-btn-cancel {
+        width: 100%;
+        background: transparent;
+        color: #666;
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        margin-top: 8px;
+    }
+    .review-msg {
+        text-align: center;
+        padding: 8px;
+        border-radius: 6px;
+        margin-top: 12px;
+        font-size: 0.9rem;
+    }
+    .review-msg.success { background: #e8f5e9; color: #2e7d32; }
+    .review-msg.error { background: #ffebee; color: #c62828; }
 </style>
 
 <div class="call-container">
@@ -926,6 +1118,72 @@
     </div>
 </div>
 
+<!-- Review Modal (solo per il cliente) -->
+{% if user.id == booking.client_user_id %}
+<div class="review-overlay" id="reviewOverlay">
+    <div class="review-modal">
+        <h2>⭐ Come è andata la consulenza?</h2>
+        <p class="review-subtitle">La tua opinione aiuta altri utenti a scegliere il consulente giusto.</p>
+
+        <div class="review-question">
+            <label>Ti ha aiutato concretamente?</label>
+            <div class="star-rating" data-field="helpful">
+                <input type="radio" name="helpful" value="5" id="h5"><label for="h5">★</label>
+                <input type="radio" name="helpful" value="4" id="h4"><label for="h4">★</label>
+                <input type="radio" name="helpful" value="3" id="h3"><label for="h3">★</label>
+                <input type="radio" name="helpful" value="2" id="h2"><label for="h2">★</label>
+                <input type="radio" name="helpful" value="1" id="h1"><label for="h1">★</label>
+            </div>
+        </div>
+
+        <div class="review-question">
+            <label>Era preparato sull'argomento?</label>
+            <div class="star-rating" data-field="prepared">
+                <input type="radio" name="prepared" value="5" id="p5"><label for="p5">★</label>
+                <input type="radio" name="prepared" value="4" id="p4"><label for="p4">★</label>
+                <input type="radio" name="prepared" value="3" id="p3"><label for="p3">★</label>
+                <input type="radio" name="prepared" value="2" id="p2"><label for="p2">★</label>
+                <input type="radio" name="prepared" value="1" id="p1"><label for="p1">★</label>
+            </div>
+        </div>
+
+        <div class="review-question">
+            <label>Capacità comunicativa?</label>
+            <div class="star-rating" data-field="communication">
+                <input type="radio" name="communication" value="5" id="c5"><label for="c5">★</label>
+                <input type="radio" name="communication" value="4" id="c4"><label for="c4">★</label>
+                <input type="radio" name="communication" value="3" id="c3"><label for="c3">★</label>
+                <input type="radio" name="communication" value="2" id="c2"><label for="c2">★</label>
+                <input type="radio" name="communication" value="1" id="c1"><label for="c1">★</label>
+            </div>
+        </div>
+
+        <div class="review-comment">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#333;font-size:0.95rem;">Commento (opzionale)</label>
+            <textarea id="reviewComment" placeholder="Racconta la tua esperienza..." maxlength="2000"></textarea>
+        </div>
+
+        <div class="review-actions">
+            <button class="review-btn-submit" id="reviewSubmitBtn" onclick="submitReview()">Invia Recensione</button>
+            <button class="review-btn-email" id="reviewEmailBtn" onclick="sendReviewEmail()">📧 Inviami un'email per votare più tardi</button>
+            <button class="review-btn-dispute" onclick="toggleDisputeForm()">⚠️ Apri una contestazione</button>
+        </div>
+
+        <!-- Form contestazione (nascosto) -->
+        <div class="dispute-form-container" id="disputeFormContainer">
+            <h3>⚠️ Apri una contestazione</h3>
+            <p>Descrivi qual era l'obiettivo della consulenza e cosa non ha funzionato. Fornisci più dettagli possibile per aiutarci a valutare la situazione.</p>
+            <textarea id="disputeDescription" placeholder="Es: Ho richiesto la consulenza per risolvere un problema di... ma il consulente non ha affrontato il tema, oppure le informazioni fornite erano errate perché..." maxlength="5000" oninput="updateDisputeCharCount()"></textarea>
+            <div class="dispute-char-count"><span id="disputeCharCount">0</span>/5000</div>
+            <button class="dispute-btn-submit" id="disputeSubmitBtn" onclick="submitDispute()">Invia contestazione</button>
+            <button class="dispute-btn-cancel" onclick="toggleDisputeForm()">Annulla</button>
+        </div>
+
+        <div id="reviewMsg" class="review-msg" style="display:none;"></div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Agora RTC SDK -->
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
 
@@ -935,6 +1193,7 @@
     const bookingDate = "{{ booking.booking_date.strftime('%Y-%m-%d') }}";
     const bookingEndTimeStr = "{{ booking.end_time }}"; // HH:MM format
     const bookingEndTime = `${bookingDate}T${bookingEndTimeStr}:00`; // Combina data + ora in ISO format
+    const isClient = {{ 'true' if user.id == booking.client_user_id else 'false' }};
     
     let client = null;
     let localTracks = {
@@ -1101,28 +1360,13 @@
     async function stopRecording() {
         console.log('📹 [STOP_REC] stopRecording() called');
         try {
-            const response = await fetch(`/api/booking/${bookingId}/recording/stop`, {
-                method: 'POST'
-            });
-            console.log('📹 [STOP_REC] Response status:', response.status);
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('✅ [STOP_REC] Recording completato:', data.recording_url);
-                return true;
-            } else {
-                const error = await response.json();
-                console.log('📹 [STOP_REC] Error response:', error);
-                // Se il recording non era attivo, l'altro utente l'ha già fermato
-                if (error.detail === "Nessun recording attivo") {
-                    console.log('ℹ️ [STOP_REC] Recording già fermato (dall\'altro utente)');
-                    return true;
-                }
-                console.error('❌ [STOP_REC] Errore stop recording:', error.detail);
-                return false;
-            }
+            // Fire-and-forget: invia stop via sendBeacon per garantire la consegna
+            // anche se la pagina si chiude
+            navigator.sendBeacon(`/api/booking/${bookingId}/recording/stop`);
+            console.log('📹 [STOP_REC] sendBeacon inviato');
+            return true;
         } catch (error) {
-            console.error('❌ [STOP_REC] Errore fetch:', error);
+            console.error('❌ [STOP_REC] Errore sendBeacon:', error);
             return false;
         }
     }
@@ -1151,8 +1395,9 @@
                     .catch(err => console.error('Errore notifica end call:', err));
                 
                 alert('Il tempo della consulenza è terminato. La chiamata verrà chiusa.');
+                isLeavingCall = true;  // Disabilita popup beforeunload
                 leaveCall().then(() => {
-                    window.location.href = '/profile';
+                    afterCallEnd();
                 });
                 return;
             }
@@ -1201,7 +1446,7 @@
             if (statusData.is_expired) {
                 console.log('❌ La call è scaduta! Reindirizzamento a profile...');
                 alert('Scusa, il tempo della consulenza è scaduto. Non puoi riaccedere a questa call.');
-                window.location.href = '/profile';
+                afterCallEnd();
                 return;
             }
             
@@ -1469,14 +1714,16 @@
     }
     
     // End call
+    let isLeavingCall = false;  // Flag per evitare doppio popup beforeunload
     endCallBtn.addEventListener('click', async () => {
         if (confirm('Sei sicuro di voler terminare la chiamata?')) {
+            isLeavingCall = true;  // Disabilita il popup beforeunload
             try {
                 await leaveCall();
             } catch (error) {
                 console.error('❌ Error during leaveCall:', error);
             }
-            window.location.href = '/profile';
+            afterCallEnd();
         }
     });
     
@@ -1492,10 +1739,8 @@
         console.log('🔔 [LEAVE] Stopping chat polling...');
         stopChatPolling();
         
-        // Stop recording
-        console.log('🔔 [LEAVE] Calling stopRecording()...');
-        const recordingResult = await stopRecording();
-        console.log('🔔 [LEAVE] stopRecording() returned:', recordingResult);
+        // Recording viene fermata dal backend quando tutti escono (/leave endpoint)
+        // NON chiamare stopRecording() qui per evitare doppi stop
         
         // Stop timer
         if (timerInterval) {
@@ -1522,26 +1767,24 @@
         
         if (client) {
             console.log('🔔 [LEAVE] Leaving Agora channel...');
-            await client.leave();
-            console.log('🔔 [LEAVE] Left Agora channel');
+            try {
+                await client.leave();
+                console.log('🔔 [LEAVE] Left Agora channel');
+            } catch (e) {
+                console.warn('⚠️ [LEAVE] Error leaving channel:', e);
+            }
         }
         
-        // 🔔 Notify backend that user is leaving the booking
+        // Notify backend (fire-and-forget via sendBeacon)
         console.log(`🔔 [LEAVE] Notifying backend that user is leaving booking ${bookingId}...`);
         try {
-            const leaveResponse = await fetch(`/api/booking/${bookingId}/leave`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            console.log(`🔔 [LEAVE] Leave response status: ${leaveResponse.status}`);
-            if (leaveResponse.ok) {
-                const leaveData = await leaveResponse.json();
-                console.log(`✅ [LEAVE] User left booking - still_has_participants: ${leaveData.still_has_participants}`);
-            } else {
-                console.warn(`⚠️ [LEAVE] Failed to notify leave: ${leaveResponse.status}`);
-            }
+            navigator.sendBeacon(
+                `/api/booking/${bookingId}/leave`,
+                new Blob([JSON.stringify({})], { type: 'application/json' })
+            );
+            console.log('✅ [LEAVE] Leave beacon sent');
         } catch (e) {
-            console.error('❌ [LEAVE] Error notifying leave:', e);
+            console.error('❌ [LEAVE] Error sending leave beacon:', e);
         }
     }
     
@@ -1550,7 +1793,137 @@
         statusDot.className = `status-dot ${status}`;
         statusText.textContent = text;
     }
-    
+
+    // ========== REVIEW SYSTEM ==========
+    function afterCallEnd() {
+        if (isClient) {
+            // Mostra popup recensione per il cliente
+            document.getElementById('reviewOverlay').classList.add('active');
+        } else {
+            window.location.href = '/profile';
+        }
+    }
+
+    function showReviewMsg(text, type) {
+        const el = document.getElementById('reviewMsg');
+        el.textContent = text;
+        el.className = 'review-msg ' + type;
+        el.style.display = 'block';
+    }
+
+    async function submitReview() {
+        const helpful = document.querySelector('input[name="helpful"]:checked');
+        const prepared = document.querySelector('input[name="prepared"]:checked');
+        const communication = document.querySelector('input[name="communication"]:checked');
+
+        if (!helpful || !prepared || !communication) {
+            showReviewMsg('Per favore, seleziona un voto per ogni domanda.', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('reviewSubmitBtn');
+        btn.disabled = true;
+        btn.textContent = 'Invio in corso...';
+
+        try {
+            const resp = await fetch(`/api/booking/${bookingId}/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rating_helpful: parseInt(helpful.value),
+                    rating_prepared: parseInt(prepared.value),
+                    rating_communication: parseInt(communication.value),
+                    comment: document.getElementById('reviewComment').value || null
+                })
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                showReviewMsg('Grazie per la tua recensione! ⭐', 'success');
+                setTimeout(() => { window.location.href = '/profile'; }, 1500);
+            } else {
+                showReviewMsg(data.detail || 'Errore nell\'invio', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Invia Recensione';
+            }
+        } catch (e) {
+            showReviewMsg('Errore di connessione', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Invia Recensione';
+        }
+    }
+
+    async function sendReviewEmail() {
+        const btn = document.getElementById('reviewEmailBtn');
+        btn.disabled = true;
+        btn.textContent = 'Invio email...';
+        console.log('📧 [review] Invio richiesta email per booking', bookingId);
+
+        try {
+            const resp = await fetch(`/api/booking/${bookingId}/review/send-email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            console.log('📧 [review] Risposta ricevuta:', resp.status);
+            const data = await resp.json();
+            console.log('📧 [review] Data:', data);
+            if (data.success) {
+                showReviewMsg('Email inviata! Controlla la tua casella di posta. 📧', 'success');
+                setTimeout(() => { window.location.href = '/profile'; }, 2000);
+            } else {
+                showReviewMsg(data.detail || data.message || 'Errore: ' + resp.status, 'error');
+                btn.disabled = false;
+                btn.textContent = '📧 Inviami un\'email per votare più tardi';
+            }
+        } catch (e) {
+            console.error('📧 [review] Errore:', e);
+            showReviewMsg('Errore: ' + e.message, 'error');
+            btn.disabled = false;
+            btn.textContent = '📧 Inviami un\'email per votare più tardi';
+        }
+    }
+
+    function toggleDisputeForm() {
+        const container = document.getElementById('disputeFormContainer');
+        container.style.display = container.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function updateDisputeCharCount() {
+        const len = document.getElementById('disputeDescription').value.length;
+        document.getElementById('disputeCharCount').textContent = len;
+    }
+
+    async function submitDispute() {
+        const desc = document.getElementById('disputeDescription').value.trim();
+        if (desc.length < 20) {
+            showReviewMsg('La descrizione deve contenere almeno 20 caratteri.', 'error');
+            return;
+        }
+        const btn = document.getElementById('disputeSubmitBtn');
+        btn.disabled = true;
+        btn.textContent = 'Invio in corso...';
+        try {
+            const resp = await fetch(`/api/booking/${bookingId}/dispute`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description: desc })
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                showReviewMsg('Contestazione inviata con successo. Ti contatteremo al più presto.', 'success');
+                document.getElementById('disputeFormContainer').style.display = 'none';
+                document.querySelector('.review-btn-dispute').style.display = 'none';
+            } else {
+                showReviewMsg(data.detail || 'Errore nell\'invio', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Invia contestazione';
+            }
+        } catch (e) {
+            showReviewMsg('Errore di connessione', 'error');
+            btn.disabled = false;
+            btn.textContent = 'Invia contestazione';
+        }
+    }
+
     // Initialize on page load
     initializeCall();
     
@@ -1590,15 +1963,19 @@
     
     // Cleanup on page unload (chiusura browser, tab, refresh)
     window.addEventListener('beforeunload', (e) => {
+        // Se l'utente ha cliccato "Termina chiamata", non mostrare popup
+        if (isLeavingCall) return;
+        
         // Mostra popup di conferma
         e.preventDefault();
         e.returnValue = 'Sei sicuro di voler chiudere la chiamata? La registrazione sarà interrotta.';
         
-        // Stop recording usando sendBeacon (funziona anche se la pagina si chiude)
-        // sendBeacon è garantito essere eseguito anche durante la chiusura
-        const stopUrl = `/api/booking/${bookingId}/recording/stop`;
-        const blob = new Blob(['{}'], { type: 'application/json' });
-        navigator.sendBeacon(stopUrl, blob);
+        // Notifica il backend che l'utente è uscito via /leave
+        // Il /leave endpoint gestisce sia lo stato utente che lo stop recording
+        navigator.sendBeacon(
+            `/api/booking/${bookingId}/leave`,
+            new Blob([JSON.stringify({})], { type: 'application/json' })
+        );
         
         // Cleanup Agora resources (sincrono)
         if (timerInterval) {
@@ -1636,15 +2013,8 @@
         }
     });
     
-    // Cleanup anche su visibilitychange (quando cambi tab)
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') {
-            // Utente ha cambiato tab, potrebbe non tornare
-            const stopUrl = `/api/booking/${bookingId}/recording/stop`;
-            const blob = new Blob(['{}'], { type: 'application/json' });
-            navigator.sendBeacon(stopUrl, blob);
-        }
-    });
+    // NOTA: rimosso il visibilitychange handler che fermava la registrazione
+    // quando l'utente cambiava tab — troppo aggressivo, causava stop duplicati
     
     // ========== POLLING PER SINCRONIZZARE SCREEN SHARE STATE ==========
     
@@ -1747,6 +2117,9 @@
         
         const messageDiv = document.createElement('div');
         messageDiv.className = `chat-message ${isOwn ? 'own' : ''}`;
+        if (message.id && String(message.id).startsWith('temp_')) {
+            messageDiv.setAttribute('data-temp-id', message.id);
+        }
         
         let html = `
             <span class="chat-message-sender">${message.user_name}</span>
@@ -1834,26 +2207,36 @@
         
         if (!messageText && !hasAttachments) return;
         
+        // Salva i file prima di pulire l'UI
+        const filesToUpload = [...chatUI.attachments];
+        
+        // ✅ Mostra il messaggio ottimisticamente SUBITO nella UI
+        const tempId = 'temp_' + Date.now();
+        const optimisticMessage = {
+            id: tempId,
+            user_id: {{ current_user.id }},
+            user_name: '{{ current_user.nome }} {{ current_user.cognome }}',
+            message: messageText,
+            attachments: filesToUpload.map(f => ({ filename: f.name, file_size: f.size }))
+        };
+        displayChatMessage(optimisticMessage, true);
+        displayedMessageIds.add(tempId);  // Evita duplicato dal polling
+        
+        // Pulisci l'UI immediatamente (l'utente può continuare a scrivere)
+        chatUI.input.value = '';
+        clearAllAttachments();
+        chatUI.input.focus();
+        
+        // ✅ Invio in background — non blocca l'UI
         chatUI.isSending = true;
-        chatUI.sendBtn.disabled = true;
-        chatUI.input.disabled = true;
-
-        // Timeout di sicurezza: sblocca l'UI dopo 30 secondi anche se il fetch non risponde
-        const safetyTimeout = setTimeout(() => {
-            console.warn('⚠️ Safety timeout: sblocco UI dopo 30s di attesa');
-            chatUI.isSending = false;
-            chatUI.sendBtn.disabled = false;
-            chatUI.input.disabled = false;
-            chatUI.input.focus();
-        }, 30000);
         
         try {
             // Step 1: Carica gli allegati su S3 uno alla volta
             const uploadedAttachments = [];
             
-            if (hasAttachments) {
-                for (let i = 0; i < chatUI.attachments.length; i++) {
-                    const file = chatUI.attachments[i];
+            if (filesToUpload.length > 0) {
+                for (let i = 0; i < filesToUpload.length; i++) {
+                    const file = filesToUpload[i];
                     try {
                         const formData = new FormData();
                         formData.append('file', file);
@@ -1861,7 +2244,7 @@
                         const uploadResponse = await fetchWithTimeout(
                             `/api/booking/${bookingId}/chat/upload-attachment`,
                             { method: 'POST', body: formData },
-                            30000  // 30s per upload file
+                            60000  // 60s per upload file
                         );
                         
                         if (uploadResponse.ok) {
@@ -1876,22 +2259,15 @@
                         } else {
                             const error = await uploadResponse.json();
                             console.error(`❌ Errore upload ${file.name}:`, error.detail);
-                            alert(`Errore caricamento "${file.name}": ${error.detail || 'Errore sconosciuto'}`);
                         }
                     } catch (uploadErr) {
                         console.error(`❌ Errore upload ${file.name}:`, uploadErr);
-                        if (uploadErr.name === 'AbortError') {
-                            alert(`Timeout caricamento "${file.name}": il server non risponde`);
-                        } else {
-                            alert(`Errore caricamento "${file.name}"`);
-                        }
                     }
                 }
             }
             
             // Step 2: Invia il messaggio con i riferimenti degli allegati S3
             if (!messageText && uploadedAttachments.length === 0) {
-                // Nessun messaggio e nessun allegato caricato con successo
                 return;
             }
             
@@ -1905,36 +2281,27 @@
                         attachments: uploadedAttachments
                     })
                 },
-                15000  // 15s per invio messaggio
+                30000  // 30s per invio messaggio
             );
             
             if (response.ok) {
                 const message = await response.json();
-                displayChatMessage(message, true);
-                // Marca il messaggio come visualizzato per evitare che il polling lo mostri di nuovo
+                // Aggiungi l'ID reale del messaggio al set, così il polling non lo riduplica
                 displayedMessageIds.add(message.id);
-                chatUI.input.value = '';
-                clearAllAttachments();
-                console.log('💬 Messaggio inviato:', messageText);
+                console.log('💬 Messaggio salvato sul server:', messageText);
             } else {
                 const error = await response.json();
-                console.error('❌ Errore invio messaggio - Response status:', response.status);
-                console.error('❌ Errore completo:', error);
-                alert('Errore: ' + (error.detail || JSON.stringify(error)));
+                console.error('❌ Errore invio messaggio:', error);
+                // Il messaggio è già visibile localmente, segna che non è stato salvato
+                const tempMsg = chatUI.msgPanel.querySelector(`[data-temp-id="${tempId}"]`);
+                if (tempMsg) tempMsg.style.opacity = '0.5';
             }
         } catch (error) {
             console.error('❌ Errore send chat:', error);
-            if (error.name === 'AbortError') {
-                alert('Timeout: il server non ha risposto in tempo. Riprova.');
-            } else {
-                alert('Errore di connessione');
-            }
+            // Il messaggio resta visibile ma il server non l'ha ricevuto
+            // Il polling non lo mostrerà, ma l'utente lo vede comunque
         } finally {
-            clearTimeout(safetyTimeout);
             chatUI.isSending = false;
-            chatUI.sendBtn.disabled = false;
-            chatUI.input.disabled = false;
-            chatUI.input.focus();
         }
     }
     
@@ -1965,7 +2332,7 @@
     }
     
     /**
-     * Polling per nuovi messaggi ogni 2 secondi
+     * Polling per nuovi messaggi ogni 2 secondi (usa after_id per efficienza)
      */
     function startChatPolling() {
         // Inizializza displayedMessageIds con i messaggi già in cache (solo la prima volta)
@@ -1975,9 +2342,18 @@
             });
         }
         
+        // Traccia l'ultimo ID ricevuto per chiedere solo i nuovi
+        let lastMessageId = 0;
+        if (chatUI.messagesCache.length > 0) {
+            lastMessageId = Math.max(...chatUI.messagesCache.map(m => m.id || 0));
+        }
+        
         chatPollInterval = setInterval(async () => {
             try {
-                const response = await fetch(`/api/booking/${bookingId}/chat/messages`);
+                const url = lastMessageId > 0 
+                    ? `/api/booking/${bookingId}/chat/messages?after_id=${lastMessageId}`
+                    : `/api/booking/${bookingId}/chat/messages`;
+                const response = await fetch(url);
                 if (!response.ok) {
                     console.error('❌ Errore polling chat, status:', response.status);
                     return;
@@ -1994,10 +2370,27 @@
                     
                     newMessages.forEach(msg => {
                         const isOwn = msg.user_id === {{ current_user.id }};
+                        
+                        // Se è un messaggio proprio, potrebbe essere stato già mostrato ottimisticamente
+                        // In quel caso non lo mostriamo di nuovo
+                        if (isOwn) {
+                            const tempMsgs = chatUI.msgPanel.querySelectorAll('[data-temp-id]');
+                            for (const el of tempMsgs) {
+                                // Trovato un messaggio temp proprio: rimuovilo e segna l'ID reale
+                                el.removeAttribute('data-temp-id');
+                                displayedMessageIds.add(msg.id);
+                                if (msg.id > lastMessageId) lastMessageId = msg.id;
+                                return; // Skip: già visualizzato
+                            }
+                        }
+                        
                         console.log(`📨 Visualizzando messaggio: id=${msg.id}, da=${msg.user_name}, isOwn=${isOwn}`);
                         
                         displayChatMessage(msg, isOwn);
                         displayedMessageIds.add(msg.id); // Marchia come visualizzato GLOBALMENTE
+                        
+                        // Aggiorna lastMessageId
+                        if (msg.id > lastMessageId) lastMessageId = msg.id;
                         
                         // Aumenta conteggio non letti solo se la chat è chiusa e il messaggio è di un altro
                         if (!isOwn && chatUI.panel.style.display === 'none') {

@@ -1512,8 +1512,8 @@
             </div>
         </div>
         
-        <!-- CONTENUTO PRINCIPALE CENTRO (65%) - Domande -->
-        <div class="col-md-6" style="flex: 0 0 65%; max-width: 65%; padding: 0 15px;">
+        <!-- CONTENUTO PRINCIPALE CENTRO (63%) - Domande -->
+        <div class="col-md-6" style="flex: 0 0 63%; max-width: 63%; padding: 0 15px;">
             <!-- Search Bar sopra il titolo -->
             <div class="search-bar-community" style="margin-bottom: 20px;">
                 <input 
@@ -1789,8 +1789,7 @@
                                 <div class="consultant-profession-mini">{{ consultant.professione or 'Consulente' }}</div>
                                 
                                 <div class="consultant-stats-mini">
-                                    <span>⭐ {{ consultant.bollini }}</span>
-                                    <span>💼 {{ consultant.consulenze_vendute }}</span>
+                                    <span>💼 {{ consultant.consulenze_vendute }} consulenze</span>
                                 </div>
                                 
                                 <div class="consultant-price-mini">€{{ consultant.prezzo_consulenza }}/ora</div>
@@ -1825,8 +1824,8 @@
         </div>
         <!-- FINE CONTENUTO PRINCIPALE -->
         
-        <!-- SIDEBAR DESTRA (15%) - Top Helpyers -->
-        <div class="col-md-3" style="flex: 0 0 15%; max-width: 15%; padding-left: 15px;">
+        <!-- SIDEBAR DESTRA (17%) - Top Helpyers -->
+        <div class="col-md-3" style="flex: 0 0 17%; max-width: 17%; padding-left: 15px;">
             <div class="sidebar-right">
                 <h3 class="sidebar-section-title" style="margin-bottom: 20px;">
                     <i class="fas fa-trophy" style="color: #ffa000;"></i> Top Helpyers
@@ -1850,18 +1849,7 @@
                         <div class="top-helpyer-info">
                             <div class="top-helpyer-name">{{ consultant.nome }}</div>
                             <div class="top-helpyer-rating">
-                                {% if consultant.bollini >= 5 %}
-                                    <div class="rating-stars">⭐⭐⭐⭐⭐</div>
-                                {% elif consultant.bollini == 4 %}
-                                    <div class="rating-stars">⭐⭐⭐⭐</div>
-                                {% elif consultant.bollini == 3 %}
-                                    <div class="rating-stars">⭐⭐⭐</div>
-                                {% elif consultant.bollini == 2 %}
-                                    <div class="rating-stars">⭐⭐</div>
-                                {% elif consultant.bollini == 1 %}
-                                    <div class="rating-stars">⭐</div>
-                                {% endif %}
-                                <span class="consulenze-badge">{{ consultant.consulenze_vendute }} consulenze</span>
+                                <span class="consulenze-badge">⭐ {{ consultant.review_avg }}/5 ({{ consultant.review_count }} recension{{ 'e' if consultant.review_count == 1 else 'i' }})</span>
                             </div>
                         </div>
                     </a>

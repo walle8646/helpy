@@ -9,7 +9,7 @@ import json
 import base64
 
 from app.database import get_session
-from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, CommunityQuestionFollow, QuestionStatus, CategoryHierarchy, CategoryRequestNotification
+from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, CommunityQuestionFollow, QuestionStatus, CategoryHierarchy, CategoryRequestNotification, Review
 from app.routes.auth import verify_token
 from app.utils_user import get_display_name
 from app.utils.email import send_email
@@ -196,14 +196,13 @@ async def community_page(
                 suggested_consultants = []
                 
                 if current_user and question.user_id == current_user.id and question.category_id:
-                    # Top 3 consulenti per categoria con più bollini
+                    # Top 3 consulenti per categoria
                     consultants_query = select(User).where(
                         and_(
                             User.category_id == question.category_id,
                             User.id != current_user.id  # Escludi l'autore
                         )
                     ).order_by(
-                        User.bollini.desc(),
                         User.consulenze_vendute.desc()
                     ).limit(3)
                     
@@ -238,28 +237,45 @@ async def community_page(
             )
             
             # ========== TOP CONSULTANTS (Filtrati per categoria se selezionata) ==========
+            # Subquery per media e conteggio recensioni
+            review_subq = (
+                select(
+                    Review.consultant_user_id,
+                    func.avg((Review.rating_helpful + Review.rating_prepared + Review.rating_communication) / 3.0).label('avg_rating'),
+                    func.count(Review.id).label('review_count'),
+                ).group_by(Review.consultant_user_id)
+            ).subquery()
+
+            top_query = (
+                select(User, review_subq.c.avg_rating, review_subq.c.review_count)
+                .join(review_subq, User.id == review_subq.c.consultant_user_id)
+            )
+
             if category:
-                # Filtra consulenti che hanno la categoria selezionata come principale o in selected_subcategories
-                top_consultants = session.exec(
-                    select(User)
-                    .where(
-                        or_(
-                            User.category_id == category,  # Categoria principale
-                            cast(User.selected_subcategories, String).like(f'%{category}%')  # Tra le subcategorie
-                        )
+                top_query = top_query.where(
+                    or_(
+                        User.category_id == category,
+                        cast(User.selected_subcategories, String).like(f'%{category}%')
                     )
-                    .where(User.bollini > 0)
-                    .order_by(User.bollini.desc(), User.consulenze_vendute.desc())
-                    .limit(4)
-                ).all()
-            else:
-                # Se non c'è categoria selezionata, mostra i migliori di tutte
-                top_consultants = session.exec(
-                    select(User)
-                    .where(User.bollini > 0)
-                    .order_by(User.bollini.desc(), User.consulenze_vendute.desc())
-                    .limit(4)
-                ).all()
+                )
+
+            top_query = top_query.order_by(
+                review_subq.c.avg_rating.desc(),
+                review_subq.c.review_count.desc()
+            ).limit(4)
+
+            top_results = session.exec(top_query).all()
+            top_consultants = []
+            for row in top_results:
+                user_obj = row[0]
+                top_consultants.append({
+                    'id': user_obj.id,
+                    'nome': user_obj.nome,
+                    'cognome': user_obj.cognome,
+                    'profile_picture': user_obj.profile_picture,
+                    'review_avg': round(float(row[1]), 1),
+                    'review_count': int(row[2]),
+                })
             
             # ========== CONTROLLO LIMITE RICHIESTE ==========
             can_create_question = True

@@ -5,7 +5,7 @@ from typing import Optional
 import re
 
 from app.database import get_session
-from app.models import User, Category, CategoryHierarchy
+from app.models import User, Category, CategoryHierarchy, Review
 from app.routes.auth import verify_token
 from loguru import logger
 
@@ -122,9 +122,6 @@ def calculate_relevance_score(user: User, keywords: list[str], expanded_keywords
         for keyword in keywords:
             if keyword in prof_lower:
                 score += 3
-    
-    # +2 punti per bollini (esperienza)
-    score += user.bollini * 2
     
     # +1 punto per consulenze vendute
     score += user.consulenze_vendute
@@ -265,8 +262,28 @@ async def consultants_page(
             consultants = consultants[offset:offset + per_page]
             
             # ========== ENRICHMENT DATI ==========
+            # Carica medie recensioni per tutti i consulenti in una query
+            consultant_ids = [u.id for u in consultants]
+            review_stats = {}
+            if consultant_ids:
+                stats_rows = session.exec(
+                    select(
+                        Review.consultant_user_id,
+                        func.count(Review.id),
+                        func.avg(Review.rating_helpful),
+                        func.avg(Review.rating_prepared),
+                        func.avg(Review.rating_communication),
+                    )
+                    .where(Review.consultant_user_id.in_(consultant_ids))
+                    .group_by(Review.consultant_user_id)
+                ).all()
+                for row in stats_rows:
+                    avg = round((row[2] + row[3] + row[4]) / 3, 1)
+                    review_stats[row[0]] = {'count': row[1], 'avg': avg}
+
             enriched_consultants = []
             for user in consultants:
+                stats = review_stats.get(user.id, {'count': 0, 'avg': 0})
                 user_data = {
                     'id': user.id,
                     'nome': user.nome,
@@ -275,8 +292,8 @@ async def consultants_page(
                     'descrizione': user.descrizione,
                     'profile_picture': user.profile_picture,
                     'prezzo_consulenza': user.prezzo_consulenza,
-                    'bollini': user.bollini,
-                    'consulenze_vendute': user.consulenze_vendute,
+                    'review_avg': stats['avg'],
+                    'review_count': stats['count'],
                     'category': None
                 }
                 

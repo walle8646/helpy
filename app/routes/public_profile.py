@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from app.models import User, Category, CategoryHierarchy, FavoriteConsultant
+from app.models import User, Category, CategoryHierarchy, FavoriteConsultant, Review
 from app.database import get_session
 from app.logger_config import logger
 from app.utils.template_helpers import get_all_categories
@@ -94,6 +94,29 @@ def public_user_profile(request: Request, user_id: int):
                 months = minutes // 43200
                 last_seen_label = f"Attivo {months} mes{'e' if months == 1 else 'i'} fa"
         
+        # Carica recensioni del consulente
+        reviews_raw = session.exec(
+            select(Review).where(Review.consultant_user_id == user_id).order_by(Review.created_at.desc())
+        ).all()
+        reviews = []
+        for r in reviews_raw:
+            reviewer = session.get(User, r.reviewer_user_id)
+            reviews.append({
+                "rating_helpful": r.rating_helpful,
+                "rating_prepared": r.rating_prepared,
+                "rating_communication": r.rating_communication,
+                "comment": r.comment,
+                "created_at": r.created_at,
+                "reviewer": reviewer,
+            })
+        avg_rating = None
+        if reviews:
+            total = sum(
+                (r["rating_helpful"] + r["rating_prepared"] + r["rating_communication"]) / 3
+                for r in reviews
+            )
+            avg_rating = round(total / len(reviews), 1)
+        
         return request.app.state.templates.TemplateResponse("user_profile.html", {
             "request": request,
             "user": user,
@@ -106,7 +129,9 @@ def public_user_profile(request: Request, user_id: int):
             "categories": categories,
             "user_languages": user_languages,
             "user_other_language": user_other_language,
-            "last_seen_label": last_seen_label
+            "last_seen_label": last_seen_label,
+            "reviews": reviews,
+            "avg_rating": avg_rating,
         })
 
 

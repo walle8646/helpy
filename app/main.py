@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.database import create_db_and_tables
-from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, notifications
+from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, notifications, review, dispute
 from app.logger_config import logger
 from app.scheduler import start_scheduler, shutdown_scheduler
 from app.utils.template_helpers import get_all_categories
@@ -77,6 +77,8 @@ app.include_router(booking.router, tags=["booking"])
 app.include_router(consultation.router, tags=["consultation"])
 app.include_router(stripe_webhook.router, tags=["webhooks"])
 app.include_router(notifications.router, tags=["notifications"])
+app.include_router(review.router, tags=["reviews"])
+app.include_router(dispute.router, tags=["disputes"])
 
 
 # Test S3 credentials
