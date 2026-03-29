@@ -813,7 +813,7 @@
                 <div class="pub-review-card">
                     <div class="pub-review-header">
                         <strong>{{ r.reviewer|display_name }}</strong>
-                        <span class="pub-review-date">{{ r.created_at.strftime('%d/%m/%Y') }}</span>
+                        <span class="pub-review-date">{{ r.created_at.strftime('%d/%m/%Y') if r.created_at else 'N/A' }}</span>
                     </div>
                     <div class="pub-review-ratings">
                         <span title="Aiuto concreto">🎯 {{ r.rating_helpful }}/5</span>

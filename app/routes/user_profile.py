@@ -107,7 +107,7 @@ async def user_profile(request: Request):
             )
     
     except Exception as e:
-        logger.error(f"Error in profile: {e}", exc_info=True)
+        logger.error("Error in profile: " + str(e), exc_info=True)
         request.session.clear()
         return RedirectResponse("/login", status_code=307)
 
@@ -159,7 +159,7 @@ async def get_liked_questions(request: Request):
             })
     
     except Exception as e:
-        logger.error(f"Error getting liked questions: {e}", exc_info=True)
+        logger.error("Error getting liked questions: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore nel recupero delle domande"},
             status_code=500
@@ -212,7 +212,7 @@ async def get_user_questions(request: Request):
             })
     
     except Exception as e:
-        logger.error(f"Error getting user questions: {e}", exc_info=True)
+        logger.error("Error getting user questions: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore nel recupero delle domande"},
             status_code=500
@@ -241,7 +241,7 @@ async def get_subcategories(category_id: int):
             
             return {"subcategories": subcategories}
     except Exception as e:
-        logger.error(f"Error getting subcategories: {e}", exc_info=True)
+        logger.error("Error getting subcategories: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore nel recupero delle sottocategorie"},
             status_code=500
@@ -369,7 +369,7 @@ async def update_profile(
                         logger.warning(f"❌ Profilo NON verificato per {db_user.email}: {ai_reason}")
                     
                 except Exception as e:
-                    logger.error(f"❌ Errore validazione AI profilo: {e}", exc_info=True)
+                    logger.error("❌ Errore validazione AI profilo: " + str(e), exc_info=True)
                     # In caso di errore AI, mantieni lo stato precedente
                     ai_reason = "Errore durante la verifica automatica"
             else:
@@ -396,7 +396,7 @@ async def update_profile(
             return JSONResponse(response_data)
     
     except Exception as e:
-        logger.error(f"Error updating profile: {e}", exc_info=True)
+        logger.error("Error updating profile: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore durante l'aggiornamento"},
             status_code=500
@@ -432,7 +432,7 @@ async def generate_interests(request: Request):
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=500)
     except Exception as e:
-        logger.error(f"❌ Errore generazione aree di interesse: {e}", exc_info=True)
+        logger.error("❌ Errore generazione aree di interesse: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore durante la generazione delle aree di interesse. Riprova."},
             status_code=500
@@ -477,7 +477,7 @@ async def generate_tags(request: Request):
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=500)
     except Exception as e:
-        logger.error(f"❌ Errore generazione tags: {e}", exc_info=True)
+        logger.error("❌ Errore generazione tags: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore durante la generazione dei tag. Riprova."},
             status_code=500
@@ -587,12 +587,12 @@ async def upload_profile_picture(request: Request, file: UploadFile = File(...))
             })
         
         except Exception as s3_error:
-            logger.error(f"❌ S3 upload error: {s3_error}", exc_info=True)
+            logger.error("❌ S3 upload error: " + str(s3_error), exc_info=True)
             # Fallback a salvataggio locale
             return save_profile_picture_locally(user, contents)
     
     except Exception as e:
-        logger.error(f"❌ Error uploading profile picture: {e}", exc_info=True)
+        logger.error("❌ Error uploading profile picture: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore durante l'upload"},
             status_code=500
@@ -635,7 +635,7 @@ def save_profile_picture_locally(user, file_contents):
         })
     
     except Exception as e:
-        logger.error(f"❌ Error saving profile picture locally: {e}", exc_info=True)
+        logger.error("❌ Error saving profile picture locally: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore durante il salvataggio dell'immagine"},
             status_code=500
@@ -676,7 +676,7 @@ async def set_anonymous_mode(request: Request):
             })
     
     except Exception as e:
-        logger.error(f"❌ Error setting anonymous mode: {e}", exc_info=True)
+        logger.error("❌ Error setting anonymous mode: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore durante l'aggiornamento della modalità anonima"},
             status_code=500
@@ -739,7 +739,7 @@ async def get_category_requests(request: Request):
             })
     
     except Exception as e:
-        logger.error(f"❌ Error loading category requests: {e}", exc_info=True)
+        logger.error("❌ Error loading category requests: " + str(e), exc_info=True)
         return JSONResponse(
             {"error": "Errore nel caricamento delle richieste", "questions": []},
             status_code=500
