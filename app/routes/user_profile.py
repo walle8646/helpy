@@ -38,8 +38,9 @@ async def user_profile(request: Request):
             logger.info(f"✅ Loaded {len(categories)} principal categories")
             
             # Formatta la data created_at prima di passarla
+            formatted_created_at = None
             if fresh_user.created_at:
-                fresh_user.created_at = fresh_user.created_at.strftime("%d/%m/%Y")
+                formatted_created_at = fresh_user.created_at.strftime("%d/%m/%Y")
             
             # Processiamo le aree di interesse
             aree_interesse_list = fresh_user.aree_interesse.split(',') if fresh_user.aree_interesse else []
@@ -102,7 +103,8 @@ async def user_profile(request: Request):
                     "user_languages": user_languages,
                     "user_other_language": user_other_language,
                     "reviews": reviews,
-                    "avg_rating": avg_rating
+                    "avg_rating": avg_rating,
+                    "formatted_created_at": formatted_created_at
                 }
             )
     

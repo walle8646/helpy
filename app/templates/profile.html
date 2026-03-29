@@ -779,7 +779,7 @@
                 <div class="pub-sidebar-card" style="background: white; color: #374151;">
                     <h3 style="color: #1a202c;">Account</h3>
                     <div style="text-align: left; font-size: .9em; line-height: 1.8;">
-                        <p style="margin: 0;"><strong>Membro dal:</strong> {{ user.created_at if user.created_at else 'N/A' }}</p>
+                        <p style="margin: 0;"><strong>Membro dal:</strong> {{ formatted_created_at if formatted_created_at else 'N/A' }}</p>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
                         <a href="/reset-password" class="pub-sidebar-link" style="color: #2d6a4f; text-decoration: none; padding: 10px 16px; background: #f0f8f0; border-radius: 8px; font-weight: 500; font-size: .9em; text-align: center; transition: all .2s;">
