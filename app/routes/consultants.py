@@ -135,6 +135,7 @@ async def consultants_page(
     search: Optional[str] = Query(None),
     min_price: Optional[float] = Query(None),
     max_price: Optional[float] = Query(None),
+    min_rating: Optional[float] = Query(None),
     page: int = Query(1, ge=1)
 ):
     """Pagina consulenti con filtri avanzati e ricerca intelligente"""
@@ -252,6 +253,32 @@ async def consultants_page(
             else:
                 consultants = all_results
             
+            # ========== FILTRO PER RECENSIONI ==========
+            if min_rating is not None and min_rating > 0:
+                # Carica review stats per tutti i risultati e filtra
+                all_ids = [u.id for u in consultants]
+                rating_map = {}
+                if all_ids:
+                    rating_rows = session.exec(
+                        select(
+                            Review.consultant_user_id,
+                            func.count(Review.id),
+                            func.avg(Review.rating_helpful),
+                            func.avg(Review.rating_prepared),
+                            func.avg(Review.rating_communication),
+                        )
+                        .where(Review.consultant_user_id.in_(all_ids))
+                        .group_by(Review.consultant_user_id)
+                    ).all()
+                    for row in rating_rows:
+                        avg = round((row[2] + row[3] + row[4]) / 3, 1)
+                        rating_map[row[0]] = avg
+                
+                consultants = [
+                    u for u in consultants
+                    if rating_map.get(u.id, 0) >= min_rating
+                ]
+            
             total_count = len(consultants)
             
             # ========== PAGINAZIONE ==========
@@ -324,6 +351,7 @@ async def consultants_page(
                     "search_query": search or '',
                     "min_price": min_price,
                     "max_price": max_price,
+                    "min_rating": min_rating,
                     "current_page": page,
                     "total_pages": total_pages,
                     "total_count": total_count
@@ -361,6 +389,7 @@ async def consultants_page(
                 "search_query": '',
                 "min_price": None,
                 "max_price": None,
+                "min_rating": None,
                 "current_page": 1,
                 "total_pages": 1,
                 "total_count": 0

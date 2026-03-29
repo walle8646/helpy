@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+
+{% block title %}Contestazione #{{ dispute.id }} - Admin Helpy{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-container {
+        max-width: 900px;
+        margin: 30px auto;
+        padding: 0 20px;
+    }
+    .admin-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+    }
+    .admin-header h1 {
+        font-size: 1.4rem;
+        color: #1a1a2e;
+        margin: 0;
+    }
+    .admin-nav {
+        display: flex;
+        gap: 8px;
+    }
+    .admin-nav a {
+        padding: 8px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #555;
+        background: #f5f5f5;
+        transition: all 0.2s;
+    }
+    .admin-nav a:hover { background: #667eea; color: #fff; }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-open { background: #fff3cd; color: #856404; }
+    .badge-in_review { background: #cce5ff; color: #004085; }
+    .badge-resolved { background: #d4edda; color: #155724; }
+    .badge-rejected { background: #f8d7da; color: #721c24; }
+
+    /* Info card */
+    .info-card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        margin-bottom: 20px;
+    }
+    .info-card h3 {
+        color: #1a1a2e;
+        font-size: 1rem;
+        margin: 0 0 16px 0;
+    }
+    .info-card h3 i { color: #667eea; margin-right: 6px; }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    .info-item label {
+        display: block;
+        font-size: 0.8rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 4px;
+    }
+    .info-item .value {
+        font-size: 0.95rem;
+        color: #333;
+        font-weight: 500;
+    }
+    .info-item .value a {
+        color: #667eea;
+        text-decoration: none;
+    }
+    .info-item .value a:hover { text-decoration: underline; }
+
+    /* Description */
+    .dispute-description {
+        background: #fff5f5;
+        border: 1px solid #fed7d7;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .dispute-description h3 {
+        color: #c62828;
+        font-size: 1rem;
+        margin: 0 0 12px 0;
+    }
+    .dispute-description p {
+        color: #333;
+        line-height: 1.6;
+        margin: 0;
+        white-space: pre-wrap;
+    }
+
+    /* Status actions */
+    .status-actions {
+        background: #fff;
+        border-radius: 14px;
+        padding: 20px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .status-actions label {
+        font-weight: 600;
+        color: #333;
+        font-size: 0.9rem;
+    }
+    .status-btn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 2px solid;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: transparent;
+    }
+    .status-btn.btn-open {
+        border-color: #ff9800;
+        color: #ff9800;
+    }
+    .status-btn.btn-open:hover, .status-btn.btn-open.active {
+        background: #ff9800;
+        color: #fff;
+    }
+    .status-btn.btn-in_review {
+        border-color: #2196f3;
+        color: #2196f3;
+    }
+    .status-btn.btn-in_review:hover, .status-btn.btn-in_review.active {
+        background: #2196f3;
+        color: #fff;
+    }
+    .status-btn.btn-resolved {
+        border-color: #4caf50;
+        color: #4caf50;
+    }
+    .status-btn.btn-resolved:hover, .status-btn.btn-resolved.active {
+        background: #4caf50;
+        color: #fff;
+    }
+    .status-btn.btn-rejected {
+        border-color: #e74c3c;
+        color: #e74c3c;
+    }
+    .status-btn.btn-rejected:hover, .status-btn.btn-rejected.active {
+        background: #e74c3c;
+        color: #fff;
+    }
+
+    /* Messages thread */
+    .messages-section {
+        background: #fff;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .messages-section h3 {
+        color: #1a1a2e;
+        font-size: 1rem;
+        margin: 0 0 16px 0;
+    }
+    .messages-section h3 i { color: #667eea; margin-right: 6px; }
+
+    .messages-thread {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 400px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        padding-right: 8px;
+    }
+    .msg-bubble {
+        max-width: 80%;
+        padding: 14px 16px;
+        border-radius: 14px;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        position: relative;
+    }
+    .msg-bubble.admin {
+        align-self: flex-end;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border-bottom-right-radius: 4px;
+    }
+    .msg-bubble.user {
+        align-self: flex-start;
+        background: #f5f5f5;
+        color: #333;
+        border-bottom-left-radius: 4px;
+    }
+    .msg-sender {
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+        opacity: 0.8;
+    }
+    .msg-time {
+        font-size: 0.7rem;
+        margin-top: 6px;
+        opacity: 0.6;
+    }
+
+    .no-messages {
+        text-align: center;
+        padding: 30px;
+        color: #999;
+    }
+    .no-messages i {
+        font-size: 2rem;
+        margin-bottom: 8px;
+        color: #ddd;
+    }
+
+    /* Reply form */
+    .reply-form {
+        display: flex;
+        gap: 10px;
+    }
+    .reply-form textarea {
+        flex: 1;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 12px;
+        font-size: 0.9rem;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 60px;
+        box-sizing: border-box;
+    }
+    .reply-form textarea:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    .reply-form button {
+        align-self: flex-end;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+    }
+    .reply-form button:hover { opacity: 0.9; }
+    .reply-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status-msg {
+        text-align: center;
+        padding: 8px;
+        border-radius: 6px;
+        margin-top: 10px;
+        font-size: 0.85rem;
+        display: none;
+    }
+    .status-msg.success { background: #e8f5e9; color: #2e7d32; display: block; }
+    .status-msg.error { background: #ffebee; color: #c62828; display: block; }
+
+    .download-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+    .download-btn:hover { opacity: 0.85; }
+    .download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    @media (max-width: 768px) {
+        .info-grid { grid-template-columns: 1fr; }
+        .status-actions { flex-direction: column; align-items: flex-start; }
+        .msg-bubble { max-width: 90%; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>
+            Contestazione #{{ dispute.id }}
+            <span class="badge badge-{{ dispute.status }}">
+                {% if dispute.status == 'open' %}Aperta
+                {% elif dispute.status == 'in_review' %}In revisione
+                {% elif dispute.status == 'resolved' %}Risolta
+                {% elif dispute.status == 'rejected' %}Rifiutata
+                {% endif %}
+            </span>
+        </h1>
+        <nav class="admin-nav">
+            <a href="/admin/disputes"><i class="fas fa-arrow-left"></i> Torna alla lista</a>
+            <a href="/admin/users"><i class="fas fa-users"></i> Utenti</a>
+            <a href="/admin/bookings"><i class="fas fa-video"></i> Consulenze</a>
+        </nav>
+    </div>
+
+    <!-- Info booking e parti -->
+    <div class="info-card">
+        <h3><i class="fas fa-info-circle"></i> Dettagli</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Cliente</label>
+                <div class="value">
+                    <a href="/user/{{ dispute.client.id }}">{{ dispute.client.name }}</a>
+                    <br><small style="color:#888;">{{ dispute.client.email }}</small>
+                </div>
+            </div>
+            <div class="info-item">
+                <label>Consulente</label>
+                <div class="value">
+                    <a href="/user/{{ dispute.consultant.id }}">{{ dispute.consultant.name }}</a>
+                    {% if dispute.consultant.professione %}
+                    <br><small style="color:#888;">{{ dispute.consultant.professione }}</small>
+                    {% endif %}
+                    <br><small style="color:#888;">{{ dispute.consultant.email }}</small>
+                </div>
+            </div>
+            <div class="info-item">
+                <label>Consulenza</label>
+                <div class="value">
+                    Booking #{{ dispute.booking_id }}
+                    {% if dispute.booking.date %}
+                    <br>{{ dispute.booking.date.strftime('%d/%m/%Y') }} {{ dispute.booking.start_time }} - {{ dispute.booking.end_time }}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="info-item">
+                <label>Pagamento</label>
+                <div class="value">
+                    {% if dispute.booking.price > 0 %}&euro;{{ "%.2f"|format(dispute.booking.price) }}{% else %}-{% endif %}
+                    <br><small style="color:#888;">Stato: {{ dispute.booking.payment_status or '-' }}</small>
+                </div>
+            </div>
+            <div class="info-item">
+                <label>Data apertura</label>
+                <div class="value">{{ dispute.created_at.strftime('%d/%m/%Y %H:%M') if dispute.created_at else '-' }}</div>
+            </div>
+            <div class="info-item">
+                <label>Ultimo aggiornamento</label>
+                <div class="value">{{ dispute.updated_at.strftime('%d/%m/%Y %H:%M') if dispute.updated_at else 'Mai' }}</div>
+            </div>
+            <div class="info-item">
+                <label>Registrazione</label>
+                <div class="value">
+                    {% if dispute.booking.recording_filename %}
+                    <button class="download-btn" onclick="downloadRecording({{ dispute.booking_id }}, this)">
+                        <i class="fas fa-download"></i> Scarica MP4
+                    </button>
+                    {% else %}
+                    <span style="color: #999;"><i class="fas fa-video-slash"></i> Nessun video</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Descrizione contestazione -->
+    <div class="dispute-description">
+        <h3><i class="fas fa-exclamation-triangle"></i> Motivazione del cliente</h3>
+        <p>{{ dispute.description }}</p>
+    </div>
+
+    <!-- Azioni stato -->
+    <div class="status-actions">
+        <label>Cambia stato:</label>
+        <button class="status-btn btn-open {% if dispute.status == 'open' %}active{% endif %}" onclick="updateStatus('open')">Aperta</button>
+        <button class="status-btn btn-in_review {% if dispute.status == 'in_review' %}active{% endif %}" onclick="updateStatus('in_review')">In revisione</button>
+        <button class="status-btn btn-resolved {% if dispute.status == 'resolved' %}active{% endif %}" onclick="updateStatus('resolved')">Risolta</button>
+        <button class="status-btn btn-rejected {% if dispute.status == 'rejected' %}active{% endif %}" onclick="updateStatus('rejected')">Rifiutata</button>
+        <div id="statusMsg" class="status-msg"></div>
+    </div>
+
+    <!-- Thread messaggi -->
+    <div class="messages-section">
+        <h3><i class="fas fa-comments"></i> Conversazione</h3>
+
+        <div class="messages-thread" id="messagesThread">
+            {% if messages %}
+                {% for m in messages %}
+                <div class="msg-bubble {% if m.is_admin %}admin{% else %}user{% endif %}">
+                    <div class="msg-sender">{{ m.sender_name }}</div>
+                    <div>{{ m.message }}</div>
+                    <div class="msg-time">{{ m.created_at.strftime('%d/%m/%Y %H:%M') if m.created_at else '' }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-messages">
+                    <i class="fas fa-comment-slash"></i>
+                    <p>Nessun messaggio ancora. Rispondi per avviare la conversazione.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Reply form -->
+        <div class="reply-form">
+            <textarea id="replyMessage" placeholder="Scrivi un messaggio al cliente..." maxlength="5000"></textarea>
+            <button id="sendBtn" onclick="sendMessage()">
+                <i class="fas fa-paper-plane"></i> Invia
+            </button>
+        </div>
+        <div id="replyMsg" class="status-msg"></div>
+    </div>
+</div>
+
+<script>
+    // Scroll messaggi in fondo
+    const thread = document.getElementById('messagesThread');
+    if (thread) thread.scrollTop = thread.scrollHeight;
+
+    async function sendMessage() {
+        const textarea = document.getElementById('replyMessage');
+        const msg = textarea.value.trim();
+        if (!msg) return;
+        
+        const btn = document.getElementById('sendBtn');
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch('/admin/api/disputes/{{ dispute.id }}/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: msg })
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                // Aggiungi messaggio al thread
+                const noMsg = thread.querySelector('.no-messages');
+                if (noMsg) noMsg.remove();
+
+                const bubble = document.createElement('div');
+                bubble.className = 'msg-bubble admin';
+                const now = new Date();
+                bubble.innerHTML = `
+                    <div class="msg-sender">{{ current_user.nome or '' }} {{ current_user.cognome or '' }}</div>
+                    <div>${msg.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                    <div class="msg-time">${now.toLocaleDateString('it-IT')} ${now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'})}</div>
+                `;
+                thread.appendChild(bubble);
+                thread.scrollTop = thread.scrollHeight;
+                textarea.value = '';
+
+                showReplyMsg('Messaggio inviato', 'success');
+            } else {
+                showReplyMsg(data.detail || 'Errore', 'error');
+            }
+        } catch (e) {
+            showReplyMsg('Errore di connessione', 'error');
+        }
+        btn.disabled = false;
+    }
+
+    async function updateStatus(status) {
+        try {
+            const resp = await fetch('/admin/api/disputes/{{ dispute.id }}/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                // Aggiorna bottoni attivi
+                document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`.btn-${status}`).classList.add('active');
+                showStatusMsg('Stato aggiornato', 'success');
+            } else {
+                showStatusMsg(data.detail || 'Errore', 'error');
+            }
+        } catch (e) {
+            showStatusMsg('Errore di connessione', 'error');
+        }
+    }
+
+    function showReplyMsg(text, type) {
+        const el = document.getElementById('replyMsg');
+        el.textContent = text;
+        el.className = 'status-msg ' + type;
+        setTimeout(() => { el.className = 'status-msg'; }, 3000);
+    }
+
+    function showStatusMsg(text, type) {
+        const el = document.getElementById('statusMsg');
+        el.textContent = text;
+        el.className = 'status-msg ' + type;
+        setTimeout(() => { el.className = 'status-msg'; }, 3000);
+    }
+
+    async function downloadRecording(bookingId, btn) {
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
+        try {
+            const resp = await fetch(`/admin/api/bookings/${bookingId}/download`);
+            const data = await resp.json();
+            if (resp.ok && data.url) {
+                window.open(data.url, '_blank');
+            } else {
+                alert(data.detail || 'Errore nel download');
+            }
+        } catch (e) {
+            alert('Errore di connessione');
+        }
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+</script>
+{% endblock %}

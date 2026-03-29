@@ -701,6 +701,7 @@
 </div>
 
 <script>
+window.DEBUG_MODE = {{ debug_mode|default(false)|tojson }};
 let currentDate = new Date();
 let selectedDate = null;
 let timeBlocks = [];
@@ -813,6 +814,7 @@ function renderCalendar() {
 
 // Calcola l'orario minimo consentito (4 ore da adesso) — vale solo per oggi
 function getMinStartTime() {
+    if (window.DEBUG_MODE) return null;
     if (!selectedDate) return null;
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

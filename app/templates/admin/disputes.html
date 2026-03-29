@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Contestazioni - Admin Helpy{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-container {
+        max-width: 1200px;
+        margin: 30px auto;
+        padding: 0 20px;
+    }
+    .admin-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 30px;
+    }
+    .admin-header h1 {
+        font-size: 1.6rem;
+        color: #1a1a2e;
+        margin: 0;
+    }
+    .admin-header h1 i { color: #e74c3c; }
+    .admin-nav {
+        display: flex;
+        gap: 8px;
+    }
+    .admin-nav a {
+        padding: 8px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #555;
+        background: #f5f5f5;
+        transition: all 0.2s;
+    }
+    .admin-nav a:hover, .admin-nav a.active {
+        background: #667eea;
+        color: #fff;
+    }
+
+    /* Filter tabs */
+    .filter-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .filter-tab {
+        padding: 8px 16px;
+        border-radius: 20px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #555;
+        background: #f0f0f0;
+        transition: all 0.2s;
+    }
+    .filter-tab:hover { background: #e0e0e0; }
+    .filter-tab.active { background: #667eea; color: #fff; }
+    .filter-tab .count {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        margin-left: 4px;
+        background: rgba(0,0,0,0.1);
+    }
+    .filter-tab.active .count { background: rgba(255,255,255,0.3); }
+
+    /* Disputes list */
+    .disputes-list { display: flex; flex-direction: column; gap: 12px; }
+    
+    .dispute-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        display: flex;
+        gap: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-left: 4px solid #ddd;
+    }
+    .dispute-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+    }
+    .dispute-card.status-open { border-left-color: #ff9800; }
+    .dispute-card.status-in_review { border-left-color: #2196f3; }
+    .dispute-card.status-resolved { border-left-color: #4caf50; }
+    .dispute-card.status-rejected { border-left-color: #e74c3c; }
+
+    .dispute-card-main { flex: 1; }
+    .dispute-card-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+    .dispute-card-id {
+        font-weight: 700;
+        color: #667eea;
+        font-size: 0.9rem;
+    }
+    .dispute-card-date {
+        font-size: 0.8rem;
+        color: #999;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-open { background: #fff3cd; color: #856404; }
+    .badge-in_review { background: #cce5ff; color: #004085; }
+    .badge-resolved { background: #d4edda; color: #155724; }
+    .badge-rejected { background: #f8d7da; color: #721c24; }
+
+    .dispute-card-people {
+        font-size: 0.9rem;
+        color: #333;
+        margin-bottom: 6px;
+    }
+    .dispute-card-people strong { color: #1a1a2e; }
+    .dispute-card-desc {
+        font-size: 0.85rem;
+        color: #666;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .dispute-card-meta {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-top: 8px;
+        font-size: 0.8rem;
+        color: #999;
+    }
+
+    .dispute-card-side {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        min-width: 100px;
+    }
+    .dispute-card-price {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #333;
+    }
+    .dispute-card-msgs {
+        font-size: 0.8rem;
+        color: #999;
+        margin-top: 4px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 16px;
+        color: #ddd;
+    }
+
+    @media (max-width: 768px) {
+        .dispute-card { flex-direction: column; }
+        .dispute-card-side { flex-direction: row; align-items: center; min-width: auto; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1><i class="fas fa-exclamation-triangle"></i> Contestazioni</h1>
+        <nav class="admin-nav">
+            <a href="/admin"><i class="fas fa-chart-bar"></i> Dashboard</a>
+            <a href="/admin/disputes" class="active"><i class="fas fa-exclamation-triangle"></i> Contestazioni</a>
+            <a href="/admin/users"><i class="fas fa-users"></i> Utenti</a>
+            <a href="/admin/bookings"><i class="fas fa-video"></i> Consulenze</a>
+        </nav>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="filter-tabs">
+        <a href="/admin/disputes?status=all" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">
+            Tutte <span class="count">{{ counts.all }}</span>
+        </a>
+        <a href="/admin/disputes?status=open" class="filter-tab {% if status_filter == 'open' %}active{% endif %}">
+            Aperte <span class="count">{{ counts.open }}</span>
+        </a>
+        <a href="/admin/disputes?status=in_review" class="filter-tab {% if status_filter == 'in_review' %}active{% endif %}">
+            In revisione <span class="count">{{ counts.in_review }}</span>
+        </a>
+        <a href="/admin/disputes?status=resolved" class="filter-tab {% if status_filter == 'resolved' %}active{% endif %}">
+            Risolte <span class="count">{{ counts.resolved }}</span>
+        </a>
+        <a href="/admin/disputes?status=rejected" class="filter-tab {% if status_filter == 'rejected' %}active{% endif %}">
+            Rifiutate <span class="count">{{ counts.rejected }}</span>
+        </a>
+    </div>
+
+    <!-- Disputes list -->
+    <div class="disputes-list">
+        {% for d in disputes %}
+        <div class="dispute-card status-{{ d.status }}" onclick="window.location='/admin/disputes/{{ d.id }}'">
+            <div class="dispute-card-main">
+                <div class="dispute-card-top">
+                    <span class="dispute-card-id">#{{ d.id }}</span>
+                    <span class="badge badge-{{ d.status }}">
+                        {% if d.status == 'open' %}Aperta
+                        {% elif d.status == 'in_review' %}In revisione
+                        {% elif d.status == 'resolved' %}Risolta
+                        {% elif d.status == 'rejected' %}Rifiutata
+                        {% endif %}
+                    </span>
+                    <span class="dispute-card-date">{{ d.created_at.strftime('%d/%m/%Y %H:%M') if d.created_at else '-' }}</span>
+                </div>
+                <div class="dispute-card-people">
+                    <strong>{{ d.client_name }}</strong> vs <strong>{{ d.consultant_name }}</strong>
+                </div>
+                <div class="dispute-card-desc">{{ d.description }}</div>
+                <div class="dispute-card-meta">
+                    <span><i class="fas fa-calendar"></i> Booking #{{ d.booking_id }}{% if d.booking_date %} &middot; {{ d.booking_date.strftime('%d/%m/%Y') }}{% endif %}</span>
+                    {% if d.message_count > 0 %}
+                    <span><i class="fas fa-comments"></i> {{ d.message_count }} messaggi</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="dispute-card-side">
+                {% if d.booking_price > 0 %}
+                <div class="dispute-card-price">&euro;{{ "%.2f"|format(d.booking_price) }}</div>
+                {% endif %}
+                <div class="dispute-card-msgs">
+                    {% if d.message_count == 0 %}Nessuna risposta{% else %}{{ d.message_count }} msg{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not disputes %}
+        <div class="empty-state">
+            <i class="fas fa-check-circle"></i>
+            <h3>Nessuna contestazione</h3>
+            <p>Non ci sono contestazioni con questo filtro.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

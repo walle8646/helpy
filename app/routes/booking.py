@@ -13,6 +13,8 @@ from app.routes.auth import get_current_user
 from app.utils.agora_recording import start_recording, stop_recording, get_recording_url
 from app.logger_config import logger
 from app.utils.stripe_config import create_checkout_session
+
+DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
 from app.utils.notification_service import send_notification
 
 router = APIRouter()
@@ -75,24 +77,27 @@ def calculate_available_slots(
     target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     
     # Calcola il minimo datetime: 4 ore nel futuro dal momento attuale
-    min_datetime = now_italy + timedelta(hours=4)
-    
-    # Se il minimo datetime è dopo il target_date (cioè il target_date è nel passato rispetto al limite),
-    # allora non ci sono slot disponibili per questa data
-    if target_date < min_datetime.date():
-        print(f"🕐 Data {target_date} è prima del limite di 4 ore ({min_datetime.date()}), nessuno slot disponibile")
-        return []
-    
-    # Calcola i minuti da inizio giornata per il minimo time
-    if min_datetime.date() == target_date:
-        # Il limite di 4 ore cade nello stesso giorno della prenotazione
-        current_time_minutes = min_datetime.hour * 60 + min_datetime.minute
-    else:
-        # Il limite di 4 ore cade in un giorno precedente (target_date è dopo il limite)
-        # Quindi nessun limite per questo giorno (può iniziare da 00:00)
+    if DEBUG_MODE:
         current_time_minutes = 0
+    else:
+        min_datetime = now_italy + timedelta(hours=4)
+        
+        # Se il minimo datetime è dopo il target_date (cioè il target_date è nel passato rispetto al limite),
+        # allora non ci sono slot disponibili per questa data
+        if target_date < min_datetime.date():
+            print(f"🕐 Data {target_date} è prima del limite di 4 ore ({min_datetime.date()}), nessuno slot disponibile")
+            return []
+        
+        # Calcola i minuti da inizio giornata per il minimo time
+        if min_datetime.date() == target_date:
+            # Il limite di 4 ore cade nello stesso giorno della prenotazione
+            current_time_minutes = min_datetime.hour * 60 + min_datetime.minute
+        else:
+            # Il limite di 4 ore cade in un giorno precedente (target_date è dopo il limite)
+            # Quindi nessun limite per questo giorno (può iniziare da 00:00)
+            current_time_minutes = 0
     
-    print(f"🕐 calculate_available_slots: now={now_italy}, min_datetime={min_datetime}, target_date={target_date}, current_time_minutes={current_time_minutes}")
+    print(f"🕐 calculate_available_slots: now={now_italy}, target_date={target_date}, current_time_minutes={current_time_minutes}, debug={DEBUG_MODE}")
     
     for block in availability_blocks:
         # Converti start_time e end_time in minuti
@@ -192,7 +197,8 @@ async def booking_page(
             "request": request,
             "user": current_user,
             "current_user": current_user,  # Per la navbar
-            "consultant": consultant
+            "consultant": consultant,
+            "debug_mode": DEBUG_MODE
         })
 
 # ========== API ENDPOINTS ==========
@@ -229,7 +235,7 @@ async def get_available_slots(
         
         # Non si può prenotare nel passato (usa timezone italiano)
         today_italy = datetime.now(ITALY_TZ).date()
-        if target_date < today_italy:
+        if target_date < today_italy and not DEBUG_MODE:
             raise HTTPException(status_code=400, detail="Non puoi prenotare nel passato")
         
         # Prendi i blocchi di disponibilità per quella data
@@ -348,13 +354,14 @@ async def create_booking(
             raise HTTPException(status_code=400, detail="Formato data non valido")
         
         # ✅ Validazione: prenotazione almeno 4 ore nel futuro
-        # Combina data + ora di inizio
-        booking_datetime = datetime.strptime(f"{booking_date_str} {start_time}", '%Y-%m-%d %H:%M')
-        now = datetime.utcnow()
-        time_until_booking = (booking_datetime - now).total_seconds() / 3600  # in ore
-        
-        if time_until_booking < 4:
-            raise HTTPException(status_code=400, detail="La consulenza deve essere prenotata almeno 4 ore nel futuro")
+        if not DEBUG_MODE:
+            # Combina data + ora di inizio
+            booking_datetime = datetime.strptime(f"{booking_date_str} {start_time}", '%Y-%m-%d %H:%M')
+            now = datetime.utcnow()
+            time_until_booking = (booking_datetime - now).total_seconds() / 3600  # in ore
+            
+            if time_until_booking < 4:
+                raise HTTPException(status_code=400, detail="La consulenza deve essere prenotata almeno 4 ore nel futuro")
         
         # Verifica che lo slot sia ancora disponibile (prevenzione double booking)
         existing_booking = session.exec(

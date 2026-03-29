@@ -555,6 +555,7 @@
 </div>
 
 <script>
+    window.DEBUG_MODE = {{ debug_mode|default(false)|tojson }};
     const consultantId = {{ consultant.id }};
     const pricePerHour = {{ consultant.prezzo_consulenza or 0 }};
     

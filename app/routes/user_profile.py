@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Form, UploadFile, File, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
-from app.models import User, Category, CategoryHierarchy
+from app.models import User, Category, CategoryHierarchy, Review
 from sqlmodel import select, and_, func
 from app.routes.auth import verify_token
 from app.logger_config import logger
@@ -67,6 +67,29 @@ async def user_profile(request: Request):
                 except (json.JSONDecodeError, AttributeError):
                     pass
             
+            # Recensioni ricevute
+            reviews_raw = session.exec(
+                select(Review).where(Review.consultant_user_id == fresh_user.id).order_by(Review.created_at.desc())
+            ).all()
+            reviews = []
+            for r in reviews_raw:
+                reviewer = session.get(User, r.reviewer_user_id)
+                reviews.append({
+                    "rating_helpful": r.rating_helpful,
+                    "rating_prepared": r.rating_prepared,
+                    "rating_communication": r.rating_communication,
+                    "comment": r.comment,
+                    "created_at": r.created_at,
+                    "reviewer": reviewer,
+                })
+            avg_rating = None
+            if reviews:
+                total = sum(
+                    (r["rating_helpful"] + r["rating_prepared"] + r["rating_communication"]) / 3
+                    for r in reviews
+                )
+                avg_rating = round(total / len(reviews), 1)
+            
             return request.app.state.templates.TemplateResponse(
                 "profile.html",
                 {
@@ -77,7 +100,9 @@ async def user_profile(request: Request):
                     "aree_interesse_list": aree_interesse_list,
                     "user_category": user_category,
                     "user_languages": user_languages,
-                    "user_other_language": user_other_language
+                    "user_other_language": user_other_language,
+                    "reviews": reviews,
+                    "avg_rating": avg_rating
                 }
             )
     

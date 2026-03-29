@@ -808,6 +808,12 @@
                             <i class="fas fa-user"></i>
                             <span>Profilo</span>
                         </a>
+                        {% if current_user.user_type_id >= 2 %}
+                        <a href="/admin" class="user-menu-item">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Admin</span>
+                        </a>
+                        {% endif %}
                         <a href="/logout" class="user-menu-item logout-item">
                             <i class="fas fa-sign-out-alt"></i>
                             <span>Logout</span>

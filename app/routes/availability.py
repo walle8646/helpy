@@ -11,7 +11,10 @@ from app.database import engine
 from app.models import User, AvailabilityBlock
 from app.routes.auth import verify_token
 
+import os
+
 ITALY_TZ = ZoneInfo("Europe/Rome")
+DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -48,7 +51,8 @@ async def availability_page(request: Request):
     return request.app.state.templates.TemplateResponse("availability.html", {
         "request": request,
         "user": user,
-        "current_user": user
+        "current_user": user,
+        "debug_mode": DEBUG_MODE
     })
 
 @router.get("/api/availability/{date_str}")
@@ -117,7 +121,7 @@ async def save_availability(
         now_italy = datetime.now(ITALY_TZ)
         today_italy = now_italy.date()
         
-        if target_date == today_italy:
+        if target_date == today_italy and not DEBUG_MODE:
             min_start = now_italy + timedelta(hours=4)
             min_start_minutes = min_start.hour * 60 + min_start.minute
             
@@ -138,7 +142,7 @@ async def save_availability(
                             "message": f"Per oggi le fasce orarie devono iniziare dopo le {min_time_formatted} (almeno 4 ore da adesso)"
                         }
                     )
-        elif target_date < today_italy:
+        elif target_date < today_italy and not DEBUG_MODE:
             return JSONResponse(
                 status_code=400,
                 content={
@@ -249,10 +253,10 @@ async def copy_availability(
                 now_italy = datetime.now(ITALY_TZ)
                 today_italy = now_italy.date()
                 min_start_minutes = None
-                if target_date == today_italy:
+                if target_date == today_italy and not DEBUG_MODE:
                     min_start = now_italy + timedelta(hours=4)
                     min_start_minutes = min_start.hour * 60 + min_start.minute
-                elif target_date < today_italy:
+                elif target_date < today_italy and not DEBUG_MODE:
                     continue  # Salta date passate
                 
                 # Rimuovi blocchi esistenti

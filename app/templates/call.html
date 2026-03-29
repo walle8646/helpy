@@ -907,15 +907,21 @@
     }
     .review-btn-email:hover { background: #f0f0ff; }
     .review-btn-dispute {
-        background: none;
-        border: none;
+        display: block;
+        width: 100%;
+        background: #fff5f5;
+        border: 2px solid #e74c3c;
         color: #e74c3c;
-        font-size: 0.85rem;
+        font-size: 0.95rem;
+        font-weight: 600;
         cursor: pointer;
-        margin-top: 8px;
-        text-decoration: underline;
+        margin-top: 12px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        text-align: center;
+        transition: all 0.2s;
     }
-    .review-btn-dispute:hover { color: #c0392b; }
+    .review-btn-dispute:hover { background: #e74c3c; color: #fff; }
     .dispute-form-container {
         display: none;
         margin-top: 16px;
@@ -1884,7 +1890,11 @@
 
     function toggleDisputeForm() {
         const container = document.getElementById('disputeFormContainer');
-        container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        const isHidden = getComputedStyle(container).display === 'none';
+        container.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) {
+            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     }
 
     function updateDisputeCharCount() {

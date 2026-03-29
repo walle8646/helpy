@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}Consulenze - Admin Helpy{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-container {
+        max-width: 1200px;
+        margin: 30px auto;
+        padding: 0 20px;
+    }
+    .admin-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .admin-header h1 {
+        font-size: 1.6rem;
+        color: #1a1a2e;
+        margin: 0;
+    }
+    .admin-header h1 i { color: #667eea; }
+    .admin-nav {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .admin-nav a {
+        padding: 8px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #555;
+        background: #f5f5f5;
+        transition: all 0.2s;
+    }
+    .admin-nav a:hover, .admin-nav a.active {
+        background: #667eea;
+        color: #fff;
+    }
+
+    /* Search */
+    .search-box {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+    .search-box input {
+        flex: 1;
+        padding: 12px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        transition: border-color 0.2s;
+    }
+    .search-box input:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    .search-box button {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+    }
+    .search-box button:hover { opacity: 0.9; }
+    .search-info {
+        font-size: 0.85rem;
+        color: #888;
+        margin-bottom: 16px;
+    }
+
+    /* Booking cards */
+    .bookings-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .booking-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 18px 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        transition: box-shadow 0.2s;
+    }
+    .booking-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+
+    .booking-date-col {
+        text-align: center;
+        min-width: 70px;
+        flex-shrink: 0;
+    }
+    .booking-day {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        line-height: 1;
+    }
+    .booking-month {
+        font-size: 0.75rem;
+        color: #888;
+        text-transform: uppercase;
+        margin-top: 2px;
+    }
+    .booking-year {
+        font-size: 0.7rem;
+        color: #bbb;
+    }
+
+    .booking-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .booking-participants {
+        font-size: 0.9rem;
+        color: #1a1a2e;
+        margin-bottom: 4px;
+    }
+    .booking-participants strong { font-weight: 600; }
+    .booking-participants .arrow {
+        color: #667eea;
+        margin: 0 6px;
+    }
+    .booking-details {
+        font-size: 0.8rem;
+        color: #888;
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+    .booking-details span i {
+        margin-right: 4px;
+        width: 14px;
+        text-align: center;
+    }
+
+    /* Status badges */
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        flex-shrink: 0;
+    }
+    .status-completed { background: #e8f5e9; color: #2e7d32; }
+    .status-confirmed { background: #e3f2fd; color: #1565c0; }
+    .status-pending { background: #fff8e1; color: #f57f17; }
+    .status-cancelled { background: #fce4ec; color: #c62828; }
+    .status-no_show { background: #f3e5f5; color: #6a1b9a; }
+
+    .payment-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 5px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+    .payment-paid { background: #e8f5e9; color: #2e7d32; }
+    .payment-pending { background: #fff8e1; color: #f57f17; }
+    .payment-refunded { background: #e3f2fd; color: #1565c0; }
+    .payment-failed { background: #fce4ec; color: #c62828; }
+
+    .booking-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        flex-shrink: 0;
+        min-width: 120px;
+    }
+    .booking-price {
+        font-weight: 700;
+        font-size: 1rem;
+        color: #1a1a2e;
+    }
+    .download-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        transition: opacity 0.2s;
+    }
+    .download-btn:hover { opacity: 0.85; }
+    .download-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .no-recording {
+        font-size: 0.7rem;
+        color: #ccc;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 16px;
+        color: #ddd;
+    }
+
+    @media (max-width: 768px) {
+        .booking-card {
+            flex-wrap: wrap;
+        }
+        .booking-actions {
+            width: 100%;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1><i class="fas fa-video"></i> Consulenze</h1>
+        <nav class="admin-nav">
+            <a href="/admin"><i class="fas fa-chart-bar"></i> Dashboard</a>
+            <a href="/admin/disputes"><i class="fas fa-exclamation-triangle"></i> Contestazioni</a>
+            <a href="/admin/users"><i class="fas fa-users"></i> Utenti</a>
+            <a href="/admin/bookings" class="active"><i class="fas fa-video"></i> Consulenze</a>
+        </nav>
+    </div>
+
+    <!-- Search -->
+    <form class="search-box" method="GET" action="/admin/bookings">
+        <input type="text" name="q" value="{{ search }}" placeholder="Cerca per email, nome o cognome dei partecipanti..." autofocus>
+        <button type="submit"><i class="fas fa-search"></i> Cerca</button>
+    </form>
+
+    <div class="search-info">
+        {% if search %}
+            {{ bookings|length }} risultati per "<strong>{{ search }}</strong>" &middot;
+            <a href="/admin/bookings" style="color: #667eea;">Mostra tutte</a>
+        {% else %}
+            Ultime 100 consulenze su {{ total_bookings }} totali
+        {% endif %}
+    </div>
+
+    <!-- Bookings list -->
+    <div class="bookings-list">
+        {% for b in bookings %}
+        <div class="booking-card">
+            <!-- Date -->
+            <div class="booking-date-col">
+                <div class="booking-day">{{ b.booking_date.strftime('%d') }}</div>
+                <div class="booking-month">{{ b.booking_date.strftime('%b') }}</div>
+                <div class="booking-year">{{ b.booking_date.strftime('%Y') }}</div>
+            </div>
+
+            <!-- Info -->
+            <div class="booking-info">
+                <div class="booking-participants">
+                    <strong>{{ b.client_name }}</strong>
+                    <span class="arrow"><i class="fas fa-arrow-right"></i></span>
+                    <strong>{{ b.consultant_name }}</strong>
+                </div>
+                <div class="booking-details">
+                    <span><i class="fas fa-clock"></i> {{ b.start_time }} - {{ b.end_time }}</span>
+                    <span><i class="fas fa-hourglass-half"></i> {{ b.duration_minutes }} min</span>
+                    <span><i class="fas fa-hashtag"></i> #{{ b.id }}</span>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <span class="status-badge status-{{ b.status }}">
+                {% if b.status == 'completed' %}Completata
+                {% elif b.status == 'confirmed' %}Confermata
+                {% elif b.status == 'pending' %}In attesa
+                {% elif b.status == 'cancelled' %}Cancellata
+                {% elif b.status == 'no_show' %}No show
+                {% else %}{{ b.status }}{% endif %}
+            </span>
+
+            <span class="payment-badge payment-{{ b.payment_status }}">
+                {% if b.payment_status == 'paid' %}Pagato
+                {% elif b.payment_status == 'pending' %}Non pagato
+                {% elif b.payment_status == 'refunded' %}Rimborsato
+                {% elif b.payment_status == 'failed' %}Fallito
+                {% else %}{{ b.payment_status }}{% endif %}
+            </span>
+
+            <!-- Price + Download -->
+            <div class="booking-actions">
+                <div class="booking-price">
+                    {% if b.price %}€{{ "%.2f"|format(b.price) }}{% else %}-{% endif %}
+                </div>
+                {% if b.recording_filename %}
+                <button class="download-btn" onclick="downloadRecording({{ b.id }}, this)">
+                    <i class="fas fa-download"></i> Video MP4
+                </button>
+                {% else %}
+                <span class="no-recording"><i class="fas fa-video-slash"></i> Nessun video</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not bookings %}
+        <div class="empty-state">
+            <i class="fas fa-calendar-times"></i>
+            <h3>Nessuna consulenza trovata</h3>
+            {% if search %}
+            <p>Nessun risultato per "{{ search }}". Prova con un'altra ricerca.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    async function downloadRecording(bookingId, btn) {
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
+
+        try {
+            const resp = await fetch(`/admin/api/bookings/${bookingId}/download`);
+            const data = await resp.json();
+            if (resp.ok && data.url) {
+                window.open(data.url, '_blank');
+            } else {
+                alert(data.detail || 'Errore nel download');
+            }
+        } catch (e) {
+            alert('Errore di connessione');
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+</script>
+{% endblock %}
