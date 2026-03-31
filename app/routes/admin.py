@@ -321,6 +321,10 @@ async def admin_dispute_detail(dispute_id: int, request: Request):
                 "payment_status": booking.payment_status if booking else None,
                 "recording_filename": booking.recording_filename if booking else None,
             },
+            "ai_verdict": dispute.ai_verdict,
+            "ai_confidence": dispute.ai_confidence,
+            "ai_comment": dispute.ai_comment,
+            "ai_analyzed_at": dispute.ai_analyzed_at,
         }
 
     return request.app.state.templates.TemplateResponse(
@@ -627,3 +631,75 @@ async def admin_download_recording(booking_id: int, request: Request):
             raise HTTPException(status_code=500, detail="Errore nella generazione del link di download")
 
         return JSONResponse({"url": url})
+
+
+# ==================== AI ANALYSIS ====================
+
+@router.post("/api/disputes/{dispute_id}/ai-analysis")
+async def admin_ai_analysis(dispute_id: int, request: Request):
+    """Analizza il video della consulenza con Gemini AI per valutare la contestazione"""
+    admin_user = require_admin(request)
+    if not admin_user:
+        raise HTTPException(status_code=401, detail="Non autorizzato")
+
+    with Session(engine) as session:
+        dispute = session.get(Dispute, dispute_id)
+        if not dispute:
+            raise HTTPException(status_code=404, detail="Contestazione non trovata")
+
+        booking = session.get(Booking, dispute.booking_id)
+        if not booking or not booking.recording_filename:
+            raise HTTPException(status_code=404, detail="Nessuna registrazione video disponibile per questa consulenza")
+
+        client = session.get(User, dispute.client_user_id)
+        consultant = session.get(User, dispute.consultant_user_id)
+
+        client_name = f"{client.nome or ''} {client.cognome or ''}".strip() if client else "?"
+        consultant_name = f"{consultant.nome or ''} {consultant.cognome or ''}".strip() if consultant else "?"
+        booking_date = booking.booking_date.strftime('%d/%m/%Y') if booking.booking_date else "?"
+        booking_time = f"{booking.start_time} - {booking.end_time}" if booking.start_time else "?"
+
+        import os
+        video_path = None
+        try:
+            from app.utils.gemini_analysis import download_video_from_s3, analyze_dispute_video
+
+            # 1. Scarica video da S3
+            video_path = download_video_from_s3(booking.id)
+
+            # 2. Analizza con Gemini
+            result = analyze_dispute_video(
+                video_path=video_path,
+                booking_description=booking.description,
+                dispute_description=dispute.description,
+                consultant_name=consultant_name,
+                client_name=client_name,
+                booking_date=booking_date,
+                booking_time=booking_time,
+            )
+
+            # 3. Salva risultati nel DB
+            dispute.ai_verdict = result["verdict"]
+            dispute.ai_confidence = result["confidence"]
+            dispute.ai_comment = result["comment"]
+            dispute.ai_analyzed_at = datetime.now(ITALY_TZ)
+            session.add(dispute)
+            session.commit()
+
+            return JSONResponse({
+                "success": True,
+                "verdict": result["verdict"],
+                "confidence": result["confidence"],
+                "comment": result["comment"],
+            })
+
+        except Exception as e:
+            logger.error(f"Errore analisi AI contestazione {dispute_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Errore nell'analisi AI: {str(e)}")
+        finally:
+            # Cleanup file temporaneo
+            if video_path:
+                try:
+                    os.unlink(video_path)
+                except Exception:
+                    pass

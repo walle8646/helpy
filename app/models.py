@@ -401,6 +401,12 @@ class Dispute(SQLModel, table=True):
     description: str = Field(max_length=5000)  # Descrizione del problema
     status: str = Field(default="open")  # open, in_review, resolved, rejected
     
+    # Analisi AI della contestazione
+    ai_verdict: Optional[str] = Field(default=None)  # justified, unjustified, uncertain
+    ai_confidence: Optional[int] = Field(default=None)  # 0-100
+    ai_comment: Optional[str] = Field(default=None, max_length=5000)
+    ai_analyzed_at: Optional[datetime] = Field(default=None)
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default=None)
 

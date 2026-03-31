@@ -296,6 +296,95 @@
     .download-btn:hover { opacity: 0.85; }
     .download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* AI Analysis */
+    .ai-section {
+        background: #fff;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        margin-bottom: 20px;
+    }
+    .ai-section h3 {
+        color: #1a1a2e;
+        font-size: 1rem;
+        margin: 0 0 16px 0;
+    }
+    .ai-section h3 i { color: #667eea; margin-right: 6px; }
+    .ai-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+    .ai-btn:hover { opacity: 0.85; }
+    .ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ai-result {
+        margin-top: 16px;
+        padding: 20px;
+        border-radius: 12px;
+        border: 2px solid;
+    }
+    .ai-result.justified {
+        background: #fff5f5;
+        border-color: #fed7d7;
+    }
+    .ai-result.unjustified {
+        background: #f0fff4;
+        border-color: #c6f6d5;
+    }
+    .ai-result.uncertain {
+        background: #fffbeb;
+        border-color: #fef3c7;
+    }
+    .ai-verdict-badge {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+    .ai-verdict-badge.justified { background: #fee2e2; color: #991b1b; }
+    .ai-verdict-badge.unjustified { background: #d1fae5; color: #065f46; }
+    .ai-verdict-badge.uncertain { background: #fef3c7; color: #92400e; }
+    .ai-confidence {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .ai-confidence-bar {
+        flex: 1;
+        height: 10px;
+        background: #e5e7eb;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    .ai-confidence-fill {
+        height: 100%;
+        border-radius: 5px;
+        transition: width 0.5s ease;
+    }
+    .ai-comment {
+        color: #333;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+    .ai-timestamp {
+        color: #999;
+        font-size: 0.75rem;
+        margin-top: 10px;
+    }
+
     @media (max-width: 768px) {
         .info-grid { grid-template-columns: 1fr; }
         .status-actions { flex-direction: column; align-items: flex-start; }
@@ -388,6 +477,48 @@
     <div class="dispute-description">
         <h3><i class="fas fa-exclamation-triangle"></i> Motivazione del cliente</h3>
         <p>{{ dispute.description }}</p>
+    </div>
+
+    <!-- Analisi AI -->
+    <div class="ai-section">
+        <h3><i class="fas fa-robot"></i> Analisi AI del Video</h3>
+        
+        {% if dispute.ai_verdict %}
+        <!-- Risultato esistente -->
+        <div id="aiResult" class="ai-result {{ dispute.ai_verdict }}">
+            <span class="ai-verdict-badge {{ dispute.ai_verdict }}">
+                {% if dispute.ai_verdict == 'justified' %}⚠️ Contestazione Giustificata
+                {% elif dispute.ai_verdict == 'unjustified' %}✅ Contestazione Non Giustificata
+                {% else %}❓ Risultato Incerto
+                {% endif %}
+            </span>
+            <div class="ai-confidence">
+                <strong style="font-size: 0.85rem; min-width: 80px;">Confidenza: {{ dispute.ai_confidence }}%</strong>
+                <div class="ai-confidence-bar">
+                    <div class="ai-confidence-fill" style="width: {{ dispute.ai_confidence }}%; background: {% if dispute.ai_confidence >= 75 %}#22c55e{% elif dispute.ai_confidence >= 50 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+                </div>
+            </div>
+            <div class="ai-comment">{{ dispute.ai_comment }}</div>
+            <div class="ai-timestamp">Analisi eseguita il {{ dispute.ai_analyzed_at.strftime('%d/%m/%Y alle %H:%M') if dispute.ai_analyzed_at else '' }}</div>
+        </div>
+        {% if dispute.booking.recording_filename %}
+        <button class="ai-btn" style="margin-top: 14px; background: #6b7280;" onclick="runAiAnalysis(this)">
+            <i class="fas fa-redo"></i> Ripeti Analisi
+        </button>
+        {% endif %}
+        {% else %}
+        <!-- Nessuna analisi ancora -->
+        <div id="aiResult"></div>
+        {% if dispute.booking.recording_filename %}
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 14px;">Avvia l'analisi AI per verificare automaticamente se la contestazione è giustificata analizzando il video della consulenza.</p>
+        <button class="ai-btn" id="aiBtn" onclick="runAiAnalysis(this)">
+            <i class="fas fa-brain"></i> Avvia Analisi AI
+        </button>
+        {% else %}
+        <p style="color: #999; font-size: 0.9rem;"><i class="fas fa-video-slash"></i> Nessun video disponibile per l'analisi.</p>
+        {% endif %}
+        {% endif %}
+        <div id="aiMsg" class="status-msg"></div>
     </div>
 
     <!-- Azioni stato -->
@@ -531,6 +662,63 @@
         }
         btn.disabled = false;
         btn.innerHTML = originalText;
+    }
+
+    async function runAiAnalysis(btn) {
+        if (!confirm('Avviare l\'analisi AI del video? L\'operazione potrebbe richiedere qualche minuto.')) return;
+        
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analisi in corso... (potrebbe richiedere qualche minuto)';
+
+        try {
+            const resp = await fetch('/admin/api/disputes/{{ dispute.id }}/ai-analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                const container = document.getElementById('aiResult');
+                const verdictLabels = {
+                    'justified': '⚠️ Contestazione Giustificata',
+                    'unjustified': '✅ Contestazione Non Giustificata',
+                    'uncertain': '❓ Risultato Incerto'
+                };
+                const barColor = data.confidence >= 75 ? '#22c55e' : data.confidence >= 50 ? '#f59e0b' : '#ef4444';
+                const now = new Date();
+                const ts = `${now.toLocaleDateString('it-IT')} alle ${now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'})}`;
+                
+                container.className = `ai-result ${data.verdict}`;
+                container.innerHTML = `
+                    <span class="ai-verdict-badge ${data.verdict}">${verdictLabels[data.verdict] || '❓ '+data.verdict}</span>
+                    <div class="ai-confidence">
+                        <strong style="font-size: 0.85rem; min-width: 80px;">Confidenza: ${data.confidence}%</strong>
+                        <div class="ai-confidence-bar">
+                            <div class="ai-confidence-fill" style="width: ${data.confidence}%; background: ${barColor};"></div>
+                        </div>
+                    </div>
+                    <div class="ai-comment">${data.comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                    <div class="ai-timestamp">Analisi eseguita il ${ts}</div>
+                `;
+                btn.innerHTML = '<i class="fas fa-redo"></i> Ripeti Analisi';
+                btn.style.background = '#6b7280';
+                showAiMsg('Analisi completata', 'success');
+            } else {
+                showAiMsg(data.detail || 'Errore nell\'analisi', 'error');
+                btn.innerHTML = originalText;
+            }
+        } catch (e) {
+            showAiMsg('Errore di connessione', 'error');
+            btn.innerHTML = originalText;
+        }
+        btn.disabled = false;
+    }
+
+    function showAiMsg(text, type) {
+        const el = document.getElementById('aiMsg');
+        el.textContent = text;
+        el.className = 'status-msg ' + type;
+        setTimeout(() => { el.className = 'status-msg'; }, 5000);
     }
 </script>
 {% endblock %}

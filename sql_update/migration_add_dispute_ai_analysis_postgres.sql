@@ -1,0 +1,5 @@
+-- Migration: Aggiunge colonne analisi AI alla tabella disputes (PostgreSQL)
+ALTER TABLE disputes ADD COLUMN IF NOT EXISTS ai_verdict VARCHAR DEFAULT NULL;
+ALTER TABLE disputes ADD COLUMN IF NOT EXISTS ai_confidence INTEGER DEFAULT NULL;
+ALTER TABLE disputes ADD COLUMN IF NOT EXISTS ai_comment VARCHAR(5000) DEFAULT NULL;
+ALTER TABLE disputes ADD COLUMN IF NOT EXISTS ai_analyzed_at TIMESTAMP DEFAULT NULL;
