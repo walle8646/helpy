@@ -38,7 +38,7 @@ async def stripe_webhook(request: Request):
     try:
         # Verify webhook signature and construct event
         event = construct_webhook_event(payload, sig_header)
-        logger.info(f"✅ Webhook signature verified. Event type: {event.get('type')}")
+        logger.info(f"✅ Webhook signature verified. Event type: {event['type']}")
     except ValueError as e:
         logger.error(f"❌ Invalid Stripe webhook: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -58,7 +58,7 @@ async def stripe_webhook(request: Request):
         logger.warning(f"❌ Payment intent failed: {payment_intent['id']}")
     
     else:
-        logger.warning(f"⚠️  Unhandled event type: {event.get('type')}")
+        logger.warning(f"⚠️  Unhandled event type: {event['type']}")
     
     # Return 200 to acknowledge receipt of the event
     return JSONResponse({"status": "success"})

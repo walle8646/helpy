@@ -308,7 +308,7 @@ async def confirm_booking(
             checkout_session = create_checkout_session(
                 amount=amount_cents,
                 currency='eur',
-                success_url=f"{app_url}/booking/success?session_id={{CHECKOUT_SESSION_ID}}",
+                success_url=f"{app_url}/profile#bookings",
                 cancel_url=f"{app_url}/consulenza/prenota/{offer_id}?cancelled=true",
                 metadata={
                     'offer_id': str(offer.id),

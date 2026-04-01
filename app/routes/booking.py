@@ -401,7 +401,7 @@ async def create_booking(
             checkout_session = create_checkout_session(
                 amount=amount_cents,
                 currency='eur',
-                success_url=f"{app_url}/booking/success?session_id={{CHECKOUT_SESSION_ID}}",
+                success_url=f"{app_url}/profile#bookings",
                 cancel_url=f"{app_url}/book/{consultant_id}?cancelled=true",
                 metadata={
                     'booking_type': 'direct',  # differenzia da consultation offer
