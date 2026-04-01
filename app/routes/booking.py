@@ -494,11 +494,12 @@ async def get_upcoming_bookings(request: Request):
         # Usa datetime.now() per l'ora locale
         now = datetime.now()
         
-        # Query per prenotazioni confermate FUTURE (dopo adesso) e pagate
+        # Query per prenotazioni confermate FUTURE e pagate
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
             Booking.status.in_(['confirmed', 'pending']),
-            Booking.payment_status == 'paid'
+            Booking.payment_status == 'paid',
+            Booking.booking_date >= now.date()
         ).order_by(Booking.booking_date, Booking.start_time)
         
         bookings = session.exec(statement).all()
