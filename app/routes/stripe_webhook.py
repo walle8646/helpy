@@ -8,6 +8,7 @@ from sqlmodel import Session
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import os
+import json
 from app.database import engine
 from app.models import Booking, ConsultationOffer, User, Notification
 from app.utils.stripe_config import construct_webhook_event
@@ -36,18 +37,18 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Missing Stripe signature")
     
     try:
-        # Verify webhook signature and construct event
-        event = construct_webhook_event(payload, sig_header)
-        logger.info(f"✅ Webhook signature verified. Event type: {event.type if hasattr(event, 'type') else 'unknown'}")
+        # Verify webhook signature only
+        construct_webhook_event(payload, sig_header)
     except ValueError as e:
         logger.error(f"❌ Invalid Stripe webhook: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     
-    # Convert Stripe event to plain dict so .get() works everywhere
-    event_dict = dict(event)
+    # Parse raw JSON payload as plain dict (avoids Stripe object issues)
+    event_dict = json.loads(payload)
     event_type = event_dict.get('type', '')
-    event_data = event_dict.get('data', {})
-    event_object = dict(event_data.get('object', {})) if event_data.get('object') else {}
+    logger.info(f"✅ Webhook signature verified. Event type: {event_type}")
+    
+    event_object = event_dict.get('data', {}).get('object', {})
     
     # Handle the event
     if event_type == 'checkout.session.completed':
@@ -71,13 +72,9 @@ async def handle_checkout_session_completed(checkout_session):
     """
     Handle successful payment - create booking in database
     """
-    # Ensure we work with plain dicts
-    if not isinstance(checkout_session, dict):
-        checkout_session = dict(checkout_session)
     session_id = checkout_session.get('id')
     payment_intent_id = checkout_session.get('payment_intent')
-    metadata_raw = checkout_session.get('metadata', {})
-    metadata = dict(metadata_raw) if not isinstance(metadata_raw, dict) else metadata_raw
+    metadata = checkout_session.get('metadata', {})
     
     logger.info(f"📦 Processing checkout session: {session_id}")
     logger.info(f"💳 Payment intent: {payment_intent_id}")
@@ -98,8 +95,6 @@ async def handle_checkout_session_completed(checkout_session):
 
 async def handle_direct_booking(session_id, payment_intent_id, metadata):
     """Handle direct booking payment"""
-    if not isinstance(metadata, dict):
-        metadata = dict(metadata)
     client_user_id = int(metadata.get('client_user_id'))
     consultant_user_id = int(metadata.get('consultant_user_id'))
     booking_date_str = metadata.get('booking_date')
@@ -201,8 +196,6 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
 
 async def handle_consultation_offer_booking(session_id, payment_intent_id, metadata):
     """Handle consultation offer booking payment"""
-    if not isinstance(metadata, dict):
-        metadata = dict(metadata)
     offer_id = int(metadata.get('offer_id'))
     client_user_id = int(metadata.get('client_user_id'))
     consultant_user_id = int(metadata.get('consultant_user_id'))
