@@ -38,27 +38,30 @@ async def stripe_webhook(request: Request):
     try:
         # Verify webhook signature and construct event
         event = construct_webhook_event(payload, sig_header)
-        logger.info(f"✅ Webhook signature verified. Event type: {event['type']}")
+        logger.info(f"✅ Webhook signature verified. Event type: {event.type if hasattr(event, 'type') else 'unknown'}")
     except ValueError as e:
         logger.error(f"❌ Invalid Stripe webhook: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     
+    # Convert Stripe event to plain dict so .get() works everywhere
+    event_dict = dict(event)
+    event_type = event_dict.get('type', '')
+    event_data = event_dict.get('data', {})
+    event_object = dict(event_data.get('object', {})) if event_data.get('object') else {}
+    
     # Handle the event
-    if event['type'] == 'checkout.session.completed':
+    if event_type == 'checkout.session.completed':
         logger.info("🎉 Processing checkout.session.completed event")
-        session = event['data']['object']
-        await handle_checkout_session_completed(session)
+        await handle_checkout_session_completed(event_object)
     
-    elif event['type'] == 'payment_intent.succeeded':
-        payment_intent = event['data']['object']
-        logger.info(f"✅ Payment intent succeeded: {payment_intent['id']}")
+    elif event_type == 'payment_intent.succeeded':
+        logger.info(f"✅ Payment intent succeeded: {event_object.get('id')}")
     
-    elif event['type'] == 'payment_intent.payment_failed':
-        payment_intent = event['data']['object']
-        logger.warning(f"❌ Payment intent failed: {payment_intent['id']}")
+    elif event_type == 'payment_intent.payment_failed':
+        logger.warning(f"❌ Payment intent failed: {event_object.get('id')}")
     
     else:
-        logger.warning(f"⚠️  Unhandled event type: {event['type']}")
+        logger.warning(f"⚠️  Unhandled event type: {event_type}")
     
     # Return 200 to acknowledge receipt of the event
     return JSONResponse({"status": "success"})
@@ -68,9 +71,13 @@ async def handle_checkout_session_completed(checkout_session):
     """
     Handle successful payment - create booking in database
     """
-    session_id = checkout_session['id']
+    # Ensure we work with plain dicts
+    if not isinstance(checkout_session, dict):
+        checkout_session = dict(checkout_session)
+    session_id = checkout_session.get('id')
     payment_intent_id = checkout_session.get('payment_intent')
-    metadata = checkout_session['metadata']
+    metadata_raw = checkout_session.get('metadata', {})
+    metadata = dict(metadata_raw) if not isinstance(metadata_raw, dict) else metadata_raw
     
     logger.info(f"📦 Processing checkout session: {session_id}")
     logger.info(f"💳 Payment intent: {payment_intent_id}")
@@ -91,6 +98,8 @@ async def handle_checkout_session_completed(checkout_session):
 
 async def handle_direct_booking(session_id, payment_intent_id, metadata):
     """Handle direct booking payment"""
+    if not isinstance(metadata, dict):
+        metadata = dict(metadata)
     client_user_id = int(metadata.get('client_user_id'))
     consultant_user_id = int(metadata.get('consultant_user_id'))
     booking_date_str = metadata.get('booking_date')
@@ -192,6 +201,8 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
 
 async def handle_consultation_offer_booking(session_id, payment_intent_id, metadata):
     """Handle consultation offer booking payment"""
+    if not isinstance(metadata, dict):
+        metadata = dict(metadata)
     offer_id = int(metadata.get('offer_id'))
     client_user_id = int(metadata.get('client_user_id'))
     consultant_user_id = int(metadata.get('consultant_user_id'))
