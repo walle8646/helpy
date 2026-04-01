@@ -599,7 +599,7 @@ async def admin_download_recording(booking_id: int, request: Request):
         import boto3, os
         s3_client = boto3.client(
             's3',
-            region_name=os.getenv("AWS_S3_REGION", "eu-north-1"),
+            region_name=os.getenv("AWS_S3_REGION", "eu-south-1"),
             aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
             aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
         )
@@ -607,15 +607,25 @@ async def admin_download_recording(booking_id: int, request: Request):
 
         # Cerca il file MP4 nella cartella booking_{id}/
         mp4_key = None
-        prefix = f"booking_{booking.id}/"
-        try:
-            resp = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-            for obj in resp.get("Contents", []):
-                if obj["Key"].endswith(".mp4"):
-                    mp4_key = obj["Key"]
+        prefixes_to_try = [
+            f"booking_{booking.id}/",
+            f"{booking.recording_filename}/" if booking.recording_filename else None,
+        ]
+        for prefix in prefixes_to_try:
+            if not prefix:
+                continue
+            try:
+                logger.info(f"🔍 Cercando MP4 in S3: bucket={bucket}, prefix={prefix}")
+                resp = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+                for obj in resp.get("Contents", []):
+                    logger.info(f"   Trovato: {obj['Key']}")
+                    if obj["Key"].endswith(".mp4"):
+                        mp4_key = obj["Key"]
+                        break
+                if mp4_key:
                     break
-        except Exception as e:
-            logger.error(f"Errore listing S3 per booking {booking.id}: {e}")
+            except Exception as e:
+                logger.error(f"Errore listing S3 per booking {booking.id} con prefix {prefix}: {e}")
 
         if not mp4_key:
             raise HTTPException(status_code=404, detail="File MP4 non trovato su S3")
