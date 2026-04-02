@@ -83,6 +83,7 @@ def _extract_recording_file_info(data: Dict[str, Any]) -> Optional[Dict[str, Any
     server_response = data.get("serverResponse", {})
     file_list = server_response.get("fileList", [])
     file_list_mode = server_response.get("fileListMode", "json")
+    channel_name = data.get("cname", "")
 
     if not file_list:
         logger.warning("⚠️ Nessun file presente nella risposta della registrazione")
@@ -92,8 +93,10 @@ def _extract_recording_file_info(data: Dict[str, Any]) -> Optional[Dict[str, Any
     if file_list_mode == "string" or isinstance(file_list, str):
         # fileList è direttamente il nome del file (es: "sid_channel.m3u8")
         logger.info(f"📁 fileList is string: {file_list}")
+        # Aggiunge il prefix del canale per la key S3 corretta
+        s3_key = f"{channel_name}/{file_list}" if channel_name else file_list
         return {
-            "file_name": file_list,
+            "file_name": s3_key,
             "track_type": "audio_and_video",
             "uid": "0",
             "mix_duration": 0,
@@ -101,10 +104,20 @@ def _extract_recording_file_info(data: Dict[str, Any]) -> Optional[Dict[str, Any
             "slice_start_time": 0,
         }
 
-    recording_file = file_list[0]
+    # Cerca il file MP4 (preferito rispetto a .m3u8)
+    mp4_file = None
+    for f in file_list:
+        if f.get("fileName", "").endswith(".mp4"):
+            mp4_file = f
+            break
+    recording_file = mp4_file or file_list[0]
+    
+    file_name = recording_file.get("fileName", "")
+    # Aggiunge il prefix del canale per la key S3 corretta
+    s3_key = f"{channel_name}/{file_name}" if channel_name and not file_name.startswith(channel_name + "/") else file_name
 
     return {
-        "file_name": recording_file.get("fileName"),
+        "file_name": s3_key,
         "track_type": recording_file.get("trackType"),
         "uid": recording_file.get("uid"),
         "mix_duration": recording_file.get("mixedAllUser"),
