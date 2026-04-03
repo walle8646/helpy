@@ -1436,6 +1436,111 @@
         border-radius: 20px;
     }
 
+    /* ========== MOBILE RESPONSIVE ========== */
+    @media (max-width: 768px) {
+        .community-header h1 {
+            font-size: 1.4rem;
+            padding: 8px 16px;
+        }
+        
+        .container > .row {
+            flex-direction: column !important;
+            gap: 16px !important;
+        }
+        
+        .col-md-2,
+        .col-md-6,
+        .col-md-3 {
+            flex: 1 1 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+        }
+        
+        .sidebar-left {
+            position: static !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        
+        /* Collapse sidebar categories on mobile */
+        .sidebar-categories {
+            display: none;
+        }
+        
+        .sidebar-stats {
+            display: none;
+        }
+        
+        .sort-pills {
+            gap: 6px;
+        }
+        
+        .sort-pill {
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            flex: none;
+        }
+        
+        .stats-bar {
+            gap: 8px;
+            padding: 12px;
+        }
+        
+        .stat-number {
+            font-size: 1.2rem;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+        }
+        
+        .question-card {
+            padding: 16px;
+        }
+        
+        .question-title {
+            font-size: 1.1rem;
+        }
+        
+        .question-footer {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .question-meta {
+            gap: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .modal-content {
+            padding: 20px;
+            width: 95%;
+        }
+        
+        .modal-title {
+            font-size: 1.3rem;
+        }
+        
+        .suggested-consultants {
+            padding: 14px;
+        }
+        
+        .consultant-mini {
+            padding: 12px;
+        }
+        
+        .consultant-mini img {
+            width: 44px;
+            height: 44px;
+        }
+        
+        .consultant-mini-price {
+            font-size: 1rem;
+            padding: 6px 10px;
+        }
+    }
+
 </style>
 {% endblock %}
 

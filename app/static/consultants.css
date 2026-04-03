@@ -741,6 +741,9 @@ h3.consultant-name {
 @media (max-width: 768px) {
     .consultants-container {
         grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 0 12px;
+        margin: 16px auto;
     }
     
     .filters-sidebar {
@@ -749,9 +752,61 @@ h3.consultant-name {
     
     .consultants-grid {
         grid-template-columns: 1fr;
+        gap: 16px;
     }
     
     .search-form {
         flex-direction: column;
+    }
+    
+    .search-hero {
+        padding: 20px 16px;
+    }
+    
+    .search-container h1 {
+        font-size: 1.3em;
+        white-space: normal;
+    }
+    
+    .card-content {
+        grid-template-columns: 100px 1fr !important;
+        gap: 12px !important;
+        padding: 14px !important;
+    }
+    
+    .consultant-avatar,
+    .consultant-avatar-default {
+        width: 100px !important;
+        height: 100px !important;
+        font-size: 2rem !important;
+    }
+    
+    .consultant-photo-section {
+        max-width: 100px !important;
+    }
+    
+    .consultant-name {
+        font-size: 1.1em !important;
+    }
+    
+    .card-footer {
+        flex-direction: column !important;
+        gap: 10px !important;
+        padding: 12px 14px !important;
+    }
+    
+    .footer-buttons {
+        width: 100% !important;
+        flex-direction: column !important;
+    }
+    
+    .btn-consult,
+    .btn-message-consultant {
+        width: 100% !important;
+    }
+    
+    .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
     }
 }

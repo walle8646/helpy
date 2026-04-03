@@ -1102,6 +1102,45 @@
         height: 20px;
         font-size: 0.7rem;
     }
+    
+    /* ========== MOBILE RESPONSIVE ========== */
+    @media (max-width: 768px) {
+        .chat-panel {
+            right: 0;
+            left: 0;
+            bottom: 80px;
+            width: 100%;
+            height: 50vh;
+            border-radius: 16px 16px 0 0;
+        }
+        
+        .controls-bar {
+            padding: 12px 8px;
+            gap: 8px;
+        }
+        
+        .control-btn {
+            width: 48px;
+            height: 48px;
+            font-size: 1rem;
+        }
+        
+        .call-timer {
+            font-size: 0.9rem;
+        }
+        
+        .video-grid {
+            border-radius: 0;
+        }
+        
+        /* PiP on mobile */
+        .video-grid.screen-sharing:not(.remote-sharing) #remotePlayer {
+            width: 120px !important;
+            height: 90px !important;
+            right: 8px !important;
+            bottom: 90px !important;
+        }
+    }
 </style>
 
 <div class="call-container">

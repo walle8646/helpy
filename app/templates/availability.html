@@ -609,8 +609,29 @@
     }
 
     @media (max-width: 768px) {
+        .content-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .calendar-section {
+            position: static;
+            padding: 16px;
+        }
+        
         .week-grid {
             grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .page-header h1 {
+            font-size: 1.3em;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .week-grid {
+            grid-template-columns: 1fr;
         }
     }
 </style>

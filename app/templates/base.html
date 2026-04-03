@@ -637,29 +637,146 @@
             background: #f8f9ff;
         }
         
+        /* === HAMBURGER BUTTON === */
+        .hamburger-btn {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            z-index: 1001;
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        .hamburger-line {
+            display: block;
+            width: 24px;
+            height: 2.5px;
+            background: #333;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        .hamburger-btn.active .hamburger-line:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+        .hamburger-btn.active .hamburger-line:nth-child(2) {
+            opacity: 0;
+        }
+        .hamburger-btn.active .hamburger-line:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
             .navbar {
-                padding: 12px 20px;
+                padding: 10px 16px;
+                flex-wrap: wrap;
+            }
+            
+            .navbar-left {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .hamburger-btn {
+                display: flex;
             }
             
             .navbar-title {
                 font-size: 22px;
             }
             
+            .search-wrapper {
+                order: 3;
+                width: 100%;
+                max-width: 100%;
+                margin-top: 8px;
+            }
+            
             .navbar-links {
-                gap: 12px;
+                display: none;
+                flex-direction: column;
+                width: 100%;
+                order: 4;
+                gap: 4px;
+                background: white;
+                border-radius: 12px;
+                padding: 12px;
+                margin-top: 8px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            }
+            
+            .navbar-links.mobile-open {
+                display: flex;
             }
             
             .navbar-link,
             .register-btn {
-                font-size: 14px;
-                padding: 8px 16px;
+                font-size: 15px;
+                padding: 12px 16px;
+                width: 100%;
+                text-align: left;
+                border-radius: 8px;
             }
             
-            /* Nasconde testo "Trova Consulenti" su mobile, lascia solo icona */
-            .navbar-link-text {
+            .navbar-link:hover {
+                background: #f5f5f5;
+            }
+            
+            .navbar-dropdown {
+                width: 100%;
+            }
+            
+            .navbar-dropdown-content {
+                position: static;
+                box-shadow: none;
+                border-radius: 8px;
+                background: #f9f9f9;
+                margin-top: 0;
+                padding: 4px 0;
                 display: none;
+            }
+            
+            .navbar-dropdown.mobile-expanded .navbar-dropdown-content {
+                display: block;
+            }
+            
+            .register-btn {
+                text-align: center;
+                justify-content: center;
+            }
+            
+            /* Icons row on mobile: bell, chat, profile stay horizontal */
+            .notifications-icon,
+            .chat-button,
+            .user-profile-dropdown {
+                display: inline-flex !important;
+            }
+            
+            .navbar-link-text {
+                display: inline;
+            }
+            
+            /* Hide the divider on mobile */
+            .navbar-links > div[style*="width: 1px"] {
+                display: none;
+            }
+            
+            .notifications-dropdown {
+                position: fixed;
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                max-width: 100%;
+                border-radius: 16px 16px 0 0;
+                max-height: 70vh;
             }
         }
         
@@ -724,12 +841,18 @@
 
     <!-- 🎯 HEADER GLOBALE -->
     <nav class="navbar">
-        <!-- Left: Solo Logo + Helpy -->
+        <!-- Left: Logo + Helpy + Hamburger -->
         <div class="navbar-left">
             <a href="/" class="navbar-logo-link">
                 <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo">
                 <span class="navbar-title">Helpy</span>
             </a>
+            <!-- Hamburger Menu Button (mobile only) -->
+            <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMobileMenu()" aria-label="Menu">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
         </div>
         
         <!-- Search Bar al Centro -->
@@ -943,6 +1066,34 @@
     <script>
         let notificationsInterval;
         let lastNotificationCount = 0;
+        
+        // Toggle mobile hamburger menu
+        function toggleMobileMenu() {
+            const btn = document.getElementById('hamburgerBtn');
+            const links = document.querySelector('.navbar-links');
+            btn.classList.toggle('active');
+            links.classList.toggle('mobile-open');
+        }
+        
+        // On mobile, handle category dropdown tap
+        document.querySelectorAll('.navbar-dropdown > .navbar-link').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                if (window.innerWidth <= 768) {
+                    e.preventDefault();
+                    this.closest('.navbar-dropdown').classList.toggle('mobile-expanded');
+                }
+            });
+        });
+        
+        // Close mobile menu on resize to desktop
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                const btn = document.getElementById('hamburgerBtn');
+                const links = document.querySelector('.navbar-links');
+                if (btn) btn.classList.remove('active');
+                if (links) links.classList.remove('mobile-open');
+            }
+        });
         
         // Toggle dropdown notifiche
         function toggleUserMenu(event) {

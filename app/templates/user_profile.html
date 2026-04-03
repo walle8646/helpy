@@ -407,7 +407,7 @@
 @media (max-width: 900px) {
     .pub-layout {
         grid-template-columns: 1fr;
-        padding: 28px 20px 48px;
+        padding: 28px 16px 48px;
         gap: 24px;
     }
     .pub-sidebar { position: static; }
@@ -415,14 +415,24 @@
         flex-direction: column;
         align-items: center;
         text-align: center;
-        padding: 0 24px 32px;
+        padding: 0 16px 32px;
     }
-    .pub-hero img { width: 180px; height: 180px; top: 60px; }
+    .pub-hero img { width: 150px; height: 150px; top: 60px; }
     .pub-hero { margin-bottom: 60px; }
-    .pub-hero-text h1 { font-size: 1.7em; }
+    .pub-hero-text h1 { font-size: 1.5em; }
     .pub-narrative-col { padding: 0; }
-    .pub-stats-row { justify-content: center; }
+    .pub-stats-row { justify-content: center; flex-wrap: wrap; }
     .last-seen-badge { font-size: .7em; }
+}
+
+@media (max-width: 480px) {
+    .pub-layout {
+        padding: 16px 12px 32px;
+        gap: 16px;
+    }
+    .pub-hero img { width: 120px; height: 120px; }
+    .pub-hero-text h1 { font-size: 1.3em; }
+    .pub-hero-inner { padding: 0 12px 24px; }
 }
 
 /* Last Seen Badge */

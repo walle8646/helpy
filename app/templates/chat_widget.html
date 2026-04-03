@@ -614,11 +614,25 @@
     }
     
     /* Mobile Responsive */
-    @media (max-width: 480px) {
+    @media (max-width: 768px) {
+        .chat-widget {
+            bottom: 0;
+            right: 0;
+            left: 0;
+            width: 100%;
+        }
+        
         .chat-window {
-            width: calc(100vw - 40px);
-            height: calc(100vh - 100px);
-            max-height: 600px;
+            width: 100%;
+            height: calc(100vh - 60px);
+            max-height: none;
+            border-radius: 16px 16px 0 0;
+        }
+        
+        .chat-notification {
+            width: calc(100vw - 32px);
+            right: 16px;
+            left: 16px;
         }
     }
     
@@ -731,12 +745,7 @@
         color: #4a5568;
     }
     
-    @media (max-width: 480px) {
-        .chat-notification {
-            width: calc(100vw - 40px);
-            right: 20px;
-        }
-    }
+
 </style>
 
 <!-- Notification Toast -->
