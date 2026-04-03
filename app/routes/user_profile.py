@@ -10,6 +10,7 @@ from app.utils.ai_service import genera_aree_interesse, genera_tags, valida_prof
 from typing import Optional
 import os
 import hashlib
+from datetime import datetime
 from PIL import Image
 import io
 import json
@@ -179,12 +180,11 @@ async def get_user_questions(request: Request):
         with get_session() as session:
             from app.models import CommunityQuestion, User as UserModel, Category
             
-            # Query per recuperare le ultime 4 domande scritte dall'utente
+            # Query per recuperare le domande scritte dall'utente
             user_questions = session.exec(
                 select(CommunityQuestion)
                 .where(CommunityQuestion.user_id == user.id)
                 .order_by(CommunityQuestion.created_at.desc())
-                .limit(4)
             ).all()
             
             questions_data = []
@@ -193,10 +193,20 @@ async def get_user_questions(request: Request):
                 author = session.get(UserModel, q.user_id)
                 cat = session.get(Category, q.category_id) if q.category_id else None
                 
+                # Check editabile: <48h e nessuna interazione
+                from app.models import CommunityLike, CommunityContact, CommunityQuestionFollow
+                from sqlmodel import func
+                likes_count = session.exec(select(func.count()).select_from(CommunityLike).where(CommunityLike.question_id == q.id)).one()
+                contacts_count = session.exec(select(func.count()).select_from(CommunityContact).where(CommunityContact.question_id == q.id)).one()
+                follows_count = session.exec(select(func.count()).select_from(CommunityQuestionFollow).where(CommunityQuestionFollow.question_id == q.id)).one()
+                total_interactions = likes_count + contacts_count + follows_count
+                age_hours = (datetime.utcnow() - q.created_at).total_seconds() / 3600
+                can_edit = age_hours < 48 and total_interactions == 0
+                
                 questions_data.append({
                     "id": q.id,
                     "title": q.title,
-                    "description": q.description[:150] + "..." if len(q.description) > 150 else q.description,  # Preview
+                    "description": q.description[:150] + "..." if len(q.description) > 150 else q.description,
                     "author_name": author.nome if author else "Utente Anonimo",
                     "author_id": q.user_id,
                     "category_id": q.category_id,
@@ -205,6 +215,7 @@ async def get_user_questions(request: Request):
                     "upvotes": q.upvotes,
                     "views": q.views,
                     "created_at": q.created_at.strftime("%d/%m/%Y"),
+                    "can_edit": can_edit,
                     "url": f"/community/question/{q.id}"
                 })
             

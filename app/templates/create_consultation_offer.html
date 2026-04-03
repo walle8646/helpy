@@ -232,6 +232,7 @@
     {% endif %}
     
     <form method="POST" action="/consulenza/crea/{{ client.id }}" id="consultationForm">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
         <div class="form-group">
             <label for="price">Prezzo (€) <span style="color: #d32f2f;">*</span></label>
             <div class="price-input-wrapper">

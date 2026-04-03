@@ -348,6 +348,13 @@
         border-radius: 16px;
         font-size: 0.85rem;
         color: #666;
+        transition: all 0.2s;
+    }
+    
+    a.tag:hover {
+        filter: brightness(0.9);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
     
     .question-meta {
@@ -1607,6 +1614,11 @@
                             </div>
                         </a>
                         {% endif %}
+                        {% if item.can_edit %}
+                        <button onclick="openEditQuestionModal({{ item.question.id }})" style="background: none; border: 1px solid #ff9800; color: #ff9800; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" onmouseover="this.style.background='#ff9800';this.style.color='white'" onmouseout="this.style.background='none';this.style.color='#ff9800'">
+                            <i class="fas fa-edit"></i> Modifica
+                        </button>
+                        {% endif %}
                         <span class="question-status status-{{ item.question.status }}">
                             {% if item.question.status == 'open' %}Aperta
                             {% elif item.question.status == 'in_progress' %}In corso
@@ -1662,7 +1674,7 @@
                             {% if item.question.tags %}
                                 {% for tag in item.question.tags.split(',') %}
                                     {% if tag.strip() %}
-                                    <span class="tag" style="background:#e8f5e9;color:#2e7d32;">{{ tag.strip() }}</span>
+                                    <a href="/community?search={{ tag.strip()|urlencode }}" class="tag" style="background:#e8f5e9;color:#2e7d32;text-decoration:none;cursor:pointer;">{{ tag.strip() }}</a>
                                     {% endif %}
                                 {% endfor %}
                             {% endif %}
@@ -1671,8 +1683,8 @@
                         <div class="question-meta">
                             <span><i class="fas fa-comment"></i> <span class="views-count">{{ item.question.views }}</span></span>
                             
-                            <!-- Like Button (cliccabile solo se loggato) -->
-                            {% if user %}
+                            <!-- Like Button (cliccabile solo se loggato e non è l'autore) -->
+                            {% if user and not item.is_owner %}
                             <button 
                                 class="btn-like {% if item.user_liked %}liked{% endif %}" 
                                 data-question-id="{{ item.question.id }}"
@@ -1755,18 +1767,7 @@
                         </div>
                         {% endif %}
                     {% else %}
-                        <!-- Utente non loggato o è l'autore della domanda: mostra solo il bottone Segui -->
-                        {% if user %}
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end;">
-                            <button 
-                                class="btn-follow-question" 
-                                data-question-id="{{ item.question.id }}"
-                                onclick="toggleFollowQuestion({{ item.question.id }})"
-                                title="Segui questa domanda">
-                                <i class="fas fa-heart"></i> Segui e Richiedi
-                            </button>
-                        </div>
-                        {% endif %}
+                        <!-- Utente è l'autore della domanda: nessun bottone Segui/Messaggia -->
                     {% endif %}
                     
                     <!-- Consulenti suggeriti (solo per owner, max 2) -->
@@ -2077,6 +2078,83 @@
 </div>
 
 <!-- Modal Confermazione Modalità Anonima -->
+<!-- Modal Modifica Domanda -->
+<div class="modal" id="editQuestionModal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 class="modal-title"><i class="fas fa-edit" style="color:#ff9800;"></i> Modifica domanda</h2>
+            <button class="modal-close" onclick="closeEditQuestionModal()">&times;</button>
+        </div>
+        
+        <form id="editQuestionForm" onsubmit="submitEditQuestion(event)">
+            <input type="hidden" id="editQuestionId" value="">
+            
+            <div class="form-group">
+                <label class="form-label">Titolo della domanda</label>
+                <input type="text" class="form-input" id="editQuestionTitle" maxlength="200" required minlength="10">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Descrizione dettagliata</label>
+                <textarea class="form-textarea" id="editQuestionDesc" maxlength="5000" required minlength="150" style="min-height:150px;"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Categoria Principale</label>
+                <select class="form-select" id="editPrimaryCategorySelect" required>
+                    <option value="">Seleziona una categoria...</option>
+                    {% for category in categories %}
+                    {% if category.is_principal %}
+                    <option value="{{ category.id }}">{{ category.icon }} {{ category.name }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Sottocategoria</label>
+                <select class="form-select" id="editSubcategorySelect">
+                    <option value="">Seleziona una sottocategoria...</option>
+                </select>
+                <small id="editSubcategoryHint" style="color:#888; margin-top:4px; display:block;">Seleziona prima una categoria principale</small>
+            </div>
+            
+            <div class="form-group">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <label class="form-label" style="margin-bottom:0;">Tag (separati da virgola)</label>
+                    <button type="button" id="editGenTagsBtn" 
+                            style="background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.8em; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46,125,50,.3);">
+                        🤖 Genera tag con AI
+                    </button>
+                </div>
+                <input type="text" class="form-input" id="editQuestionTags" placeholder="Es: design, logo, branding">
+                <small style="color:#888; margin-top:4px; display:block;">Separati da virgola</small>
+                <div id="editTagsStatus" style="display: none; margin-top: 8px; padding: 10px 14px; border-radius: 8px; font-size: 0.9em;"></div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Immagini (opzionale, max 5)</label>
+                <div id="editImagePreviews" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;"></div>
+                <div id="editImageUploadArea" onclick="document.getElementById('editImageFileInput').click()" style="border:2px dashed #ddd;border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;transition:border-color 0.2s;">
+                    <span style="font-size:1.2rem;">📷</span>
+                    <span style="color:#666;font-size:0.85rem;margin-left:6px;">Clicca per caricare immagini (JPG, PNG, WebP — Max 5MB)</span>
+                </div>
+                <input type="file" id="editImageFileInput" accept="image/jpeg,image/png,image/webp" multiple style="display:none;" onchange="handleEditImageSelectCommunity(this.files)">
+                <div id="editImageError" style="color:#dc3545;font-size:0.85rem;margin-top:4px;display:none;"></div>
+            </div>
+            
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button type="submit" id="editQuestionSaveBtn" style="flex:1;padding:10px 20px;background:#4caf50;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                    <i class="fas fa-save"></i> Salva modifiche
+                </button>
+                <button type="button" onclick="closeEditQuestionModal()" style="padding:10px 20px;background:#eee;color:#333;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;">
+                    Annulla
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal" id="anonymousConfirmModal">
     <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
@@ -3467,6 +3545,292 @@ document.addEventListener('click', function(e) {
         openGallery(images, idx);
     } catch(err) { console.error('Gallery parse error', err); }
 });
+
+// ========== EDIT QUESTION (Community) ==========
+let editUploadedImagesCommunity = [];
+const EDIT_MAX_IMAGES_COMMUNITY = 5;
+
+function escapeHtmlCommunity(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function openEditQuestionModal(questionId) {
+    const modal = document.getElementById('editQuestionModal');
+    modal.classList.add('active');
+    document.getElementById('editQuestionId').value = questionId;
+    
+    try {
+        const resp = await fetch(`/api/community/question/${questionId}/detail`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.error);
+        const q = data.question;
+        
+        editUploadedImagesCommunity = q.images ? [...q.images] : [];
+        
+        document.getElementById('editQuestionTitle').value = q.title;
+        document.getElementById('editQuestionDesc').value = q.description;
+        document.getElementById('editQuestionTags').value = q.tags || '';
+        
+        // Set primary category
+        const primaryCatSelect = document.getElementById('editPrimaryCategorySelect');
+        if (q.primary_category_id) {
+            primaryCatSelect.value = q.primary_category_id;
+            await loadEditSubcategoriesCommunity(q.category_id);
+        }
+        
+        // Render existing images
+        renderEditImagePreviewsCommunity();
+        
+    } catch (error) {
+        console.error('Error loading edit form:', error);
+        alert('Errore nel caricamento del form di modifica.');
+        closeEditQuestionModal();
+    }
+}
+
+function closeEditQuestionModal() {
+    document.getElementById('editQuestionModal').classList.remove('active');
+    editUploadedImagesCommunity = [];
+}
+
+// Close modal clicking outside
+document.getElementById('editQuestionModal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditQuestionModal();
+});
+
+async function loadEditSubcategoriesCommunity(preselectedCategoryId) {
+    const primaryCatSelect = document.getElementById('editPrimaryCategorySelect');
+    const subcatSelect = document.getElementById('editSubcategorySelect');
+    const hint = document.getElementById('editSubcategoryHint');
+    const categoryId = primaryCatSelect.value;
+    
+    if (!categoryId) {
+        subcatSelect.innerHTML = '<option value="">Seleziona una sottocategoria...</option>';
+        hint.textContent = 'Seleziona prima una categoria principale';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/profile/subcategories/${categoryId}`);
+        const data = await response.json();
+        
+        if (data.subcategories && data.subcategories.length > 0) {
+            subcatSelect.innerHTML = '<option value="">Seleziona una sottocategoria...</option>' +
+                data.subcategories.map(sub =>
+                    `<option value="${sub.id}" ${sub.id === preselectedCategoryId ? 'selected' : ''}>${sub.icon} ${sub.name}</option>`
+                ).join('') +
+                `<option value="altro">📌 Altro</option>`;
+            hint.innerHTML = '';
+        } else {
+            subcatSelect.innerHTML = '<option value="">Nessuna sottocategoria disponibile</option>';
+            hint.textContent = '';
+        }
+    } catch (error) {
+        console.error('Error loading subcategories:', error);
+        subcatSelect.innerHTML = '<option value="">Errore nel caricamento</option>';
+    }
+}
+
+document.getElementById('editPrimaryCategorySelect').addEventListener('change', () => loadEditSubcategoriesCommunity(null));
+
+function renderEditImagePreviewsCommunity() {
+    const previewsDiv = document.getElementById('editImagePreviews');
+    previewsDiv.innerHTML = editUploadedImagesCommunity.map(url => `
+        <div class="edit-img-preview" style="display:inline-block;position:relative;margin:4px;">
+            <img src="${url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;">
+            <button type="button" onclick="removeEditImageCommunity('${url}', this.parentElement)" style="position:absolute;top:-6px;right:-6px;background:#dc3545;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>
+        </div>
+    `).join('');
+    updateEditUploadVisibilityCommunity();
+}
+
+function removeEditImageCommunity(url, element) {
+    editUploadedImagesCommunity = editUploadedImagesCommunity.filter(u => u !== url);
+    element.remove();
+    updateEditUploadVisibilityCommunity();
+    const errorDiv = document.getElementById('editImageError');
+    if (errorDiv) errorDiv.style.display = 'none';
+}
+
+function updateEditUploadVisibilityCommunity() {
+    const area = document.getElementById('editImageUploadArea');
+    if (area) area.hidden = editUploadedImagesCommunity.length >= EDIT_MAX_IMAGES_COMMUNITY;
+}
+
+async function handleEditImageSelectCommunity(files) {
+    const errorDiv = document.getElementById('editImageError');
+    errorDiv.style.display = 'none';
+    
+    const remaining = EDIT_MAX_IMAGES_COMMUNITY - editUploadedImagesCommunity.length;
+    if (remaining <= 0) {
+        errorDiv.textContent = `Hai già caricato il massimo di ${EDIT_MAX_IMAGES_COMMUNITY} immagini.`;
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    const filesToProcess = Array.from(files).slice(0, remaining);
+    for (const file of filesToProcess) {
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            errorDiv.textContent = 'Formato non supportato. Usa JPG, PNG o WebP.';
+            errorDiv.style.display = 'block';
+            continue;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            errorDiv.textContent = 'File troppo grande. Massimo 5MB.';
+            errorDiv.style.display = 'block';
+            continue;
+        }
+        await uploadEditImageCommunity(file);
+    }
+    document.getElementById('editImageFileInput').value = '';
+}
+
+async function uploadEditImageCommunity(file) {
+    const previewsDiv = document.getElementById('editImagePreviews');
+    const errorDiv = document.getElementById('editImageError');
+    
+    const previewItem = document.createElement('div');
+    previewItem.className = 'edit-img-preview';
+    previewItem.style.cssText = 'display:inline-block;position:relative;margin:4px;';
+    const localUrl = URL.createObjectURL(file);
+    previewItem.innerHTML = `<img src="${localUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;opacity:0.5;">
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);"><i class="fas fa-spinner fa-spin" style="color:#999;"></i></div>`;
+    previewsDiv.appendChild(previewItem);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', document.getElementById('editQuestionTitle')?.value || '');
+    formData.append('description', document.getElementById('editQuestionDesc')?.value || '');
+    
+    try {
+        const response = await fetch('/api/community/upload-image', { method: 'POST', body: formData });
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            previewItem.innerHTML = `
+                <img src="${data.url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;">
+                <button type="button" onclick="removeEditImageCommunity('${data.url}', this.parentElement)" style="position:absolute;top:-6px;right:-6px;background:#dc3545;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>
+            `;
+            editUploadedImagesCommunity.push(data.url);
+            updateEditUploadVisibilityCommunity();
+        } else {
+            previewItem.remove();
+            errorDiv.textContent = data.error || 'Errore durante il caricamento';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        previewItem.remove();
+        errorDiv.textContent = 'Errore di connessione durante il caricamento.';
+        errorDiv.style.display = 'block';
+    }
+    URL.revokeObjectURL(localUrl);
+}
+
+// Generate tags with AI for edit
+document.getElementById('editGenTagsBtn').addEventListener('click', async function() {
+    const titolo = document.getElementById('editQuestionTitle')?.value?.trim() || '';
+    const descrizione = document.getElementById('editQuestionDesc')?.value?.trim() || '';
+    const subcatSelect = document.getElementById('editSubcategorySelect');
+    const categoria = subcatSelect?.options[subcatSelect.selectedIndex]?.text?.trim() || '';
+    const tagsInput = document.getElementById('editQuestionTags');
+    const statusDiv = document.getElementById('editTagsStatus');
+    const btn = this;
+    
+    if (!titolo || !descrizione) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#fff3cd';
+        statusDiv.style.color = '#856404';
+        statusDiv.textContent = '⚠️ Inserisci titolo e descrizione prima di generare i tag.';
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generazione...';
+    statusDiv.style.display = 'block';
+    statusDiv.style.background = '#e8f4fd';
+    statusDiv.style.color = '#0c5460';
+    statusDiv.textContent = "🤖 L'AI sta analizzando la tua richiesta...";
+    
+    try {
+        const response = await fetch('/api/community/generate-tags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ titolo, descrizione, categoria })
+        });
+        const data = await response.json();
+        
+        if (response.ok) {
+            tagsInput.value = data.tags_string;
+            statusDiv.style.background = '#d4edda';
+            statusDiv.style.color = '#155724';
+            statusDiv.textContent = '✅ Tag generati! Puoi modificarli.';
+        } else {
+            statusDiv.style.background = '#f8d7da';
+            statusDiv.style.color = '#721c24';
+            statusDiv.textContent = '❌ ' + (data.error || 'Errore durante la generazione.');
+        }
+    } catch (error) {
+        statusDiv.style.background = '#f8d7da';
+        statusDiv.style.color = '#721c24';
+        statusDiv.textContent = '❌ Errore di connessione. Riprova.';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🤖 Genera tag con AI';
+    }
+});
+
+async function submitEditQuestion(event) {
+    event.preventDefault();
+    
+    const questionId = document.getElementById('editQuestionId').value;
+    const title = document.getElementById('editQuestionTitle').value.trim();
+    const description = document.getElementById('editQuestionDesc').value.trim();
+    const primaryCategoryId = document.getElementById('editPrimaryCategorySelect').value || null;
+    const categoryId = document.getElementById('editSubcategorySelect').value || null;
+    const tags = document.getElementById('editQuestionTags')?.value?.trim() || null;
+    
+    if (!title || !description) {
+        alert('Titolo e descrizione sono obbligatori');
+        return;
+    }
+    
+    const saveBtn = document.getElementById('editQuestionSaveBtn');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvataggio...';
+    saveBtn.disabled = true;
+    
+    try {
+        const response = await fetch(`/api/community/question/${questionId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title,
+                description,
+                primary_category_id: primaryCategoryId ? parseInt(primaryCategoryId) : null,
+                category_id: categoryId,
+                images: editUploadedImagesCommunity,
+                tags: tags
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            closeEditQuestionModal();
+            window.location.reload();
+        } else {
+            alert(data.error || 'Errore durante la modifica');
+        }
+    } catch (error) {
+        console.error('Error saving question:', error);
+        alert('Errore di connessione');
+    } finally {
+        if (saveBtn) {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+    }
+}
 </script>
 
 <!-- Gallery Lightbox overlay -->

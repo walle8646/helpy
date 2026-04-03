@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="csrf-token" content="{{ request.state.csrf_token }}">
     <title>{% block title %}Helpy - Get Advice from People Who Can Help{% endblock %}</title>
     
     <!-- Font Awesome -->
@@ -1312,6 +1313,29 @@
         }
     </script>
     
+    <!-- CSRF Protection: inietta automaticamente il token CSRF su tutte le fetch -->
+    <script>
+    (function() {
+        const _origFetch = window.fetch;
+        window.fetch = function(url, options) {
+            options = options || {};
+            const method = (options.method || 'GET').toUpperCase();
+            if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+                const token = document.querySelector('meta[name="csrf-token"]')?.content;
+                if (token) {
+                    options.headers = options.headers || {};
+                    if (options.headers instanceof Headers) {
+                        if (!options.headers.has('X-CSRF-Token')) options.headers.set('X-CSRF-Token', token);
+                    } else {
+                        if (!options.headers['X-CSRF-Token']) options.headers['X-CSRF-Token'] = token;
+                    }
+                }
+            }
+            return _origFetch.call(this, url, options);
+        };
+    })();
+    </script>
+
     <!-- JavaScript Specifici per Pagina -->
     {% block extra_js %}{% endblock %}
 

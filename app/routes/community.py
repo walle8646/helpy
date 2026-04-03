@@ -209,12 +209,29 @@ async def community_page(
                     
                     suggested_consultants = session.exec(consultants_query).all()
                 
+                # Check if editable: owner + <48h + no interactions
+                can_edit = False
+                if current_user and question.user_id == current_user.id:
+                    age_hours = (datetime.utcnow() - question.created_at).total_seconds() / 3600
+                    if age_hours < 48:
+                        interactions = session.exec(
+                            select(func.count()).select_from(CommunityLike).where(CommunityLike.question_id == question.id)
+                        ).one()
+                        interactions += session.exec(
+                            select(func.count()).select_from(CommunityContact).where(CommunityContact.question_id == question.id)
+                        ).one()
+                        interactions += session.exec(
+                            select(func.count()).select_from(CommunityQuestionFollow).where(CommunityQuestionFollow.question_id == question.id)
+                        ).one()
+                        can_edit = interactions == 0
+
                 enriched_questions.append({
                     'question': question,
                     'author': author,
                     'category': cat,
                     'suggested_consultants': suggested_consultants,
                     'is_owner': current_user and question.user_id == current_user.id,
+                    'can_edit': can_edit,
                     'user_liked': question.id in user_liked_questions  # ✅ Indica se l'utente ha già messo like
                 })
             
@@ -715,6 +732,9 @@ async def toggle_like(request: Request, question_id: int):
             if not question:
                 return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
             
+            if question.user_id == current_user.id:
+                return JSONResponse({"error": "Non puoi mettere like alla tua domanda"}, status_code=400)
+            
             # Verifica se l'utente ha già messo like
             existing_like = session.exec(
                 select(CommunityLike).where(
@@ -774,6 +794,9 @@ async def track_contact(request: Request, question_id: int):
             question = session.get(CommunityQuestion, question_id)
             if not question:
                 return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
+            
+            if question.user_id == current_user.id:
+                return JSONResponse({"error": "Non puoi contattare te stesso"}, status_code=400)
             
             # Verifica se l'utente ha già contattato (per incrementare counter solo prima volta)
             existing_contact = session.exec(
@@ -942,6 +965,9 @@ async def toggle_follow_question(request: Request, question_id: int):
             question = session.get(CommunityQuestion, question_id)
             if not question:
                 return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
+            
+            if question.user_id == user.id:
+                return JSONResponse({"error": "Non puoi seguire la tua domanda"}, status_code=400)
             
             # Controlla se l'utente ha già seguito questa domanda
             existing_follow = session.exec(

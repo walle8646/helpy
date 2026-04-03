@@ -453,6 +453,11 @@
     to { transform: translateX(0); opacity: 1; }
 }
 
+@keyframes modalSlideIn {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
 /* Mobile */
 @media (max-width: 900px) {
     .pub-layout {
@@ -567,15 +572,21 @@
 
                 <!-- Liked Questions Section -->
                 <section class="pub-narrative" id="likedQuestionsTopSection" style="display:none; margin-bottom: 32px;">
-                    <div class="pub-section-label">❤️ Domande a cui hai messo Like</div>
+                    <div class="section-header-row">
+                        <div class="pub-section-label" style="margin:0;">❤️ Domande a cui hai messo Like</div>
+                        <a href="javascript:void(0)" id="viewAllLikedQuestions" class="view-all-btn" style="display:none;" onclick="openViewAllModal('liked-questions')">Guarda tutte</a>
+                    </div>
                     <div id="likedQuestionsContainerTop" class="liked-questions-grid">
                     </div>
                 </section>
 
                 <!-- Consulenti Preferiti Section -->
                 <section class="pub-narrative" id="favoritesSection" style="display:none; margin-bottom: 32px;">
-                    <div class="pub-section-label">❤️ I tuoi Consulenti Preferiti</div>
-                    <div id="favoritesContainer" class="favorites-scroll">
+                    <div class="section-header-row">
+                        <div class="pub-section-label" style="margin:0;">❤️ I tuoi Consulenti Preferiti</div>
+                        <a href="javascript:void(0)" id="viewAllFavorites" class="view-all-btn" style="display:none;" onclick="openViewAllModal('favorites')">Guarda tutte</a>
+                    </div>
+                    <div id="favoritesContainer" class="favorites-grid">
                     </div>
                 </section>
 
@@ -736,10 +747,61 @@
                 </section>
                 <!-- User Questions Section -->
                 <section class="pub-narrative" id="userQuestionsSection" style="display:none; margin-bottom: 32px;">
-                    <div class="pub-section-label">💬 Le tue Domande nella Community</div>
+                    <div class="section-header-row">
+                        <div class="pub-section-label" style="margin:0;">💬 Le tue Domande nella Community</div>
+                        <a href="javascript:void(0)" id="viewAllUserQuestions" class="view-all-btn" style="display:none;" onclick="openViewAllModal('user-questions')">Guarda tutte</a>
+                    </div>
                     <div id="userQuestionsContainer" class="liked-questions-grid">
                     </div>
                 </section>
+
+                <!-- View All Modal -->
+                <div id="viewAllModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;" onclick="if(event.target===this)closeViewAllModal()">
+                    <div style="background:#fff; border-radius:16px; max-width:800px; width:92%; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.2); animation:modalSlideIn 0.3s ease;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid #f0f0f0;">
+                            <h3 id="viewAllModalTitle" style="margin:0; font-size:1.1rem; color:#1a202c;"></h3>
+                            <button onclick="closeViewAllModal()" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:#999; line-height:1; padding:4px;">✕</button>
+                        </div>
+                        <div id="viewAllModalBody" style="overflow-y:auto; padding:20px 24px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recensioni ricevute -->
+                {% if reviews %}
+                <section class="pub-narrative" style="margin-bottom: 32px; margin-top: 16px;">
+                    <div class="pub-section-label" style="font-size: 1.1rem; font-weight: 600; color: #1a202c; margin-bottom: 16px;">⭐ Recensioni ricevute ({{ reviews|length }})</div>
+                    <div class="pub-reviews-summary">
+                        <div class="pub-avg-rating">
+                            <span class="pub-avg-score">{{ avg_rating }}</span>
+                            <span class="pub-avg-stars">
+                                {% for i in range(1, 6) %}
+                                    {% if avg_rating >= i %}★{% elif avg_rating >= i - 0.5 %}★{% else %}☆{% endif %}
+                                {% endfor %}
+                            </span>
+                            <span class="pub-avg-count">su {{ reviews|length }} recension{{ 'e' if reviews|length == 1 else 'i' }}</span>
+                        </div>
+                    </div>
+                    <div class="pub-reviews-list">
+                        {% for r in reviews[:10] %}
+                        <div class="pub-review-card">
+                            <div class="pub-review-header">
+                                <strong>{{ r.reviewer|display_name }}</strong>
+                                <span class="pub-review-date">{{ r.created_at.strftime('%d/%m/%Y') if r.created_at else 'N/A' }}</span>
+                            </div>
+                            <div class="pub-review-ratings">
+                                <span title="Aiuto concreto">🎯 {{ r.rating_helpful }}/5</span>
+                                <span title="Preparazione">📚 {{ r.rating_prepared }}/5</span>
+                                <span title="Comunicazione">💬 {{ r.rating_communication }}/5</span>
+                            </div>
+                            {% if r.comment %}
+                            <p class="pub-review-comment">{{ r.comment }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endif %}
             </div>
 
             <!-- Colonna destra: sidebar sticky -->
@@ -794,42 +856,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Recensioni ricevute -->
-        {% if reviews %}
-        <div style="margin-top: 32px;">
-            <div class="pub-section-label" style="font-size: 1.1rem; font-weight: 600; color: #1a202c; margin-bottom: 16px;">⭐ Recensioni ricevute ({{ reviews|length }})</div>
-            <div class="pub-reviews-summary">
-                <div class="pub-avg-rating">
-                    <span class="pub-avg-score">{{ avg_rating }}</span>
-                    <span class="pub-avg-stars">
-                        {% for i in range(1, 6) %}
-                            {% if avg_rating >= i %}★{% elif avg_rating >= i - 0.5 %}★{% else %}☆{% endif %}
-                        {% endfor %}
-                    </span>
-                    <span class="pub-avg-count">su {{ reviews|length }} recension{{ 'e' if reviews|length == 1 else 'i' }}</span>
-                </div>
-            </div>
-            <div class="pub-reviews-list">
-                {% for r in reviews[:10] %}
-                <div class="pub-review-card">
-                    <div class="pub-review-header">
-                        <strong>{{ r.reviewer|display_name }}</strong>
-                        <span class="pub-review-date">{{ r.created_at.strftime('%d/%m/%Y') if r.created_at else 'N/A' }}</span>
-                    </div>
-                    <div class="pub-review-ratings">
-                        <span title="Aiuto concreto">🎯 {{ r.rating_helpful }}/5</span>
-                        <span title="Preparazione">📚 {{ r.rating_prepared }}/5</span>
-                        <span title="Comunicazione">💬 {{ r.rating_communication }}/5</span>
-                    </div>
-                    {% if r.comment %}
-                    <p class="pub-review-comment">{{ r.comment }}</p>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
 
     </main>
 </div>
@@ -1962,6 +1988,49 @@
         }
     }
 
+    // ========== DATA STORAGE FOR MODALS ==========
+    let allLikedQuestions = [];
+    let allUserQuestions = [];
+    let allFavorites = [];
+
+    function renderQuestionCard(q, clickable = true) {
+        const editBadge = q.can_edit ? `<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3e0;color:#e65100;padding:3px 10px;border-radius:20px;font-size:.72em;font-weight:600;width:fit-content;"><i class="fas fa-pen" style="font-size:.7em;"></i> Modificabile</span>` : '';
+        return `
+            <div class="liked-question-card" ${clickable ? `onclick="openQuestionDetail(${q.id})"` : ''} style="cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                    <span class="q-cat-badge">${q.category_icon || '💬'} ${q.category_name || 'Generale'}</span>
+                    ${editBadge}
+                </div>
+                <h3 class="question-title">${q.title}</h3>
+                <p class="question-description">${q.description}</p>
+                <div class="question-footer">
+                    <span class="meta-item">👍 ${q.upvotes}</span>
+                    <span class="meta-item">👁 ${q.views}</span>
+                    <span class="meta-item">📅 ${q.created_at}</span>
+                </div>
+                ${q.author_name ? `<div class="q-author">da <strong>${q.author_name}</strong></div>` : ''}
+            </div>
+        `;
+    }
+
+    function renderFavoriteCard(c) {
+        const avatarSrc = c.profile_picture || '/static/avatar-default.svg';
+        const catLabel = c.category_icon && c.category_name ? `${c.category_icon} ${c.category_name}` : '';
+        const priceLabel = c.prezzo_consulenza ? `€${c.prezzo_consulenza}/h` : '';
+        return `
+            <a href="/user/${c.id}" class="fav-consultant-card">
+                <img src="${avatarSrc}" alt="${c.nome}"
+                     onerror="this.onerror=null; this.src='/static/avatar-default.svg'">
+                <div class="fav-card-info">
+                    <span class="fav-card-name">${c.nome} ${c.cognome || ''}</span>
+                    <span class="fav-card-role">${c.professione || ''}</span>
+                    ${catLabel ? `<span class="fav-card-cat">${catLabel}</span>` : ''}
+                    ${priceLabel ? `<span class="fav-card-price">${priceLabel}</span>` : ''}
+                </div>
+            </a>
+        `;
+    }
+
     async function loadLikedQuestions() {
         try {
             const response = await fetch('/api/profile/liked-questions');
@@ -1971,19 +2040,12 @@
             const section = document.getElementById('likedQuestionsTopSection');
             if (!data.questions || data.questions.length === 0) { section.style.display = 'none'; return; }
             section.style.display = 'block';
-            container.innerHTML = data.questions.map(q => `
-                <div class="liked-question-card" onclick="openQuestionDetail(${q.id})" style="cursor:pointer;">
-                    <span class="q-cat-badge">${q.category_icon || '💬'} ${q.category_name || 'Generale'}</span>
-                    <h3 class="question-title">${q.title}</h3>
-                    <p class="question-description">${q.description}</p>
-                    <div class="question-footer">
-                        <span class="meta-item">👍 ${q.upvotes}</span>
-                        <span class="meta-item">👁 ${q.views}</span>
-                        <span class="meta-item">📅 ${q.created_at}</span>
-                    </div>
-                    ${q.author_name ? `<div class="q-author">da <strong>${q.author_name}</strong></div>` : ''}
-                </div>
-            `).join('');
+            allLikedQuestions = data.questions;
+            const preview = data.questions.slice(0, 2);
+            container.innerHTML = preview.map(q => renderQuestionCard(q)).join('');
+            if (data.questions.length > 2) {
+                document.getElementById('viewAllLikedQuestions').style.display = 'inline';
+            }
         } catch (error) {
             console.error('Error loading liked questions:', error);
         }
@@ -1998,18 +2060,12 @@
             const section = document.getElementById('userQuestionsSection');
             if (!data.questions || data.questions.length === 0) { section.style.display = 'none'; return; }
             section.style.display = 'block';
-            container.innerHTML = data.questions.map(q => `
-                <div class="liked-question-card" onclick="openQuestionDetail(${q.id})" style="cursor:pointer;">
-                    <span class="q-cat-badge">${q.category_icon || '💬'} ${q.category_name || 'Generale'}</span>
-                    <h3 class="question-title">${q.title}</h3>
-                    <p class="question-description">${q.description}</p>
-                    <div class="question-footer">
-                        <span class="meta-item">👍 ${q.upvotes}</span>
-                        <span class="meta-item">👁 ${q.views}</span>
-                        <span class="meta-item">📅 ${q.created_at}</span>
-                    </div>
-                </div>
-            `).join('');
+            allUserQuestions = data.questions;
+            const preview = data.questions.slice(0, 2);
+            container.innerHTML = preview.map(q => renderQuestionCard(q)).join('');
+            if (data.questions.length > 2) {
+                document.getElementById('viewAllUserQuestions').style.display = 'inline';
+            }
         } catch (error) {
             console.error('Error loading user questions:', error);
         }
@@ -2082,26 +2138,41 @@
             if (favorites.length === 0) return;
             
             section.style.display = 'block';
-            container.innerHTML = favorites.map(c => {
-                const avatarSrc = c.profile_picture || '/static/avatar-default.svg';
-                const catLabel = c.category_icon && c.category_name ? `${c.category_icon} ${c.category_name}` : '';
-                const priceLabel = c.prezzo_consulenza ? `€${c.prezzo_consulenza}/h` : '';
-                return `
-                    <a href="/user/${c.id}" class="fav-consultant-card">
-                        <img src="${avatarSrc}" alt="${c.nome}"
-                             onerror="this.onerror=null; this.src='/static/avatar-default.svg'">
-                        <div class="fav-card-info">
-                            <span class="fav-card-name">${c.nome} ${c.cognome || ''}</span>
-                            <span class="fav-card-role">${c.professione || ''}</span>
-                            ${catLabel ? `<span class="fav-card-cat">${catLabel}</span>` : ''}
-                            ${priceLabel ? `<span class="fav-card-price">${priceLabel}</span>` : ''}
-                        </div>
-                    </a>
-                `;
-            }).join('');
+            allFavorites = favorites;
+            const preview = favorites.slice(0, 2);
+            container.innerHTML = preview.map(c => renderFavoriteCard(c)).join('');
+            if (favorites.length > 2) {
+                document.getElementById('viewAllFavorites').style.display = 'inline';
+            }
         } catch (error) {
             console.error('Error loading favorites:', error);
         }
+    }
+
+    // ========== VIEW ALL MODAL ==========
+    function openViewAllModal(type) {
+        const modal = document.getElementById('viewAllModal');
+        const title = document.getElementById('viewAllModalTitle');
+        const body = document.getElementById('viewAllModalBody');
+
+        if (type === 'liked-questions') {
+            title.textContent = '❤️ Domande a cui hai messo Like';
+            body.innerHTML = `<div class="liked-questions-grid">${allLikedQuestions.map(q => renderQuestionCard(q)).join('')}</div>`;
+        } else if (type === 'user-questions') {
+            title.textContent = '💬 Le tue Domande nella Community';
+            body.innerHTML = `<div class="liked-questions-grid">${allUserQuestions.map(q => renderQuestionCard(q)).join('')}</div>`;
+        } else if (type === 'favorites') {
+            title.textContent = '❤️ I tuoi Consulenti Preferiti';
+            body.innerHTML = `<div class="favorites-grid">${allFavorites.map(c => renderFavoriteCard(c)).join('')}</div>`;
+        }
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeViewAllModal() {
+        document.getElementById('viewAllModal').style.display = 'none';
+        document.body.style.overflow = '';
     }
 
     // ========== CATEGORY REQUESTS MODAL ==========

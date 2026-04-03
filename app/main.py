@@ -1,10 +1,12 @@
 import os
+import secrets
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from app.database import create_db_and_tables
 from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, notifications, review, dispute, admin
 from app.logger_config import logger
@@ -20,19 +22,69 @@ class CategoriesMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Carica categorie e le rende disponibili nel request.state
         request.state.categories = get_all_categories()
+        # Rendi disponibile il token CSRF nel request.state per i template
+        request.state.csrf_token = request.session.get("csrf_token", "")
         response = await call_next(request)
         return response
 
 
-# Session middleware
+# CSRF Protection Middleware
+CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+CSRF_EXEMPT_PATHS = {"/api/stripe/webhook", "/api/stripe/connect-webhook"}
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Genera token CSRF se non presente nella sessione
+        if "csrf_token" not in request.session:
+            request.session["csrf_token"] = secrets.token_hex(32)
+
+        # Verifica CSRF solo per metodi che modificano dati
+        if request.method not in CSRF_SAFE_METHODS:
+            # Escludi webhook Stripe (hanno la propria firma)
+            if request.url.path not in CSRF_EXEMPT_PATHS:
+                token_from_session = request.session.get("csrf_token", "")
+                # Accetta token da header (fetch/AJAX) o da form field (HTML form)
+                token_from_request = request.headers.get("X-CSRF-Token", "")
+                if not token_from_request:
+                    # Fallback: cerca nei form data
+                    content_type = request.headers.get("content-type", "")
+                    if "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+                        from starlette.datastructures import UploadFile
+                        body = await request.body()
+                        # Ripristina il body per i middleware successivi
+                        async def receive():
+                            return {"type": "http.request", "body": body}
+                        request._receive = receive
+                        from urllib.parse import parse_qs
+                        if "application/x-www-form-urlencoded" in content_type:
+                            form_data = parse_qs(body.decode("utf-8"))
+                            token_from_request = form_data.get("csrf_token", [""])[0]
+
+                if not token_from_session or not token_from_request or not secrets.compare_digest(token_from_request, token_from_session):
+                    return JSONResponse(
+                        {"error": "Token CSRF non valido. Ricarica la pagina e riprova."},
+                        status_code=403
+                    )
+
+        response = await call_next(request)
+        return response
+
+
+# Middleware (Starlette esegue in ordine inverso: ultimo aggiunto = più esterno)
+# Ordine di esecuzione: CategoriesMiddleware → CSRFMiddleware → SessionMiddleware → App
+
+# 1. CategoriesMiddleware — più interno, serve le categorie ai template
+app.add_middleware(CategoriesMiddleware)
+
+# 2. CSRF middleware — valida token su POST/PUT/DELETE
+app.add_middleware(CSRFMiddleware)
+
+# 3. Session middleware — più esterno, gestisce le sessioni
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "helpy-super-secret-key-change-in-production-2024"),
     max_age=86400
 )
-
-# Aggiungi middleware categorie
-app.add_middleware(CategoriesMiddleware)
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
