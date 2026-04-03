@@ -1659,6 +1659,13 @@
                             {% if item.category %}
                             <span class="tag">{{ item.category.icon }} {{ item.category.name }}</span>
                             {% endif %}
+                            {% if item.question.tags %}
+                                {% for tag in item.question.tags.split(',') %}
+                                    {% if tag.strip() %}
+                                    <span class="tag" style="background:#e8f5e9;color:#2e7d32;">{{ tag.strip() }}</span>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
                         </div>
                         
                         <div class="question-meta">

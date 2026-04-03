@@ -153,7 +153,8 @@ async def community_page(
                 count_query = count_query.where(
                     or_(
                         CommunityQuestion.title.ilike(search_pattern),
-                        CommunityQuestion.description.ilike(search_pattern)
+                        CommunityQuestion.description.ilike(search_pattern),
+                        and_(CommunityQuestion.tags.isnot(None), CommunityQuestion.tags.ilike(search_pattern))
                     )
                 )
             
@@ -337,7 +338,7 @@ async def community_page(
             )
     
     except Exception as e:
-        logger.error(f"❌ Error loading community page: {str(e)}", exc_info=True)
+        logger.error("❌ Error loading community page: {}", repr(e), exc_info=True)
         
         try:
             with get_session() as session:
@@ -369,7 +370,8 @@ async def api_ask_question(
     description: str = Form(...),
     primary_category_id: Optional[int] = Form(None),  # ✅ Categoria principale
     category_id: Optional[str] = Form(None),  # ✅ Sottocategoria (str per gestire "altro")
-    images: Optional[str] = Form(None)  # JSON array di URL S3 delle immagini
+    images: Optional[str] = Form(None),  # JSON array di URL S3 delle immagini
+    tags: Optional[str] = Form(None)  # Tag separati da virgola
 ):
     """API per creare nuova domanda"""
     
@@ -468,6 +470,7 @@ async def api_ask_question(
                 primary_category_id=primary_category_id,  # ✅ Salva categoria principale
                 category_id=resolved_category_id,  # ✅ Salva subcategoria (None se "altro")
                 images=images if images else None,  # ✅ Salva URL immagini S3
+                tags=tags.strip() if tags and tags.strip() else None,  # ✅ Salva tag
                 status=QuestionStatus.OPEN,
                 validation=True  # ✅ Approvata dall'AI, visibile subito
             )
@@ -1170,6 +1173,7 @@ async def get_question_detail(question_id: int, request: Request):
                     "primary_category": {"id": primary_cat.id, "name": primary_cat.name, "icon": primary_cat.icon} if primary_cat else None,
                     "primary_category_id": question.primary_category_id,
                     "category_id": question.category_id,
+                    "tags": question.tags,
                     "can_edit": can_edit,
                     "is_owner": question.user_id == user.id,
                 },
@@ -1202,6 +1206,7 @@ async def edit_question(question_id: int, request: Request):
         new_primary_category_id = body.get("primary_category_id")
         new_category_id = body.get("category_id")  # can be int, "altro", or None
         new_images = body.get("images")  # list of S3 URLs or None
+        new_tags = body.get("tags")  # string di tag separati da virgola
         
         if not new_title or not new_description:
             return JSONResponse({"error": "Titolo e descrizione sono obbligatori"}, status_code=400)
@@ -1295,6 +1300,8 @@ async def edit_question(question_id: int, request: Request):
                 question.category_id = resolved_category_id
             if new_images is not None:
                 question.images = json.dumps(new_images) if new_images else None
+            if new_tags is not None:
+                question.tags = new_tags.strip() if new_tags and new_tags.strip() else None
             question.updated_at = datetime.utcnow()
             session.add(question)
             session.commit()

@@ -1706,7 +1706,7 @@
                             🤖 Genera tag con AI
                         </button>
                     </div>
-                    <input id="q-edit-tags" placeholder="Es: design, logo, branding" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
+                    <input id="q-edit-tags" value="${escapeHtml(q.tags || '')}" placeholder="Es: design, logo, branding" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
                     <small style="color:#888;margin-top:4px;display:block;">Separati da virgola</small>
                     <div id="q-edit-tags-status" style="display:none;margin-top:8px;padding:10px 14px;border-radius:8px;font-size:0.9em;"></div>
                 </div>
@@ -1939,7 +1939,8 @@
                     description,
                     primary_category_id: primaryCategoryId ? parseInt(primaryCategoryId) : null,
                     category_id: categoryId,
-                    images: editUploadedImages
+                    images: editUploadedImages,
+                    tags: document.getElementById('q-edit-tags')?.value?.trim() || null
                 })
             });
             const data = await response.json();

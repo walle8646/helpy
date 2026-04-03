@@ -136,6 +136,7 @@ class CommunityQuestion(SQLModel, table=True):
     upvotes: int = Field(default=0)
     validation: bool = Field(default=False, index=True)  # 🆕 Flag di validazione - se False, la domanda non è visibile
     images: Optional[str] = Field(default=None)  # JSON array di URL S3 delle immagini allegate (max 5)
+    tags: Optional[str] = Field(default=None)  # JSON array di tag generati da AI per la ricerca
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
