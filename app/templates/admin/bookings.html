@@ -22,7 +22,7 @@
         color: #1a1a2e;
         margin: 0;
     }
-    .admin-header h1 i { color: #667eea; }
+    .admin-header h1 i { color: #2d6a4f; }
     .admin-nav {
         display: flex;
         gap: 8px;
@@ -39,7 +39,7 @@
         transition: all 0.2s;
     }
     .admin-nav a:hover, .admin-nav a.active {
-        background: #667eea;
+        background: #2d6a4f;
         color: #fff;
     }
 
@@ -60,11 +60,11 @@
     }
     .search-box input:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: #2d6a4f;
     }
     .search-box button {
         padding: 12px 24px;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #2d6a4f, #1a4d2e);
         color: #fff;
         border: none;
         border-radius: 10px;
@@ -133,7 +133,7 @@
     }
     .booking-participants strong { font-weight: 600; }
     .booking-participants .arrow {
-        color: #667eea;
+        color: #2d6a4f;
         margin: 0 6px;
     }
     .booking-details {
@@ -197,7 +197,7 @@
         align-items: center;
         gap: 5px;
         padding: 6px 12px;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #2d6a4f, #1a4d2e);
         color: #fff;
         border: none;
         border-radius: 6px;
@@ -263,7 +263,7 @@
     <div class="search-info">
         {% if search %}
             {{ bookings|length }} risultati per "<strong>{{ search }}</strong>" &middot;
-            <a href="/admin/bookings" style="color: #667eea;">Mostra tutte</a>
+            <a href="/admin/bookings" style="color: #2d6a4f;">Mostra tutte</a>
         {% else %}
             Ultime 100 consulenze su {{ total_bookings }} totali
         {% endif %}

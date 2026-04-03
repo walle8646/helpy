@@ -2028,7 +2028,13 @@
             </div>
             
             <div class="form-group">
-                <label class="form-label">Tag (separati da virgola)</label>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <label class="form-label" style="margin-bottom:0;">Tag (separati da virgola)</label>
+                    <button type="button" id="generateQuestionTagsBtn" 
+                            style="background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.8em; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46,125,50,.3);">
+                        🤖 Genera tag con AI
+                    </button>
+                </div>
                 <input 
                     type="text" 
                     class="form-input" 
@@ -2036,13 +2042,7 @@
                     name="tags" 
                     placeholder="Es: design, logo, branding"
                 >
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-                    <small style="color:#888;">Separati da virgola</small>
-                    <button type="button" id="generateQuestionTagsBtn" 
-                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.85em; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(102,126,234,.3);">
-                        🤖 Genera con AI
-                    </button>
-                </div>
+                <small style="color:#888; margin-top:4px; display:block;">Separati da virgola</small>
                 <div id="generateQuestionTagsStatus" style="display: none; margin-top: 8px; padding: 10px 14px; border-radius: 8px; font-size: 0.9em;"></div>
             </div>
             

@@ -125,7 +125,7 @@
 
 .pub-edit-avatar {
     position: absolute;
-    bottom: 6px;
+    bottom: -94px;
     right: 6px;
     width: 36px;
     height: 36px;
@@ -139,6 +139,7 @@
     box-shadow: 0 2px 8px rgba(0,0,0,.2);
     transition: transform .2s;
     border: 2px solid #2d6a4f;
+    z-index: 25;
 }
 
 .pub-edit-avatar:hover {
@@ -467,6 +468,7 @@
         padding: 0 24px 32px;
     }
     .pub-hero img { width: 180px; height: 180px; top: 60px; }
+    .pub-edit-avatar { bottom: -54px; }
     .pub-hero { margin-bottom: 60px; }
     .pub-hero-text h1 { font-size: 1.7em; }
     .pub-narrative-col { padding: 0; }
@@ -1236,14 +1238,19 @@
             const bookings = data.bookings || [];
             const section = document.getElementById('upcomingAppointmentsSection');
             
-            if (bookings.length === 0) return;
+            const bookingsHTML = bookings.length > 0
+                ? `<div class="appointments-list">${bookings.map(b => createAppointmentCard(b)).join('')}</div>`
+                : '';
             
             section.innerHTML = `
                 <div class="upcoming-appointments">
-                    <h3><i class="fas fa-calendar-check"></i> Prossimi Appuntamenti</h3>
-                    <div class="appointments-list">
-                        ${bookings.map(b => createAppointmentCard(b)).join('')}
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <h3 style="margin:0;"><i class="fas fa-calendar-check"></i> Prossimi Appuntamenti</h3>
+                        <span onclick="openBookingHistory()" style="color:#2d6a4f;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:4px;">
+                            <i class="fas fa-history"></i> Storico
+                        </span>
                     </div>
+                    ${bookingsHTML}
                 </div>
             `;
             
@@ -1320,11 +1327,15 @@
             }
         }
         
+        const nameHTML = otherUser.id 
+            ? `<a href="/user/${otherUser.id}" style="color:inherit;text-decoration:none;">${otherUser.name}</a>`
+            : otherUser.name;
+        
         return `
             <div class="appointment-card" id="appointment-${booking.id}">
                 <div class="appointment-header">
                     ${avatarHTML}
-                    <div class="appointment-info"><h4>${otherUser.name}</h4><p>${roleLabel}</p></div>
+                    <div class="appointment-info"><h4>${nameHTML}</h4><p>${roleLabel}</p></div>
                 </div>
                 <div class="appointment-details">
                     <div class="appointment-detail"><i class="fas fa-calendar"></i><span>${dateStr}</span></div>
@@ -1384,6 +1395,81 @@
         } catch (error) {
             console.error('Errore:', error);
             alert('Errore di connessione');
+        }
+    }
+
+    async function openBookingHistory() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'history-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:550px;padding:24px;">
+                <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 style="margin:0;font-size:1.2rem;"><i class="fas fa-history"></i> Storico Appuntamenti</h3>
+                    <button class="close-btn" onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;">✕</button>
+                </div>
+                <div id="history-list" style="max-height:60vh;overflow-y:auto;text-align:center;padding:20px 0;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:#999;"></i>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+        try {
+            const response = await fetch('/api/booking/history');
+            if (!response.ok) throw new Error('Errore');
+            const data = await response.json();
+            const bookings = data.bookings || [];
+            const container = document.getElementById('history-list');
+            
+            if (bookings.length === 0) {
+                container.innerHTML = '<p style="color:#999;padding:20px 0;">Nessun appuntamento passato.</p>';
+                return;
+            }
+            
+            container.style.textAlign = 'left';
+            container.innerHTML = bookings.map(b => {
+                const otherUser = b.other_user;
+                const roleLabel = b.role === 'client' ? 'Consulenza con' : 'Consulenza richiesta da';
+                let dateParts = b.date.split('-');
+                const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+                const dateStr = dateObj.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+                
+                const avatarHTML = otherUser.picture
+                    ? `<img src="${otherUser.picture}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #2d6a4f;">`
+                    : `<div style="width:32px;height:32px;border-radius:50%;background:#d4edda;display:flex;align-items:center;justify-content:center;font-size:0.85rem;">👤</div>`;
+                
+                const nameLink = otherUser.id
+                    ? `<a href="/user/${otherUser.id}" style="color:#1a202c;text-decoration:none;font-weight:600;">${otherUser.name}</a>`
+                    : `<span style="font-weight:600;">${otherUser.name}</span>`;
+
+                const statusMap = {
+                    'completed': '<span style="color:#2d6a4f;font-size:0.8rem;"><i class="fas fa-check-circle"></i> Completata</span>',
+                    'cancelled': '<span style="color:#dc3545;font-size:0.8rem;"><i class="fas fa-times-circle"></i> Annullata</span>',
+                    'no_show': '<span style="color:#f59e0b;font-size:0.8rem;"><i class="fas fa-exclamation-circle"></i> Non presentato</span>',
+                    'confirmed': '<span style="color:#6b7280;font-size:0.8rem;"><i class="fas fa-clock"></i> Confermata</span>',
+                    'pending': '<span style="color:#6b7280;font-size:0.8rem;"><i class="fas fa-hourglass-half"></i> In attesa</span>'
+                };
+                const statusHTML = statusMap[b.status] || '';
+
+                return `
+                    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0f0f0;">
+                        ${avatarHTML}
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:6px;">${nameLink} ${statusHTML}</div>
+                            <div style="font-size:0.82rem;color:#6b7280;">${roleLabel}</div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-size:0.85rem;font-weight:500;">${dateStr}</div>
+                            <div style="font-size:0.8rem;color:#6b7280;">${b.start_time} · ${b.duration} min</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error loading history:', error);
+            document.getElementById('history-list').innerHTML = '<p style="color:#dc3545;padding:20px 0;">Errore nel caricamento dello storico.</p>';
         }
     }
     
@@ -1459,6 +1545,422 @@
         }
     }
     
+    async function openQuestionDetail(questionId) {
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'question-detail-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:600px;padding:0;overflow:hidden;">
+                <div id="question-detail-body" style="padding:24px;max-height:80vh;overflow-y:auto;text-align:center;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:#999;margin:40px 0;"></i>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        
+        try {
+            const response = await fetch(`/api/community/question/${questionId}/detail`);
+            if (!response.ok) throw new Error('Errore');
+            const data = await response.json();
+            const q = data.question;
+            const inter = data.interactions;
+            
+            const statusMap = {
+                'open': '<span style="background:#e8f5e9;color:#2e7d32;padding:3px 10px;border-radius:12px;font-size:0.8rem;font-weight:600;">Aperta</span>',
+                'in_progress': '<span style="background:#fff3e0;color:#e65100;padding:3px 10px;border-radius:12px;font-size:0.8rem;font-weight:600;">In corso</span>',
+                'closed': '<span style="background:#fce4ec;color:#c62828;padding:3px 10px;border-radius:12px;font-size:0.8rem;font-weight:600;">Chiusa</span>'
+            };
+            
+            const catLabel = q.category ? `${q.category.icon} ${q.category.name}` : (q.primary_category ? `${q.primary_category.icon} ${q.primary_category.name}` : '');
+            
+            const imagesHTML = q.images && q.images.length > 0 ? `
+                <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;">
+                    ${q.images.map(img => `<img src="${img}" style="max-width:120px;max-height:120px;border-radius:8px;object-fit:cover;cursor:pointer;" onclick="window.open('${img}','_blank')">`).join('')}
+                </div>
+            ` : '';
+            
+            // Interactions list
+            let interHTML = '';
+            if (inter.likes.length > 0) {
+                interHTML += `<div style="margin-top:8px;"><strong style="font-size:0.85rem;color:#666;"><i class="fas fa-thumbs-up" style="color:#4caf50;"></i> Like (${inter.likes.length})</strong>`;
+                interHTML += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${inter.likes.map(u => `<a href="/user/${u.id}" style="display:inline-flex;align-items:center;gap:4px;background:#f0f8f0;padding:3px 10px;border-radius:16px;font-size:0.8rem;text-decoration:none;color:#333;">${u.name}</a>`).join('')}</div></div>`;
+            }
+            if (inter.contacts.length > 0) {
+                interHTML += `<div style="margin-top:8px;"><strong style="font-size:0.85rem;color:#666;"><i class="fas fa-envelope" style="color:#2196f3;"></i> Contatti (${inter.contacts.length})</strong>`;
+                interHTML += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${inter.contacts.map(u => `<a href="/user/${u.id}" style="display:inline-flex;align-items:center;gap:4px;background:#e3f2fd;padding:3px 10px;border-radius:16px;font-size:0.8rem;text-decoration:none;color:#333;">${u.name}</a>`).join('')}</div></div>`;
+            }
+            if (inter.followers.length > 0) {
+                interHTML += `<div style="margin-top:8px;"><strong style="font-size:0.85rem;color:#666;"><i class="fas fa-heart" style="color:#e91e63;"></i> Interessati (${inter.followers.length})</strong>`;
+                interHTML += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${inter.followers.map(u => `<a href="/user/${u.id}" style="display:inline-flex;align-items:center;gap:4px;background:#fce4ec;padding:3px 10px;border-radius:16px;font-size:0.8rem;text-decoration:none;color:#333;">${u.name}</a>`).join('')}</div></div>`;
+            }
+            if (inter.total === 0) {
+                interHTML = '<p style="color:#999;font-size:0.9rem;margin-top:8px;">Nessuna interazione ancora.</p>';
+            }
+            
+            // Edit button
+            const editBtnHTML = q.can_edit ? `
+                <button onclick="editQuestion(${q.id})" style="margin-top:16px;padding:8px 20px;background:#ff9800;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
+                    <i class="fas fa-edit"></i> Modifica domanda
+                </button>
+            ` : '';
+            
+            const body = document.getElementById('question-detail-body');
+            body.style.textAlign = 'left';
+            body.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+                    <div>
+                        ${catLabel ? `<span style="background:#f0f8f0;color:#2e7d32;padding:4px 12px;border-radius:16px;font-size:0.8rem;font-weight:500;">${catLabel}</span>` : ''}
+                        ${statusMap[q.status] || ''}
+                    </div>
+                    <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#999;line-height:1;">✕</button>
+                </div>
+                <h2 style="margin:0 0 8px 0;font-size:1.3rem;color:#1a202c;" id="q-detail-title">${escapeHtml(q.title)}</h2>
+                <div style="font-size:0.85rem;color:#888;margin-bottom:16px;">
+                    ${q.author ? `<a href="/user/${q.author.id}" style="color:#2d6a4f;text-decoration:none;font-weight:500;">${q.author.name}</a> · ` : ''}
+                    ${q.created_at}
+                </div>
+                <div style="color:#333;line-height:1.6;white-space:pre-wrap;font-size:0.95rem;" id="q-detail-desc">${escapeHtml(q.description)}</div>
+                ${imagesHTML}
+                <div style="display:flex;gap:16px;margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f0;color:#666;font-size:0.9rem;">
+                    <span><i class="fas fa-thumbs-up"></i> ${q.upvotes}</span>
+                    <span><i class="fas fa-comment"></i> ${q.views} contatti</span>
+                </div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f0;">
+                    <h4 style="margin:0 0 8px 0;font-size:1rem;color:#333;"><i class="fas fa-users"></i> Interazioni</h4>
+                    ${interHTML}
+                </div>
+                ${editBtnHTML}
+            `;
+        } catch (error) {
+            console.error('Error loading question detail:', error);
+            document.getElementById('question-detail-body').innerHTML = '<p style="color:#dc3545;padding:20px;text-align:center;">Errore nel caricamento della domanda.</p>';
+        }
+    }
+    
+    // ========== EDIT QUESTION (full form like creation) ==========
+    let editUploadedImages = [];
+    const EDIT_MAX_IMAGES = 5;
+    
+    async function editQuestion(questionId) {
+        const body = document.getElementById('question-detail-body');
+        
+        // Fetch current question data
+        try {
+            const resp = await fetch(`/api/community/question/${questionId}/detail`);
+            const data = await resp.json();
+            if (!data.success) throw new Error(data.error);
+            const q = data.question;
+            
+            editUploadedImages = q.images ? [...q.images] : [];
+            
+            // Build category options from Jinja2-rendered data
+            const categoryOptions = `<option value="">Seleziona una categoria...</option>` +
+                {% for cat in categories %}{% if cat.is_principal %}
+                `<option value="{{ cat.id }}" ${ {{ cat.id }} === (q.primary_category_id || 0) ? 'selected' : '' }>{{ cat.icon }} {{ cat.name }}</option>` +
+                {% endif %}{% endfor %}
+                '';
+            
+            // Build existing images preview
+            const existingImagesHTML = editUploadedImages.map(url => `
+                <div class="edit-img-preview" style="display:inline-block;position:relative;margin:4px;">
+                    <img src="${url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;">
+                    <button type="button" onclick="removeEditImage('${url}', this.parentElement)" style="position:absolute;top:-6px;right:-6px;background:#dc3545;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>
+                </div>
+            `).join('');
+            
+            body.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 style="margin:0;font-size:1.15rem;color:#1a202c;"><i class="fas fa-edit" style="color:#ff9800;"></i> Modifica domanda</h3>
+                    <button onclick="openQuestionDetail(${questionId})" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#999;line-height:1;">✕</button>
+                </div>
+                
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;font-size:0.85rem;color:#555;margin-bottom:4px;">Titolo</label>
+                    <input id="q-edit-title" value="${escapeHtml(q.title)}" maxlength="200" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:1rem;box-sizing:border-box;">
+                </div>
+                
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;font-size:0.85rem;color:#555;margin-bottom:4px;">Descrizione</label>
+                    <textarea id="q-edit-desc" maxlength="5000" style="width:100%;min-height:150px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.95rem;line-height:1.6;resize:vertical;box-sizing:border-box;">${escapeHtml(q.description)}</textarea>
+                </div>
+                
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;font-size:0.85rem;color:#555;margin-bottom:4px;">Categoria Principale</label>
+                    <select id="q-edit-primary-cat" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">${categoryOptions}</select>
+                </div>
+                
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;font-size:0.85rem;color:#555;margin-bottom:4px;">Sottocategoria</label>
+                    <select id="q-edit-subcat" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
+                        <option value="">Seleziona una sottocategoria...</option>
+                    </select>
+                    <small id="q-edit-subcat-hint" style="color:#888;margin-top:4px;display:block;">Seleziona prima una categoria principale</small>
+                </div>
+                
+                <div style="margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <label style="font-weight:600;font-size:0.85rem;color:#555;">Tag (separati da virgola)</label>
+                        <button type="button" onclick="generateEditTags()" id="q-edit-gen-tags-btn" style="background:linear-gradient(135deg,#43a047 0%,#2e7d32 100%);color:white;border:none;padding:6px 14px;border-radius:8px;font-size:0.8em;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(46,125,50,.3);transition:all 0.3s;">
+                            🤖 Genera tag con AI
+                        </button>
+                    </div>
+                    <input id="q-edit-tags" placeholder="Es: design, logo, branding" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.95rem;box-sizing:border-box;">
+                    <small style="color:#888;margin-top:4px;display:block;">Separati da virgola</small>
+                    <div id="q-edit-tags-status" style="display:none;margin-top:8px;padding:10px 14px;border-radius:8px;font-size:0.9em;"></div>
+                </div>
+                
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;font-size:0.85rem;color:#555;margin-bottom:4px;">Immagini (opzionale, max ${EDIT_MAX_IMAGES})</label>
+                    <div id="q-edit-img-previews" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${existingImagesHTML}</div>
+                    <div id="q-edit-upload-area" onclick="document.getElementById('q-edit-file-input').click()" style="border:2px dashed #ddd;border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;transition:border-color 0.2s;" ${editUploadedImages.length >= EDIT_MAX_IMAGES ? 'hidden' : ''}>
+                        <span style="font-size:1.2rem;">📷</span>
+                        <span style="color:#666;font-size:0.85rem;margin-left:6px;">Clicca per caricare immagini (JPG, PNG, WebP — Max 5MB)</span>
+                    </div>
+                    <input type="file" id="q-edit-file-input" accept="image/jpeg,image/png,image/webp" multiple style="display:none;" onchange="handleEditImageSelect(this.files)">
+                    <div id="q-edit-img-error" style="color:#dc3545;font-size:0.85rem;margin-top:4px;display:none;"></div>
+                </div>
+                
+                <div style="display:flex;gap:8px;margin-top:16px;">
+                    <button onclick="saveQuestion(${questionId})" id="q-edit-save-btn" style="flex:1;padding:10px 20px;background:#4caf50;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                        <i class="fas fa-save"></i> Salva modifiche
+                    </button>
+                    <button onclick="openQuestionDetail(${questionId})" style="padding:10px 20px;background:#eee;color:#333;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;">
+                        Annulla
+                    </button>
+                </div>
+            `;
+            
+            // Set up primary category change handler
+            const primaryCatSelect = document.getElementById('q-edit-primary-cat');
+            primaryCatSelect.addEventListener('change', () => loadEditSubcategories(null));
+            
+            // Load subcategories for current primary category (with preselected value)
+            if (q.primary_category_id) {
+                await loadEditSubcategories(q.category_id);
+            }
+            
+        } catch (error) {
+            console.error('Error loading edit form:', error);
+            body.innerHTML = '<p style="color:#dc3545;padding:20px;text-align:center;">Errore nel caricamento del form di modifica.</p>';
+        }
+    }
+    
+    async function loadEditSubcategories(preselectedCategoryId) {
+        const primaryCatSelect = document.getElementById('q-edit-primary-cat');
+        const subcatSelect = document.getElementById('q-edit-subcat');
+        const hint = document.getElementById('q-edit-subcat-hint');
+        const categoryId = primaryCatSelect.value;
+        
+        if (!categoryId) {
+            subcatSelect.innerHTML = '<option value="">Seleziona una sottocategoria...</option>';
+            hint.textContent = 'Seleziona prima una categoria principale';
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/profile/subcategories/${categoryId}`);
+            const data = await response.json();
+            
+            if (data.subcategories && data.subcategories.length > 0) {
+                subcatSelect.innerHTML = '<option value="">Seleziona una sottocategoria...</option>' +
+                    data.subcategories.map(sub =>
+                        `<option value="${sub.id}" ${sub.id === preselectedCategoryId ? 'selected' : ''}>${sub.icon} ${sub.name}</option>`
+                    ).join('') +
+                    `<option value="altro" ${preselectedCategoryId === null ? 'selected' : ''}>📌 Altro</option>`;
+                hint.innerHTML = '';
+            } else {
+                subcatSelect.innerHTML = '<option value="">Nessuna sottocategoria disponibile</option>';
+                hint.textContent = '';
+            }
+        } catch (error) {
+            console.error('Error loading subcategories:', error);
+            subcatSelect.innerHTML = '<option value="">Errore nel caricamento</option>';
+        }
+    }
+    
+    async function handleEditImageSelect(files) {
+        const errorDiv = document.getElementById('q-edit-img-error');
+        errorDiv.style.display = 'none';
+        
+        const remaining = EDIT_MAX_IMAGES - editUploadedImages.length;
+        if (remaining <= 0) {
+            errorDiv.textContent = `Hai già caricato il massimo di ${EDIT_MAX_IMAGES} immagini.`;
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        const filesToProcess = Array.from(files).slice(0, remaining);
+        for (const file of filesToProcess) {
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+                errorDiv.textContent = 'Formato non supportato. Usa JPG, PNG o WebP.';
+                errorDiv.style.display = 'block';
+                continue;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                errorDiv.textContent = 'File troppo grande. Massimo 5MB.';
+                errorDiv.style.display = 'block';
+                continue;
+            }
+            await uploadEditImage(file);
+        }
+        document.getElementById('q-edit-file-input').value = '';
+    }
+    
+    async function uploadEditImage(file) {
+        const previewsDiv = document.getElementById('q-edit-img-previews');
+        const errorDiv = document.getElementById('q-edit-img-error');
+        
+        const previewItem = document.createElement('div');
+        previewItem.className = 'edit-img-preview';
+        previewItem.style.cssText = 'display:inline-block;position:relative;margin:4px;';
+        const localUrl = URL.createObjectURL(file);
+        previewItem.innerHTML = `<img src="${localUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;opacity:0.5;">
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);"><i class="fas fa-spinner fa-spin" style="color:#999;"></i></div>`;
+        previewsDiv.appendChild(previewItem);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', document.getElementById('q-edit-title')?.value || '');
+        formData.append('description', document.getElementById('q-edit-desc')?.value || '');
+        
+        try {
+            const response = await fetch('/api/community/upload-image', { method: 'POST', body: formData });
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                previewItem.innerHTML = `
+                    <img src="${data.url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;">
+                    <button type="button" onclick="removeEditImage('${data.url}', this.parentElement)" style="position:absolute;top:-6px;right:-6px;background:#dc3545;color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>
+                `;
+                editUploadedImages.push(data.url);
+                updateEditUploadVisibility();
+            } else {
+                previewItem.remove();
+                errorDiv.textContent = data.error || 'Errore durante il caricamento';
+                errorDiv.style.display = 'block';
+            }
+        } catch (error) {
+            previewItem.remove();
+            errorDiv.textContent = 'Errore di connessione durante il caricamento.';
+            errorDiv.style.display = 'block';
+        }
+        URL.revokeObjectURL(localUrl);
+    }
+    
+    function removeEditImage(url, element) {
+        editUploadedImages = editUploadedImages.filter(u => u !== url);
+        element.remove();
+        updateEditUploadVisibility();
+        const errorDiv = document.getElementById('q-edit-img-error');
+        if (errorDiv) errorDiv.style.display = 'none';
+    }
+    
+    function updateEditUploadVisibility() {
+        const area = document.getElementById('q-edit-upload-area');
+        if (area) area.hidden = editUploadedImages.length >= EDIT_MAX_IMAGES;
+    }
+    
+    async function generateEditTags() {
+        const titolo = document.getElementById('q-edit-title')?.value?.trim() || '';
+        const descrizione = document.getElementById('q-edit-desc')?.value?.trim() || '';
+        const subcatSelect = document.getElementById('q-edit-subcat');
+        const categoria = subcatSelect?.options[subcatSelect.selectedIndex]?.text?.trim() || '';
+        const tagsInput = document.getElementById('q-edit-tags');
+        const statusDiv = document.getElementById('q-edit-tags-status');
+        const btn = document.getElementById('q-edit-gen-tags-btn');
+        
+        if (!titolo || !descrizione) {
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fff3cd';
+            statusDiv.style.color = '#856404';
+            statusDiv.textContent = '⚠️ Inserisci titolo e descrizione prima di generare i tag.';
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Generazione...';
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#e8f4fd';
+        statusDiv.style.color = '#0c5460';
+        statusDiv.textContent = "🤖 L'AI sta analizzando la tua richiesta...";
+        
+        try {
+            const response = await fetch('/api/community/generate-tags', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titolo, descrizione, categoria })
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                tagsInput.value = data.tags_string;
+                statusDiv.style.background = '#d4edda';
+                statusDiv.style.color = '#155724';
+                statusDiv.textContent = '✅ Tag generati! Puoi modificarli.';
+            } else {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.textContent = '❌ ' + (data.error || 'Errore durante la generazione.');
+            }
+        } catch (error) {
+            statusDiv.style.background = '#f8d7da';
+            statusDiv.style.color = '#721c24';
+            statusDiv.textContent = '❌ Errore di connessione. Riprova.';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '🤖 Genera con AI';
+        }
+    }
+    
+    async function saveQuestion(questionId) {
+        const title = document.getElementById('q-edit-title').value.trim();
+        const description = document.getElementById('q-edit-desc').value.trim();
+        const primaryCategoryId = document.getElementById('q-edit-primary-cat').value || null;
+        const categoryId = document.getElementById('q-edit-subcat').value || null;
+        
+        if (!title || !description) {
+            alert('Titolo e descrizione sono obbligatori');
+            return;
+        }
+        
+        const saveBtn = document.getElementById('q-edit-save-btn');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvataggio...';
+        saveBtn.disabled = true;
+        
+        try {
+            const response = await fetch(`/api/community/question/${questionId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title,
+                    description,
+                    primary_category_id: primaryCategoryId ? parseInt(primaryCategoryId) : null,
+                    category_id: categoryId,
+                    images: editUploadedImages
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                document.getElementById('question-detail-modal').remove();
+                openQuestionDetail(questionId);
+                loadUserQuestions();
+            } else {
+                alert(data.error || 'Errore durante la modifica');
+            }
+        } catch (error) {
+            console.error('Error saving question:', error);
+            alert('Errore di connessione');
+        } finally {
+            if (saveBtn) {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
+        }
+    }
+
     async function loadLikedQuestions() {
         try {
             const response = await fetch('/api/profile/liked-questions');
@@ -1469,7 +1971,7 @@
             if (!data.questions || data.questions.length === 0) { section.style.display = 'none'; return; }
             section.style.display = 'block';
             container.innerHTML = data.questions.map(q => `
-                <a href="/community/question/${q.id}" class="liked-question-card">
+                <div class="liked-question-card" onclick="openQuestionDetail(${q.id})" style="cursor:pointer;">
                     <span class="q-cat-badge">${q.category_icon || '💬'} ${q.category_name || 'Generale'}</span>
                     <h3 class="question-title">${q.title}</h3>
                     <p class="question-description">${q.description}</p>
@@ -1479,7 +1981,7 @@
                         <span class="meta-item">📅 ${q.created_at}</span>
                     </div>
                     ${q.author_name ? `<div class="q-author">da <strong>${q.author_name}</strong></div>` : ''}
-                </a>
+                </div>
             `).join('');
         } catch (error) {
             console.error('Error loading liked questions:', error);
@@ -1496,7 +1998,7 @@
             if (!data.questions || data.questions.length === 0) { section.style.display = 'none'; return; }
             section.style.display = 'block';
             container.innerHTML = data.questions.map(q => `
-                <a href="/community/question/${q.id}" class="liked-question-card">
+                <div class="liked-question-card" onclick="openQuestionDetail(${q.id})" style="cursor:pointer;">
                     <span class="q-cat-badge">${q.category_icon || '💬'} ${q.category_name || 'Generale'}</span>
                     <h3 class="question-title">${q.title}</h3>
                     <p class="question-description">${q.description}</p>
@@ -1505,7 +2007,7 @@
                         <span class="meta-item">👁 ${q.views}</span>
                         <span class="meta-item">📅 ${q.created_at}</span>
                     </div>
-                </a>
+                </div>
             `).join('');
         } catch (error) {
             console.error('Error loading user questions:', error);
@@ -1647,7 +2149,7 @@
             const authorInitials = q.author_name ? q.author_name.substring(0, 2).toUpperCase() : '?';
             const authorColor = stringToColor(q.author_name || '');
             html += `
-                <a href="/community/question/${q.id}" style="text-decoration: none; color: inherit;">
+                <div onclick="openQuestionDetail(${q.id})" style="text-decoration: none; color: inherit; cursor: pointer;">
                     <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; border-left: 4px solid #667eea; cursor: pointer; transition: all 0.3s;">
                         <div style="display: flex; gap: 12px;">
                             <div style="width: 40px; height: 40px; border-radius: 50%; background: ${authorColor}20; border: 2px solid ${authorColor}; display: flex; align-items: center; justify-content: center; font-weight: bold; color: ${authorColor}; flex-shrink: 0;">${authorInitials}</div>
@@ -1662,7 +2164,7 @@
                             </div>
                         </div>
                     </div>
-                </a>
+                </div>
             `;
         });
         html += '</div>';

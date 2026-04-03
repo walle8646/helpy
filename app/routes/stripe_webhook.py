@@ -103,7 +103,10 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
     duration_minutes = int(metadata.get('duration_minutes'))
     availability_block_id = metadata.get('availability_block_id')
     client_notes = metadata.get('client_notes', '')
-    description = metadata.get('description', '')  # 🆕 Estrai la descrizione
+    description = metadata.get('description', '')
+    recording_requested_raw = metadata.get('recording_requested', 'true')
+    recording_requested = recording_requested_raw == 'true'
+    logger.info(f"📹 recording_requested da Stripe metadata: raw='{recording_requested_raw}', parsed={recording_requested}")
     
     logger.info(f"👤 Direct booking details:")
     logger.info(f"   Client: {client_user_id}, Consultant: {consultant_user_id}")
@@ -118,6 +121,12 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
         ).first()
         
         if existing_booking:
+            # Sincronizza recording_requested se diverso (es. webhook production vecchio)
+            if existing_booking.recording_requested != recording_requested:
+                logger.info(f"Aggiorno recording_requested per booking {existing_booking.id}: {existing_booking.recording_requested} → {recording_requested}")
+                existing_booking.recording_requested = recording_requested
+                db_session.add(existing_booking)
+                db_session.commit()
             logger.info(f"Booking already exists for session {session_id}")
             return
         
@@ -148,7 +157,8 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
             stripe_checkout_session_id=session_id,
             stripe_payment_intent_id=payment_intent_id,
             client_notes=client_notes or f"Prenotazione diretta",
-            description=description  # 🆕 Salva la descrizione nel database
+            description=description,
+            recording_requested=recording_requested
         )
         
         db_session.add(new_booking)

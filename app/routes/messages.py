@@ -569,3 +569,47 @@ async def get_chat_config(request: Request):
     except Exception as e:
         logger.error(f"Error getting chat config: {e}", exc_info=True)
         return JSONResponse({"max_messages": 40, "max_length": 500}, status_code=200)
+
+# ========== API: User Online Status ==========
+
+@router.get("/api/user/{user_id}/status")
+async def get_user_status(user_id: int, request: Request):
+    """Ottieni lo stato online/offline di un utente"""
+    current_user = verify_token(request)
+    if not current_user:
+        return JSONResponse({"error": "Non autenticato"}, status_code=401)
+    
+    try:
+        with get_session() as session:
+            user = session.get(User, user_id)
+            if not user:
+                return JSONResponse({"error": "Utente non trovato"}, status_code=404)
+            
+            status_label = "Offline"
+            is_online = False
+            
+            if user.last_seen:
+                now = datetime.utcnow()
+                diff = now - user.last_seen
+                minutes = int(diff.total_seconds() / 60)
+                
+                if minutes < 5:
+                    status_label = "Online ora"
+                    is_online = True
+                elif minutes < 60:
+                    status_label = f"Attivo {minutes} min fa"
+                elif minutes < 1440:
+                    hours = minutes // 60
+                    status_label = f"Attivo {hours} or{'a' if hours == 1 else 'e'} fa"
+                elif minutes < 43200:
+                    days = minutes // 1440
+                    status_label = f"Attivo {days} giorn{'o' if days == 1 else 'i'} fa"
+                else:
+                    months = minutes // 43200
+                    status_label = f"Attivo {months} mes{'e' if months == 1 else 'i'} fa"
+            
+            return JSONResponse({"status": status_label, "is_online": is_online}, status_code=200)
+    
+    except Exception as e:
+        logger.error(f"Error getting user status: {e}", exc_info=True)
+        return JSONResponse({"status": "Offline", "is_online": False}, status_code=200)

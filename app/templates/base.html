@@ -141,7 +141,8 @@
             border-bottom: none;
         }
         
-        .search-option:hover {
+        .search-option:hover,
+        .search-option.active {
             background: #f5f5f5;
             color: #4caf50;
         }
@@ -371,6 +372,25 @@
         .chat-button i {
             color: #000 !important;
             font-size: 20px !important;
+        }
+
+        .header-chat-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #e74c3c;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            border: 2px solid white;
+            line-height: 1;
         }
         
         .notifications-badge {
@@ -786,8 +806,9 @@
                 </div>
                 
                 <!-- Chat Button -->
-                <button class="chat-button" onclick="reopenChatWidget()" title="Apri chat">
+                <button class="chat-button" id="headerChatButton" onclick="reopenChatWidget()" title="Apri chat">
                     <i class="fas fa-comments"></i>
+                    <span class="header-chat-badge" id="headerChatBadge" style="display: none;">0</span>
                 </button>
                 
                 <!-- Divisore -->
@@ -1220,16 +1241,52 @@
         const globalSearch = document.getElementById('globalSearch');
         const searchDropdown = document.getElementById('searchDropdown');
         let searchQuery = '';
+        let activeIndex = -1;
+        const searchOptions = searchDropdown.querySelectorAll('.search-option');
+
+        function updateActiveOption() {
+            searchOptions.forEach((opt, i) => {
+                opt.classList.toggle('active', i === activeIndex);
+            });
+        }
 
         // Mostra/nascondi dropdown quando scrivi
         globalSearch.addEventListener('input', function(e) {
             searchQuery = e.target.value.trim();
+            activeIndex = -1;
+            updateActiveOption();
             
             // Mostra dropdown se hanno superato 4 caratteri
             if (searchQuery.length > 4) {
                 searchDropdown.classList.add('show');
             } else {
                 searchDropdown.classList.remove('show');
+            }
+        });
+
+        // Keyboard navigation
+        globalSearch.addEventListener('keydown', function(e) {
+            if (!searchDropdown.classList.contains('show')) return;
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIndex = activeIndex < searchOptions.length - 1 ? activeIndex + 1 : 0;
+                updateActiveOption();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIndex = activeIndex > 0 ? activeIndex - 1 : searchOptions.length - 1;
+                updateActiveOption();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeIndex >= 0 && activeIndex < searchOptions.length) {
+                    searchOptions[activeIndex].click();
+                } else {
+                    searchConsultants();
+                }
+            } else if (e.key === 'Escape') {
+                searchDropdown.classList.remove('show');
+                activeIndex = -1;
+                updateActiveOption();
             }
         });
 

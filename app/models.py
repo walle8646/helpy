@@ -259,6 +259,9 @@ class Booking(SQLModel, table=True):
     cancelled_by: Optional[int] = Field(default=None, foreign_key="user.id")
     cancelled_at: Optional[datetime] = None
     
+    # Recording preference - se il cliente vuole essere registrato
+    recording_requested: bool = Field(default=True)  # True = registra, False = non registrare
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

@@ -148,7 +148,34 @@
         opacity: 0.9;
         margin-bottom: 4px;
     }
+
+    .chat-header-status.is-online {
+        color: #90EE90;
+    }
     
+    .chat-date-separator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 12px 0 8px 0;
+        gap: 10px;
+    }
+    .chat-date-separator::before,
+    .chat-date-separator::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: rgba(0,0,0,0.1);
+    }
+    .chat-date-separator span {
+        font-size: 11px;
+        color: #888;
+        background: #f5f5f5;
+        padding: 3px 12px;
+        border-radius: 12px;
+        white-space: nowrap;
+    }
+
     .create-consultation-link {
         background: rgba(255, 255, 255, 0.15);
         border: 1px solid rgba(255, 255, 255, 0.3);
@@ -840,6 +867,18 @@
     const notificationName = document.getElementById('notificationName');
     const notificationTime = document.getElementById('notificationTime');
     const notificationMessage = document.getElementById('notificationMessage');
+    const headerChatBadge = document.getElementById('headerChatBadge');
+
+    // Update badge in the header navbar
+    function updateHeaderBadge(totalUnread) {
+        if (!headerChatBadge) return;
+        if (totalUnread > 0) {
+            headerChatBadge.textContent = totalUnread > 9 ? '9+' : totalUnread;
+            headerChatBadge.style.display = 'flex';
+        } else {
+            headerChatBadge.style.display = 'none';
+        }
+    }
     
     // User info for consultation button logic - will be fetched from API
     let currentUserIsVerified = false;
@@ -952,6 +991,53 @@
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
         return `${hours}:${minutes}`;
+    }
+    
+    // Format date for separator (WhatsApp style)
+    function formatDateSeparator(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (date.toDateString() === today.toDateString()) return 'Oggi';
+        if (date.toDateString() === yesterday.toDateString()) return 'Ieri';
+        
+        return date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+    
+    // Get date key for grouping (YYYY-MM-DD)
+    function getDateKey(isoString) {
+        if (!isoString) return '';
+        const d = new Date(isoString);
+        return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+    }
+    
+    // Create date separator DOM element
+    function createDateSeparatorEl(isoString) {
+        const div = document.createElement('div');
+        div.className = 'chat-date-separator';
+        div.dataset.dateKey = getDateKey(isoString);
+        div.innerHTML = `<span>${formatDateSeparator(isoString)}</span>`;
+        return div;
+    }
+    
+    // Load and display user online status
+    async function loadUserStatus(userId) {
+        try {
+            const response = await fetch(`/api/user/${userId}/status`);
+            if (!response.ok) return;
+            const data = await response.json();
+            chatUserStatus.textContent = data.status || 'Offline';
+            if (data.is_online) {
+                chatUserStatus.classList.add('is-online');
+            } else {
+                chatUserStatus.classList.remove('is-online');
+            }
+        } catch (e) {
+            chatUserStatus.textContent = 'Offline';
+        }
     }
     
     // Update consultation button visibility
@@ -1097,6 +1183,11 @@
             chatAvatarInitials.textContent = getUserInitials(userName);
             chatAvatarInitials.title = userName;
         }
+        
+        // Load and display online status
+        chatUserStatus.textContent = '';
+        chatUserStatus.classList.remove('is-online');
+        loadUserStatus(userId);
         
         // Show/hide consultation button
         updateConsultationButton();
@@ -1256,7 +1347,20 @@
             emptyState.remove();
         }
         
+        // Get last date separator in DOM
+        const existingSeparators = chatMessages.querySelectorAll('.chat-date-separator');
+        let lastDateKey = existingSeparators.length > 0 
+            ? existingSeparators[existingSeparators.length - 1].dataset.dateKey 
+            : null;
+        
         newMessages.forEach(msg => {
+            // Insert date separator if new day
+            const msgDateKey = getDateKey(msg.created_at);
+            if (msgDateKey && msgDateKey !== lastDateKey) {
+                chatMessages.appendChild(createDateSeparatorEl(msg.created_at));
+                lastDateKey = msgDateKey;
+            }
+            
             const msgDiv = document.createElement('div');
             
             // Check if it's a system message
@@ -1312,14 +1416,15 @@
         }
         
         chatMessages.innerHTML = '';
-        console.log(`🧹 DOM pulito, aggiungo ${messages.length} messaggi`);
+        let lastDateKey = null;
         
         messages.forEach((msg, index) => {
-            console.log(`  📝 Messaggio ${index + 1}:`, {
-                id: msg.id,
-                is_sender: msg.is_sender,
-                content: msg.content.substring(0, 30) + '...'
-            });
+            // Insert date separator if new day
+            const msgDateKey = getDateKey(msg.created_at);
+            if (msgDateKey && msgDateKey !== lastDateKey) {
+                chatMessages.appendChild(createDateSeparatorEl(msg.created_at));
+                lastDateKey = msgDateKey;
+            }
             
             const msgDiv = document.createElement('div');
             
@@ -1358,7 +1463,6 @@
             chatMessages.appendChild(msgDiv);
         });
         
-        console.log(`✅ Messaggi renderizzati, scroll to bottom`);
         // Scroll to bottom
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -1426,12 +1530,20 @@
                 await loadMessages(true); // Incremental update
             }
         }, 3000); // Poll every 3 seconds
+        // Refresh online status every 60 seconds
+        chatWidget.statusInterval = setInterval(() => {
+            if (chatWidget.currentUserId) loadUserStatus(chatWidget.currentUserId);
+        }, 60000);
     }
     
     function stopPolling() {
         if (chatWidget.pollInterval) {
             clearInterval(chatWidget.pollInterval);
             chatWidget.pollInterval = null;
+        }
+        if (chatWidget.statusInterval) {
+            clearInterval(chatWidget.statusInterval);
+            chatWidget.statusInterval = null;
         }
     }
     
@@ -1683,6 +1795,7 @@
             } else {
                 unreadBadge.style.display = 'none';
             }
+            updateHeaderBadge(totalUnread);
             
             // Check each conversation for new messages
             for (const conv of data.conversations) {
@@ -1784,13 +1897,18 @@
             
             // Mostra/nascondi widget in base alle conversazioni E allo stato di chiusura
             const chatWidgetContainer = document.getElementById('chatWidget');
+            
+            // Always update header badge regardless of widget state
+            const totalUnreadEarly = data.conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+            updateHeaderBadge(totalUnreadEarly);
+            
             if (!chatWidget.isOpen) {
                 // Controlla se l'utente ha chiuso manualmente il widget
                 if (chatWidget.userClosedWidget) {
                     // Widget chiuso dall'utente: rimani nascosto
                     chatWidgetContainer.style.display = 'none';
                     console.log('🚫 Widget rimane nascosto: chiuso manualmente dall\'utente');
-                    return; // ✅ Esci senza aggiornare badge
+                    return;
                 } else if (data.conversations.length > 0) {
                     // Non chiuso manualmente e ci sono conversazioni: mostra
                     chatWidgetContainer.style.display = 'block';
@@ -1810,6 +1928,7 @@
             } else {
                 unreadBadge.style.display = 'none';
             }
+            updateHeaderBadge(totalUnread);
             
             // Initialize lastKnownMessageId on first load
             if (chatWidget.lastKnownMessageId === 0 && data.conversations.length > 0) {

@@ -558,7 +558,7 @@ async def api_ask_question(
             }, status_code=201)
     
     except Exception as e:
-        logger.error(f"❌ Error creating question: {e}", exc_info=True)
+        logger.error("❌ Error creating question: " + str(e))
         return JSONResponse(
             {"error": "Errore durante la pubblicazione della domanda"},
             status_code=500
@@ -854,7 +854,7 @@ async def generate_question_tags(request: Request):
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=500)
     except Exception as e:
-        logger.error(f"❌ Errore generazione tags community: {e}", exc_info=True)
+        logger.error("❌ Errore generazione tags community: " + str(e))
         return JSONResponse(
             {"error": "Errore durante la generazione dei tag. Riprova."},
             status_code=500
@@ -1079,3 +1079,228 @@ async def get_question_followers(request: Request, question_id: int):
         logger.error(f"Error getting followers: {e}")
         return JSONResponse({"error": "Errore durante l'operazione"}, status_code=500)
 
+
+# ========== API: Question Detail ==========
+
+@router.get("/api/community/question/{question_id}/detail")
+async def get_question_detail(question_id: int, request: Request):
+    """Ottieni dettaglio completo di una domanda con interazioni"""
+    user = verify_token(request)
+    if not user:
+        return JSONResponse({"error": "Non autenticato"}, status_code=401)
+    
+    try:
+        with get_session() as session:
+            from app.models import User as UserModel
+            question = session.get(CommunityQuestion, question_id)
+            if not question:
+                return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
+            
+            author = session.get(UserModel, question.user_id)
+            cat = session.get(Category, question.category_id) if question.category_id else None
+            primary_cat = session.get(Category, question.primary_category_id) if question.primary_category_id else None
+            
+            # Count interactions
+            likes_count = session.exec(
+                select(func.count()).select_from(CommunityLike).where(CommunityLike.question_id == question_id)
+            ).one()
+            contacts_count = session.exec(
+                select(func.count()).select_from(CommunityContact).where(CommunityContact.question_id == question_id)
+            ).one()
+            follows_count = session.exec(
+                select(func.count()).select_from(CommunityQuestionFollow).where(CommunityQuestionFollow.question_id == question_id)
+            ).one()
+            
+            # Get users who liked
+            likers = session.exec(
+                select(UserModel).join(CommunityLike, CommunityLike.user_id == UserModel.id)
+                .where(CommunityLike.question_id == question_id)
+                .order_by(CommunityLike.created_at.desc())
+            ).all()
+            
+            # Get users who contacted
+            contacts = session.exec(
+                select(UserModel).join(CommunityContact, CommunityContact.user_id == UserModel.id)
+                .where(CommunityContact.question_id == question_id)
+                .order_by(CommunityContact.created_at.desc())
+            ).all()
+            
+            # Get followers
+            followers = session.exec(
+                select(UserModel).join(CommunityQuestionFollow, CommunityQuestionFollow.user_id == UserModel.id)
+                .where(CommunityQuestionFollow.question_id == question_id)
+                .order_by(CommunityQuestionFollow.created_at.desc())
+            ).all()
+            
+            total_interactions = likes_count + contacts_count + follows_count
+            
+            # Check if editable: <48h and no interactions
+            age_hours = (datetime.utcnow() - question.created_at).total_seconds() / 3600
+            can_edit = question.user_id == user.id and age_hours < 48 and total_interactions == 0
+            
+            images = []
+            if question.images:
+                try:
+                    images = json.loads(question.images)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
+            def user_info(u):
+                return {
+                    "id": u.id,
+                    "name": f"{u.nome or ''} {u.cognome or ''}".strip() or "Utente",
+                    "picture": u.profile_picture,
+                    "profession": u.professione or ""
+                }
+            
+            return JSONResponse({
+                "success": True,
+                "question": {
+                    "id": question.id,
+                    "title": question.title,
+                    "description": question.description,
+                    "status": question.status,
+                    "views": question.views,
+                    "upvotes": question.upvotes,
+                    "images": images,
+                    "created_at": question.created_at.strftime("%d/%m/%Y %H:%M"),
+                    "updated_at": question.updated_at.strftime("%d/%m/%Y %H:%M"),
+                    "author": user_info(author) if author else None,
+                    "category": {"id": cat.id, "name": cat.name, "icon": cat.icon} if cat else None,
+                    "primary_category": {"id": primary_cat.id, "name": primary_cat.name, "icon": primary_cat.icon} if primary_cat else None,
+                    "primary_category_id": question.primary_category_id,
+                    "category_id": question.category_id,
+                    "can_edit": can_edit,
+                    "is_owner": question.user_id == user.id,
+                },
+                "interactions": {
+                    "total": total_interactions,
+                    "likes": [user_info(u) for u in likers],
+                    "contacts": [user_info(u) for u in contacts],
+                    "followers": [user_info(u) for u in followers]
+                }
+            })
+    
+    except Exception as e:
+        logger.error(f"Error getting question detail: {e}", exc_info=True)
+        return JSONResponse({"error": "Errore nel caricamento"}, status_code=500)
+
+
+# ========== API: Edit Question ==========
+
+@router.put("/api/community/question/{question_id}")
+async def edit_question(question_id: int, request: Request):
+    """Modifica una domanda (solo se <48h e nessuna interazione)"""
+    user = verify_token(request)
+    if not user:
+        return JSONResponse({"error": "Non autenticato"}, status_code=401)
+    
+    try:
+        body = await request.json()
+        new_title = body.get("title", "").strip()
+        new_description = body.get("description", "").strip()
+        new_primary_category_id = body.get("primary_category_id")
+        new_category_id = body.get("category_id")  # can be int, "altro", or None
+        new_images = body.get("images")  # list of S3 URLs or None
+        
+        if not new_title or not new_description:
+            return JSONResponse({"error": "Titolo e descrizione sono obbligatori"}, status_code=400)
+        if len(new_title) > 200:
+            return JSONResponse({"error": "Titolo troppo lungo (max 200 caratteri)"}, status_code=400)
+        if len(new_description) > 5000:
+            return JSONResponse({"error": "Descrizione troppo lunga (max 5000 caratteri)"}, status_code=400)
+        
+        # Resolve category_id (handle "altro")
+        resolved_category_id = None
+        if new_category_id and str(new_category_id) != "altro":
+            try:
+                resolved_category_id = int(new_category_id)
+            except (ValueError, TypeError):
+                resolved_category_id = None
+        
+        resolved_primary_category_id = None
+        if new_primary_category_id:
+            try:
+                resolved_primary_category_id = int(new_primary_category_id)
+            except (ValueError, TypeError):
+                resolved_primary_category_id = None
+        
+        with get_session() as session:
+            question = session.get(CommunityQuestion, question_id)
+            if not question:
+                return JSONResponse({"error": "Domanda non trovata"}, status_code=404)
+            
+            if question.user_id != user.id:
+                return JSONResponse({"error": "Non autorizzato"}, status_code=403)
+            
+            age_hours = (datetime.utcnow() - question.created_at).total_seconds() / 3600
+            if age_hours >= 48:
+                return JSONResponse({"error": "Non puoi modificare una domanda dopo 48 ore"}, status_code=400)
+            
+            # Check interactions
+            total = session.exec(
+                select(func.count()).select_from(CommunityLike).where(CommunityLike.question_id == question_id)
+            ).one()
+            total += session.exec(
+                select(func.count()).select_from(CommunityContact).where(CommunityContact.question_id == question_id)
+            ).one()
+            total += session.exec(
+                select(func.count()).select_from(CommunityQuestionFollow).where(CommunityQuestionFollow.question_id == question_id)
+            ).one()
+            
+            if total > 0:
+                return JSONResponse({"error": "Non puoi modificare una domanda con interazioni"}, status_code=400)
+            
+            # ========== CONTROLLO DUPLICATO AI ==========
+            all_user_questions = session.exec(
+                select(CommunityQuestion)
+                .where(
+                    CommunityQuestion.user_id == user.id,
+                    CommunityQuestion.id != question_id
+                )
+                .order_by(CommunityQuestion.created_at.desc())
+                .limit(50)
+            ).all()
+            
+            domande_precedenti = [
+                {"title": q.title, "description": q.description}
+                for q in all_user_questions
+            ]
+        
+        if domande_precedenti:
+            duplicato = await controlla_duplicato(new_title, new_description, domande_precedenti)
+            if duplicato.get("is_duplicate", False):
+                reason = duplicato.get("reason", "Richiesta simile già presente")
+                return JSONResponse(
+                    {"error": f"{reason}. Prova a formulare una richiesta diversa."},
+                    status_code=400
+                )
+        
+        # ========== VALIDAZIONE AI DEL CONTENUTO ==========
+        validazione = await valida_richiesta(new_title, new_description)
+        if not validazione.get("approved", True):
+            reason = validazione.get("reason", "Contenuto non approvato")
+            return JSONResponse(
+                {"error": f"La tua richiesta non è stata approvata: {reason}"},
+                status_code=400
+            )
+        
+        with get_session() as session:
+            question = session.get(CommunityQuestion, question_id)
+            question.title = new_title
+            question.description = new_description
+            if resolved_primary_category_id is not None:
+                question.primary_category_id = resolved_primary_category_id
+            if new_category_id is not None:
+                question.category_id = resolved_category_id
+            if new_images is not None:
+                question.images = json.dumps(new_images) if new_images else None
+            question.updated_at = datetime.utcnow()
+            session.add(question)
+            session.commit()
+            
+            return JSONResponse({"success": True, "message": "Domanda aggiornata"})
+    
+    except Exception as e:
+        logger.error("Error editing question: " + str(e))
+        return JSONResponse({"error": "Errore durante la modifica"}, status_code=500)

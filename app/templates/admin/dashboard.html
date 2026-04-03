@@ -20,7 +20,7 @@
         color: #1a1a2e;
         margin: 0;
     }
-    .admin-header h1 i { color: #667eea; }
+    .admin-header h1 i { color: #2d6a4f; }
     .admin-nav {
         display: flex;
         gap: 8px;
@@ -36,7 +36,7 @@
         transition: all 0.2s;
     }
     .admin-nav a:hover, .admin-nav a.active {
-        background: #667eea;
+        background: #2d6a4f;
         color: #fff;
     }
 
@@ -52,7 +52,7 @@
         border-radius: 14px;
         padding: 24px;
         box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-        border-left: 4px solid #667eea;
+        border-left: 4px solid #2d6a4f;
     }
     .stat-card.green { border-left-color: #4caf50; }
     .stat-card.orange { border-left-color: #ff9800; }
@@ -98,7 +98,7 @@
         align-items: center;
         gap: 8px;
     }
-    .admin-section h2 i { color: #667eea; }
+    .admin-section h2 i { color: #2d6a4f; }
 
     /* Mini table */
     .admin-table {
@@ -256,7 +256,7 @@
                     {% for u in recent_users %}
                     <tr>
                         <td>{{ u.nome or '' }} {{ u.cognome or '' }}</td>
-                        <td style="color: #667eea;">{{ u.email }}</td>
+                        <td style="color: #2d6a4f;">{{ u.email }}</td>
                         <td>{{ u.created_at.strftime('%d/%m/%Y') if u.created_at else '-' }}</td>
                     </tr>
                     {% endfor %}
@@ -302,7 +302,7 @@
             </table>
             {% if recent_disputes %}
             <div style="text-align: right; margin-top: 12px;">
-                <a href="/admin/disputes" style="color: #667eea; font-weight: 500; text-decoration: none;">
+                <a href="/admin/disputes" style="color: #2d6a4f; font-weight: 500; text-decoration: none;">
                     Vedi tutte <i class="fas fa-arrow-right"></i>
                 </a>
             </div>

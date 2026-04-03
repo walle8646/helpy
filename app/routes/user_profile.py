@@ -6,7 +6,7 @@ from sqlmodel import select, and_, func
 from app.routes.auth import verify_token
 from app.logger_config import logger
 from app.utils.email import send_profile_verification_request
-from app.utils.ai_service import genera_aree_interesse, genera_tags, valida_profilo
+from app.utils.ai_service import genera_aree_interesse, genera_tags, valida_profilo, modera_immagine
 from typing import Optional
 import os
 import hashlib
@@ -504,6 +504,19 @@ async def upload_profile_picture(request: Request, file: UploadFile = File(...))
         
         if len(contents) > 5 * 1024 * 1024:  # Max 5MB
             return JSONResponse({"error": "File troppo grande (max 5MB)"}, status_code=400)
+        
+        # ========== MODERAZIONE AI ==========
+        import base64
+        image_b64 = base64.b64encode(contents).decode("utf-8")
+        moderation = await modera_immagine(image_b64, "Foto profilo", "Immagine del profilo utente sulla piattaforma Helpy")
+        
+        if not moderation.get("approved", False):
+            reason = moderation.get("reason", "Immagine non approvata")
+            logger.warning(f"🚫 Foto profilo rifiutata per user {user.id}: {reason}")
+            return JSONResponse(
+                {"error": f"Immagine rifiutata: {reason}"},
+                status_code=400
+            )
         
         # Importa boto3 per S3
         import boto3

@@ -325,6 +325,8 @@ async def create_booking(
     client_notes = booking_data.get('client_notes', '')
     description = booking_data.get('description', '')  # 🆕 Descrizione della consulenza
     price = booking_data.get('price')  # Prezzo calcolato dal frontend
+    recording_requested = booking_data.get('recording_requested', True)  # Default: registra
+    logger.info(f"📹 recording_requested ricevuto dal frontend: {recording_requested} (tipo: {type(recording_requested).__name__})")
     
     # Validazioni
     if not all([consultant_id, booking_date_str, start_time, end_time, duration_minutes, price]):
@@ -413,7 +415,8 @@ async def create_booking(
                     'duration_minutes': str(duration_minutes),
                     'availability_block_id': str(availability_block_id) if availability_block_id else '',
                     'client_notes': client_notes,
-                    'description': description  # 🆕 Aggiungi la descrizione ai metadata
+                    'description': description,
+                    'recording_requested': str(recording_requested).lower()  # 👈 Valore inviato a Stripe
                 }
             )
             
@@ -524,7 +527,7 @@ async def get_upcoming_bookings(request: Request):
             time_until = (booking_datetime - now).total_seconds() / 60
             
             # Se qualcuno è in call, mostra sempre il booking (anche se il tempo è scaduto)
-            someone_in_call = booking.client_joined_at is not None or booking.consultant_joined_at is not None
+            someone_in_call = booking.client_joined_at is not None or booking.consultant_joined_at is not None or booking.call_started_at is not None
             
             # FILTRO: Salta appuntamenti passati, MA tieni quelli con call attiva
             if time_until < -booking.duration_minutes and not someone_in_call:
@@ -546,6 +549,13 @@ async def get_upcoming_bookings(request: Request):
             other_joined = booking.consultant_joined_at is not None if is_client else booking.client_joined_at is not None
             can_start_call = has_joined and other_joined
             
+            # Se la call è stata avviata (call_started_at set o recording attiva), considera entrambi come joined
+            call_actually_happened = booking.call_started_at is not None or booking.recording_status not in ("not_started", None)
+            if call_actually_happened:
+                has_joined = True
+                other_joined = True
+                can_start_call = True
+            
             upcoming.append({
                 "id": booking.id,
                 "date": str(booking_date) if not isinstance(booking.booking_date, str) else booking.booking_date,
@@ -557,7 +567,8 @@ async def get_upcoming_bookings(request: Request):
                 "stripe_payment_intent_id": booking.stripe_payment_intent_id,
                 "role": role,
                 "other_user": {
-                    "name": f"{other_user.nome} {other_user.cognome}" if other_user else "Utente",
+                    "id": other_user.id if other_user else None,
+                    "name": f"{other_user.nome or ''} {other_user.cognome or ''}".strip() if other_user else "Utente",
                     "profession": other_user.professione if other_user else "",
                     "picture": other_user.profile_picture if other_user else None
                 },
@@ -573,6 +584,66 @@ async def get_upcoming_bookings(request: Request):
                 break
         
         return {"bookings": upcoming}
+
+@router.get("/api/booking/history")
+async def get_booking_history(request: Request):
+    """Ottiene lo storico completo degli appuntamenti passati dell'utente"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    with Session(engine) as session:
+        now = datetime.now()
+        
+        statement = select(Booking).where(
+            (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
+            Booking.payment_status == 'paid'
+        ).order_by(Booking.booking_date.desc(), Booking.start_time.desc())
+        
+        bookings = session.exec(statement).all()
+        
+        history = []
+        for booking in bookings:
+            if isinstance(booking.booking_date, str):
+                booking_date = datetime.fromisoformat(booking.booking_date.split()[0]).date()
+            elif isinstance(booking.booking_date, datetime):
+                booking_date = booking.booking_date.date()
+            else:
+                booking_date = booking.booking_date
+                
+            booking_datetime = datetime.combine(
+                booking_date,
+                datetime.strptime(booking.start_time, "%H:%M").time()
+            )
+            
+            end_datetime = booking_datetime + timedelta(minutes=booking.duration_minutes)
+            
+            # Solo appuntamenti già terminati
+            if end_datetime >= now:
+                continue
+            
+            is_client = booking.client_user_id == current_user.id
+            role = 'client' if is_client else 'consultant'
+            other_user_id = booking.consultant_user_id if is_client else booking.client_user_id
+            other_user = session.get(User, other_user_id)
+            
+            history.append({
+                "id": booking.id,
+                "date": str(booking_date),
+                "start_time": booking.start_time,
+                "end_time": booking.end_time,
+                "duration": booking.duration_minutes,
+                "status": booking.status,
+                "role": role,
+                "other_user": {
+                    "id": other_user.id if other_user else None,
+                    "name": f"{other_user.nome or ''} {other_user.cognome or ''}".strip() if other_user else "Utente",
+                    "profession": other_user.professione if other_user else "",
+                    "picture": other_user.profile_picture if other_user else None
+                }
+            })
+        
+        return {"bookings": history}
 
 @router.post("/api/booking/{booking_id}/join")
 async def join_booking(booking_id: int, request: Request):
@@ -633,10 +704,14 @@ async def join_booking(booking_id: int, request: Request):
         # 🎥 NUOVO: Avvia registrazione automatica se almeno uno ha joinato
         # Se lo status è "completed" significa che gli utenti hanno riiniziato dopo aver chiuso
         # → riavvia una nuova registrazione con un nuovo session counter
-        should_start_recording = (client_joined or consultant_joined) and booking.recording_status not in ("recording", "failed")
+        # ⚠️ Non registrare se il cliente non ha richiesto la registrazione
+        should_start_recording = booking.recording_requested and (client_joined or consultant_joined) and booking.recording_status not in ("recording", "failed")
+        
+        if not booking.recording_requested:
+            logger.info(f"ℹ️ Recording NOT requested for booking {booking_id} - skipping recording")
         
         # Se la registrazione era completata e qualcuno rejoin → incrementa session counter
-        if booking.recording_status == "completed" and (client_joined or consultant_joined):
+        if booking.recording_requested and booking.recording_status == "completed" and (client_joined or consultant_joined):
             logger.info(f"🔄 User rejoined after previous recording completed - starting new session")
             booking.recording_session_count = (booking.recording_session_count or 0) + 1
             booking.recording_status = None  # Reset status per far ripartire la registrazione
@@ -735,12 +810,40 @@ async def get_agora_token(booking_id: int, request: Request):
                 },
                 "user_role": "client" if is_client else "consultant",
                 "other_user": {
-                    "name": f"{other_user.nome} {other_user.cognome}" if other_user else "Utente",
+                    "name": f"{other_user.nome or ''} {other_user.cognome or ''}".strip() if other_user else "Utente",
                     "profession": other_user.professione if other_user else ""
                 }
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Errore generazione token: {str(e)}")
+
+@router.post("/api/booking/{booking_id}/recording-preference")
+async def update_recording_preference(booking_id: int, request: Request):
+    """Aggiorna la preferenza di registrazione prima dell'inizio della call"""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    body = await request.json()
+    recording_requested = body.get('recording_requested')
+    if recording_requested is None:
+        raise HTTPException(status_code=400, detail="Campo recording_requested mancante")
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+        
+        if current_user.id != booking.client_user_id:
+            raise HTTPException(status_code=403, detail="Solo il cliente può modificare questa preferenza")
+        
+        booking.recording_requested = bool(recording_requested)
+        booking.updated_at = datetime.utcnow()
+        session.add(booking)
+        session.commit()
+        
+        logger.info(f"📹 recording_requested aggiornato per booking {booking_id}: {booking.recording_requested}")
+        return {"success": True, "recording_requested": booking.recording_requested}
 
 @router.get("/booking/call/{booking_id}")
 async def call_page(booking_id: int, request: Request):
@@ -757,11 +860,32 @@ async def call_page(booking_id: int, request: Request):
         if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
             raise HTTPException(status_code=403, detail="Non autorizzato")
         
+        # Recupera nomi reali per i label video
+        client_user = session.get(User, booking.client_user_id)
+        consultant_user = session.get(User, booking.consultant_user_id)
+        
+        def get_full_name(u, fallback):
+            if not u:
+                return fallback
+            nome = u.nome or ""
+            cognome = u.cognome or ""
+            full = f"{nome} {cognome}".strip()
+            return full if full else fallback
+        
+        if current_user.id == booking.client_user_id:
+            local_user_name = get_full_name(client_user, "Tu")
+            remote_user_name = get_full_name(consultant_user, "Partecipante")
+        else:
+            local_user_name = get_full_name(consultant_user, "Tu")
+            remote_user_name = get_full_name(client_user, "Partecipante")
+        
         return request.app.state.templates.TemplateResponse("call.html", {
             "request": request,
             "user": current_user,
             "current_user": current_user,
-            "booking": booking
+            "booking": booking,
+            "local_user_name": local_user_name,
+            "remote_user_name": remote_user_name
         })
 
 @router.delete("/api/booking/cancel/{booking_id}")
@@ -874,8 +998,13 @@ async def start_recording_now(booking_id: int, request: Request):
         if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
             raise HTTPException(status_code=403, detail="Non autorizzato")
         
+        # Verifica che il cliente abbia richiesto la registrazione
+        if not booking.recording_requested:
+            logger.info(f"ℹ️ Recording non richiesto per booking {booking_id} - skip start")
+            return {"success": False, "message": "Recording non richiesto dal cliente"}
+        
         # Se non è in uno stato di registrazione, non fare nulla
-        if booking.recording_status != "ready":
+        if booking.recording_status not in ("ready", None):
             logger.info(f"⚠️ Recording not in 'ready' state for booking {booking_id} (current: {booking.recording_status})")
             return {"success": False, "message": f"Recording not ready (status={booking.recording_status})"}
         
@@ -1348,7 +1477,8 @@ async def call_status(
             "is_expired": is_expired,
             "remaining_seconds": max(0, remaining_seconds),
             "end_time": booking.end_time,
-            "booking_date": booking.booking_date.isoformat()
+            "booking_date": booking.booking_date.isoformat(),
+            "client_joined": booking.client_joined_at is not None
         }
 
 

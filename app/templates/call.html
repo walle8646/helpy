@@ -4,9 +4,17 @@
 
 {% block content %}
 <style>
-    /* Nascondi l'header */
+    /* Nascondi l'header e il footer */
     .navbar {
         display: none !important;
+    }
+    .footer {
+        display: none !important;
+    }
+    /* Override body padding-top dal base.html (spazio per navbar) */
+    body {
+        padding-top: 0 !important;
+        overflow: hidden;
     }
     
     /* Adatta il container per fullscreen senza header */
@@ -18,6 +26,12 @@
         display: flex;
         flex-direction: column;
         background: #1a1a2e;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9999;
     }
     
     /* Video Grid */
@@ -138,7 +152,7 @@
     
     .video-label {
         position: absolute;
-        top: 10px;
+        bottom: 10px;
         left: 10px;
         background: rgba(0, 0, 0, 0.7);
         color: white;
@@ -146,6 +160,7 @@
         border-radius: 6px;
         font-size: 0.9rem;
         font-weight: 600;
+        z-index: 5;
     }
     
     .video-placeholder {
@@ -247,20 +262,9 @@
         color: #ffffff;
     }
     
-    /* Connection Status */
+    /* Connection Status - nascosto */
     .connection-status {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 10px 20px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 0.9rem;
-        z-index: 100;
+        display: none !important;
     }
     
     .status-dot {
@@ -279,44 +283,14 @@
         background: #ef4444;
     }
     
-    /* Call Timer */
+    /* Call Timer - nascosto, usiamo solo quello inline nella controls bar */
     .call-timer {
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        font-size: 1.1rem;
-        font-weight: 600;
-        z-index: 100;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 5px;
-        min-width: 200px;
-        text-align: center;
+        display: none !important;
     }
     
-    .call-timer.warning {
-        background: rgba(239, 68, 68, 0.9);
-        animation: timerPulse 1s ease-in-out infinite;
-    }
-    
-    .call-timer-label {
-        font-size: 0.75rem;
-        opacity: 0.8;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .call-timer-time {
-        font-size: 1.5rem;
-        font-family: 'Courier New', monospace;
-        font-weight: bold;
-    }
+    .call-timer.warning {}
+    .call-timer-label {}
+    .call-timer-time {}
     
     /* ========== CHAT PANEL STYLES ========== */
     
@@ -331,7 +305,7 @@
         border-radius: 12px;
         display: flex;
         flex-direction: column;
-        z-index: 40;
+        z-index: 10000;
         backdrop-filter: blur(10px);
         box-shadow: 0 8px 32px rgba(76, 175, 80, 0.2);
     }
@@ -819,6 +793,28 @@
         overflow-y: auto;
         padding: 32px;
         box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        position: relative;
+    }
+    .review-close-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        color: #999;
+        cursor: pointer;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background 0.2s, color 0.2s;
+    }
+    .review-close-btn:hover {
+        background: #f0f0f0;
+        color: #333;
     }
     .review-modal h2 {
         margin: 0 0 8px 0;
@@ -996,6 +992,116 @@
     }
     .review-msg.success { background: #e8f5e9; color: #2e7d32; }
     .review-msg.error { background: #ffebee; color: #c62828; }
+
+    /* Zoom/Swap button su ogni video */
+    .zoom-btn {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        width: 36px;
+        height: 36px;
+        background: rgba(0, 0, 0, 0.6);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        z-index: 10;
+        transition: all 0.2s;
+        opacity: 0.7;
+    }
+    .video-player:hover .zoom-btn {
+        opacity: 1;
+    }
+    .zoom-btn:hover {
+        background: rgba(76, 175, 80, 0.8);
+        transform: scale(1.1);
+    }
+
+    /* Stato video zoomed (uno grande, uno piccolo PiP) */
+    .video-grid.zoomed-local {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: 1fr !important;
+    }
+    .video-grid.zoomed-local #localPlayer {
+        grid-column: 1;
+        grid-row: 1;
+    }
+    .video-grid.zoomed-local #remotePlayer {
+        position: fixed !important;
+        bottom: 110px;
+        right: 20px;
+        width: 220px;
+        height: 160px;
+        z-index: 50;
+        border: 3px solid #4caf50;
+        border-radius: 12px;
+    }
+    .video-grid.zoomed-remote {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: 1fr !important;
+    }
+    .video-grid.zoomed-remote #remotePlayer {
+        grid-column: 1;
+        grid-row: 1;
+        position: relative !important;
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
+    }
+    .video-grid.zoomed-remote #localPlayer {
+        position: fixed !important;
+        bottom: 110px;
+        right: 20px;
+        width: 220px;
+        height: 160px;
+        z-index: 50;
+        border: 3px solid #4caf50;
+        border-radius: 12px;
+    }
+
+    /* Pulsante "Riduci" floating - visibile solo in stato zoomed */
+    .zoom-restore-btn {
+        display: none;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 10001;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: 2px solid #4caf50;
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        font-size: 1.2rem;
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        backdrop-filter: blur(8px);
+    }
+    .zoom-restore-btn:hover {
+        background: #4caf50;
+        transform: scale(1.1);
+    }
+    .zoom-restore-btn.visible {
+        display: flex;
+    }
+
+    /* Chat toggle nella controls bar */
+    .control-btn.chat-toggle-ctrl {
+        position: relative;
+    }
+    .control-btn.chat-toggle-ctrl .chat-badge {
+        top: -5px;
+        right: -5px;
+        width: 20px;
+        height: 20px;
+        font-size: 0.7rem;
+    }
 </style>
 
 <div class="call-container">
@@ -1021,7 +1127,10 @@
     <div class="video-grid" id="videoGrid">
         <!-- Local Video -->
         <div class="video-player" id="localPlayer">
-            <div class="video-label">Tu</div>
+            <div class="video-label" id="localLabel">{{ (user.nome or '') ~ ' ' ~ (user.cognome or '') }}</div>
+            <button class="zoom-btn" id="zoomLocalBtn" title="Ingrandisci">
+                <i class="fas fa-search-plus"></i>
+            </button>
             <div class="video-placeholder">
                 <i class="fas fa-user"></i>
                 <p>Video locale</p>
@@ -1030,7 +1139,10 @@
         
         <!-- Remote Video (appears when other user joins) -->
         <div class="video-player" id="remotePlayer" style="display: none;">
-            <div class="video-label" id="remoteLabel">In attesa...</div>
+            <div class="video-label" id="remoteLabel">{{ remote_user_name|default('In attesa...', true) }}</div>
+            <button class="zoom-btn" id="zoomRemoteBtn" title="Ingrandisci">
+                <i class="fas fa-search-plus"></i>
+            </button>
             <div class="video-placeholder">
                 <i class="fas fa-user-friends"></i>
                 <p>In attesa del partecipante...</p>
@@ -1060,13 +1172,18 @@
         <button class="control-btn end-call" id="endCallBtn" title="Termina chiamata">
             <i class="fas fa-phone-slash"></i>
         </button>
+        
+        <!-- Chat toggle nella barra comandi -->
+        <button class="control-btn chat-toggle-ctrl" id="chatToggleBtn" title="Chat" style="background: #4a5568; position: relative;">
+            <i class="fas fa-comments"></i>
+            <div class="chat-badge" id="chatBadge" style="display: none;">0</div>
+        </button>
     </div>
 </div>
 
-<!-- Chat Panel -->
-<button class="chat-toggle" id="chatToggleBtn" title="Chat">
-    <i class="fas fa-comments"></i>
-    <div class="chat-badge" id="chatBadge" style="display: none;">0</div>
+<!-- Pulsante floating lente- per uscire dallo zoom -->
+<button class="zoom-restore-btn" id="zoomRestoreBtn">
+    <i class="fas fa-search-minus"></i>
 </button>
 
 <div class="chat-panel" id="chatPanel" style="display: none;">
@@ -1128,6 +1245,7 @@
 {% if user.id == booking.client_user_id %}
 <div class="review-overlay" id="reviewOverlay">
     <div class="review-modal">
+        <button class="review-close-btn" onclick="window.location.href='/profile'" title="Chiudi">&times;</button>
         <h2>⭐ Come è andata la consulenza?</h2>
         <p class="review-subtitle">La tua opinione aiuta altri utenti a scegliere il consulente giusto.</p>
 
@@ -1172,7 +1290,13 @@
         <div class="review-actions">
             <button class="review-btn-submit" id="reviewSubmitBtn" onclick="submitReview()">Invia Recensione</button>
             <button class="review-btn-email" id="reviewEmailBtn" onclick="sendReviewEmail()">📧 Inviami un'email per votare più tardi</button>
+            {% if booking.recording_requested %}
             <button class="review-btn-dispute" onclick="toggleDisputeForm()">⚠️ Apri una contestazione</button>
+            {% else %}
+            <p style="font-size:0.82rem;color:#999;margin-top:8px;text-align:center;">
+                <i class="fas fa-info-circle"></i> La contestazione non è disponibile perché hai scelto di non registrare la consulenza.
+            </p>
+            {% endif %}
         </div>
 
         <!-- Form contestazione (nascosto) -->
@@ -1200,6 +1324,8 @@
     const bookingEndTimeStr = "{{ booking.end_time }}"; // HH:MM format
     const bookingEndTime = `${bookingDate}T${bookingEndTimeStr}:00`; // Combina data + ora in ISO format
     const isClient = {{ 'true' if user.id == booking.client_user_id else 'false' }};
+    let recordingRequested = {{ 'true' if booking.recording_requested else 'false' }};
+    let remoteUserName = "{{ remote_user_name|default('Partecipante', true) }}";
     
     let client = null;
     let localTracks = {
@@ -1484,6 +1610,12 @@
             const data = await response.json();
             console.log('Agora credentials:', data);
             
+            // Aggiorna il nome del partecipante remoto dalla risposta API
+            if (data.other_user && data.other_user.name) {
+                remoteUserName = data.other_user.name.trim() || remoteUserName;
+                remoteLabel.textContent = remoteUserName;
+            }
+            
             // Create Agora client
             client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
             
@@ -1525,20 +1657,24 @@
             console.log('✅ Published local tracks');
             
             // 🎬 Notify backend that we're ready to start recording
-            console.log('🎬 [init] Ready to start recording - notifying backend...');
-            try {
-                const recordingStartResponse = await fetch(`/api/booking/${bookingId}/recording/start-now`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                const recordingData = await recordingStartResponse.json();
-                if (recordingStartResponse.ok) {
-                    console.log('✅ [init] Recording started by backend:', recordingData.filename);
-                } else {
-                    console.warn('⚠️ [init] Recording start failed:', recordingData.message);
+            if (recordingRequested) {
+                console.log('🎬 [init] Ready to start recording - notifying backend...');
+                try {
+                    const recordingStartResponse = await fetch(`/api/booking/${bookingId}/recording/start-now`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const recordingData = await recordingStartResponse.json();
+                    if (recordingStartResponse.ok) {
+                        console.log('✅ [init] Recording started by backend:', recordingData.filename);
+                    } else {
+                        console.warn('⚠️ [init] Recording start failed:', recordingData.message);
+                    }
+                } catch (e) {
+                    console.error('❌ [init] Error notifying recording start:', e);
                 }
-            } catch (e) {
-                console.error('❌ [init] Error notifying recording start:', e);
+            } else {
+                console.log('ℹ️ [init] Recording non richiesto - skip recording/start-now');
             }
             
             // Start call timer
@@ -1574,7 +1710,7 @@
             remotePlayer.style.display = 'block';
             videoGrid.classList.add('has-remote');
             user.videoTrack.play('remotePlayer');
-            remoteLabel.textContent = 'Partecipante';
+            remoteLabel.textContent = remoteUserName;
             
             // Hide remote placeholder
             const remotePlaceholder = remotePlayer.querySelector('.video-placeholder');
@@ -1934,8 +2070,131 @@
         }
     }
 
-    // Initialize on page load
-    initializeCall();
+    // Initialize on page load - with recording confirmation for client
+    if (isClient) {
+        showRecordingConfirmation();
+    } else {
+        waitForClientThenStart();
+    }
+    
+    async function waitForClientThenStart() {
+        // Controlla subito se il cliente è già in call
+        try {
+            const resp = await fetch(`/api/booking/${bookingId}/call-status`);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.client_joined) {
+                    initializeCall();
+                    return;
+                }
+            }
+        } catch (e) {}
+        
+        // Mostra overlay di attesa
+        const overlay = document.createElement('div');
+        overlay.id = 'waitClientOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:16px;padding:32px;max-width:440px;width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);">
+                <div style="font-size:3rem;margin-bottom:12px;"><i class="fas fa-spinner fa-spin" style="color:#2d6a4f;"></i></div>
+                <h3 style="margin:0 0 12px;font-size:1.2rem;color:#1a202c;">In attesa del cliente</h3>
+                <p style="color:#555;font-size:0.95rem;line-height:1.5;margin:0 0 16px;">La chiamata inizier\u00e0 automaticamente quando il cliente si collegher\u00e0.</p>
+                <p id="waitClientTimer" style="color:#999;font-size:0.85rem;"></p>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        
+        // Polling ogni 3 secondi
+        const pollInterval = setInterval(async () => {
+            try {
+                const resp = await fetch(`/api/booking/${bookingId}/call-status`);
+                if (!resp.ok) return;
+                const data = await resp.json();
+                
+                if (data.is_expired) {
+                    clearInterval(pollInterval);
+                    overlay.remove();
+                    alert('Il tempo della consulenza \u00e8 scaduto.');
+                    window.location.href = '/profile';
+                    return;
+                }
+                
+                if (data.client_joined) {
+                    clearInterval(pollInterval);
+                    overlay.remove();
+                    initializeCall();
+                }
+            } catch (e) {
+                console.warn('Errore polling client status:', e);
+            }
+        }, 3000);
+    }
+    
+    function showRecordingConfirmation() {
+        const overlay = document.createElement('div');
+        overlay.id = 'recordingConfirmOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        
+        const icon = recordingRequested ? '🎥' : '🚫';
+        const title = recordingRequested 
+            ? 'Conferma registrazione' 
+            : 'Conferma senza registrazione';
+        const message = recordingRequested 
+            ? 'Sicuro che accetti di essere registrato per poter accedere ad un\'eventuale contestazione?' 
+            : 'Sicuro che non vuoi essere registrato? Perderai la possibilità di un\'eventuale contestazione.';
+        
+        const yesLabel = recordingRequested ? 'Sì, registra' : 'Sì, senza registrazione';
+        const noLabel = recordingRequested ? 'No, non registrare' : 'No, voglio registrare';
+        const noIcon = recordingRequested ? 'fa-video-slash' : 'fa-video';
+        
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:16px;padding:32px;max-width:440px;width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);">
+                <div style="font-size:3rem;margin-bottom:12px;">${icon}</div>
+                <h3 style="margin:0 0 12px;font-size:1.2rem;color:#1a202c;">${title}</h3>
+                <p style="color:#555;font-size:0.95rem;line-height:1.5;margin:0 0 24px;">${message}</p>
+                <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                    <button id="recordingConfirmYes" style="padding:12px 28px;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;background:#2d6a4f;color:#fff;transition:all .2s;"><i class="fas fa-check"></i> ${yesLabel}</button>
+                    <button id="recordingConfirmNo" style="padding:12px 28px;border:2px solid #e0e0e0;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;background:#fff;color:#555;transition:all .2s;"><i class="fas ${noIcon}"></i> ${noLabel}</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        
+        document.getElementById('recordingConfirmYes').addEventListener('click', () => {
+            overlay.remove();
+            initializeCall();
+        });
+        
+        document.getElementById('recordingConfirmNo').addEventListener('click', async () => {
+            const btn = document.getElementById('recordingConfirmNo');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aggiornamento...';
+            
+            const newValue = !recordingRequested;
+            try {
+                const resp = await fetch(`/api/booking/${bookingId}/recording-preference`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ recording_requested: newValue })
+                });
+                if (resp.ok) {
+                    recordingRequested = newValue;
+                    console.log('📹 recording_requested aggiornato a:', recordingRequested);
+                    overlay.remove();
+                    initializeCall();
+                } else {
+                    const err = await resp.json();
+                    alert('Errore: ' + (err.detail || 'Impossibile aggiornare la preferenza'));
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="fas ${noIcon}"></i> ${noLabel}`;
+                }
+            } catch (e) {
+                alert('Errore di rete. Riprova.');
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas ${noIcon}"></i> ${noLabel}`;
+            }
+        });
+    }
     
     // ========== CHAT EVENT LISTENERS ==========
     
@@ -1946,18 +2205,18 @@
     chatUI.toggleBtn.addEventListener('click', () => {
         if (chatUI.panel.style.display === 'none') {
             chatUI.panel.style.display = 'flex';
-            chatUI.toggleBtn.classList.add('hidden');
             chatUI.input.focus();
             // Resetta i messaggi non letti quando la chat viene aperta
             chatUI.unreadCount = 0;
             updateChatBadge();
+        } else {
+            chatUI.panel.style.display = 'none';
         }
     });
     
     // Chiudi chat panel
     chatUI.closeBtn.addEventListener('click', () => {
         chatUI.panel.style.display = 'none';
-        chatUI.toggleBtn.classList.remove('hidden');
     });
     
     // Invia messaggio con bottone
@@ -2424,5 +2683,60 @@
             chatPollInterval = null;
         }
     }
+    
+    // ========== ZOOM / SWAP VIDEO ==========
+    let zoomedVideo = null; // null, 'local', 'remote'
+    
+    function updateZoomIcons() {
+        const localIcon = document.querySelector('#zoomLocalBtn i');
+        const remoteIcon = document.querySelector('#zoomRemoteBtn i');
+        const restoreBtn = document.getElementById('zoomRestoreBtn');
+        if (zoomedVideo) {
+            restoreBtn.classList.add('visible');
+        } else {
+            restoreBtn.classList.remove('visible');
+        }
+        if (zoomedVideo === 'local') {
+            localIcon.className = 'fas fa-compress';
+            remoteIcon.className = 'fas fa-search-plus';
+        } else if (zoomedVideo === 'remote') {
+            localIcon.className = 'fas fa-search-plus';
+            remoteIcon.className = 'fas fa-compress';
+        } else {
+            localIcon.className = 'fas fa-search-plus';
+            remoteIcon.className = 'fas fa-search-plus';
+        }
+    }
+    
+    document.getElementById('zoomLocalBtn').addEventListener('click', () => {
+        if (zoomedVideo === 'local') {
+            videoGrid.classList.remove('zoomed-local');
+            zoomedVideo = null;
+        } else {
+            videoGrid.classList.remove('zoomed-remote');
+            videoGrid.classList.add('zoomed-local');
+            zoomedVideo = 'local';
+        }
+        updateZoomIcons();
+    });
+    
+    document.getElementById('zoomRemoteBtn').addEventListener('click', () => {
+        if (zoomedVideo === 'remote') {
+            videoGrid.classList.remove('zoomed-remote');
+            zoomedVideo = null;
+        } else {
+            videoGrid.classList.remove('zoomed-local');
+            videoGrid.classList.add('zoomed-remote');
+            zoomedVideo = 'remote';
+        }
+        updateZoomIcons();
+    });
+    
+    // Pulsante floating "Vista normale" per uscire dallo zoom
+    document.getElementById('zoomRestoreBtn').addEventListener('click', () => {
+        videoGrid.classList.remove('zoomed-local', 'zoomed-remote');
+        zoomedVideo = null;
+        updateZoomIcons();
+    });
 </script>
 {% endblock %}

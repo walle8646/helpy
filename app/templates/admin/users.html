@@ -22,7 +22,7 @@
         color: #1a1a2e;
         margin: 0;
     }
-    .admin-header h1 i { color: #667eea; }
+    .admin-header h1 i { color: #2d6a4f; }
     .admin-nav {
         display: flex;
         gap: 8px;
@@ -38,7 +38,7 @@
         transition: all 0.2s;
     }
     .admin-nav a:hover, .admin-nav a.active {
-        background: #667eea;
+        background: #2d6a4f;
         color: #fff;
     }
 
@@ -59,11 +59,11 @@
     }
     .search-box input:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: #2d6a4f;
     }
     .search-box button {
         padding: 12px 24px;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #2d6a4f, #1a4d2e);
         color: #fff;
         border: none;
         border-radius: 10px;
@@ -111,7 +111,7 @@
         width: 50px;
         height: 50px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, #2d6a4f, #1a4d2e);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -137,7 +137,7 @@
         color: #1a1a2e;
         text-decoration: none;
     }
-    .user-name a:hover { color: #667eea; }
+    .user-name a:hover { color: #2d6a4f; }
     .verified-badge {
         display: inline-block;
         background: #e8f5e9;
@@ -148,7 +148,7 @@
         font-weight: 600;
     }
     .user-email {
-        color: #667eea;
+        color: #2d6a4f;
         font-size: 0.85rem;
         margin-top: 2px;
     }
@@ -211,11 +211,11 @@
     }
     .type-selector select:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: #2d6a4f;
     }
     .type-selector .save-type-btn {
         padding: 6px 12px;
-        background: #667eea;
+        background: #2d6a4f;
         color: #fff;
         border: none;
         border-radius: 6px;
@@ -278,7 +278,7 @@
     <div class="search-info">
         {% if search %}
             {{ users|length }} risultati per "<strong>{{ search }}</strong>" &middot;
-            <a href="/admin/users" style="color: #667eea;">Mostra tutti</a>
+            <a href="/admin/users" style="color: #2d6a4f;">Mostra tutti</a>
         {% else %}
             Ultimi 50 utenti su {{ total_users }} totali
         {% endif %}
