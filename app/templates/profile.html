@@ -458,26 +458,120 @@
     to { transform: translateY(0); opacity: 1; }
 }
 
+/* Collapsible reviews toggle */
+.reviews-toggle-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    padding: 12px 16px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 0;
+    transition: all .2s;
+}
+
+.reviews-toggle-header:hover {
+    background: #f0f8f0;
+    border-color: #d1e7dd;
+}
+
+.reviews-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.reviews-toggle-arrow {
+    font-size: .85em;
+    color: #6b7280;
+    transition: transform .3s;
+}
+
+.reviews-toggle-header.open .reviews-toggle-arrow {
+    transform: rotate(180deg);
+}
+
+.reviews-detail {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .4s ease;
+}
+
+.reviews-detail.open {
+    max-height: 5000px;
+}
+
+.reviews-detail-inner {
+    padding-top: 16px;
+}
+
 /* Mobile */
 @media (max-width: 900px) {
     .pub-layout {
         grid-template-columns: 1fr;
-        padding: 28px 20px 48px;
+        padding: 28px 16px 48px;
         gap: 24px;
     }
     .pub-sidebar { position: static; }
+    .pub-hero {
+        margin-bottom: 24px;
+        padding: 32px 0 0 0;
+        margin-left: 0;
+        margin-right: 0;
+        overflow: visible;
+    }
     .pub-hero-inner {
         flex-direction: column;
         align-items: center;
         text-align: center;
-        padding: 0 24px 32px;
+        padding: 0 16px 32px;
+        gap: 16px;
     }
-    .pub-hero img { width: 180px; height: 180px; top: 60px; }
-    .pub-edit-avatar { bottom: -54px; }
-    .pub-hero { margin-bottom: 60px; }
-    .pub-hero-text h1 { font-size: 1.7em; }
+    .pub-hero img {
+        width: 130px;
+        height: 130px;
+        top: 0;
+        position: relative;
+        margin: 0 auto;
+    }
+    .pub-edit-avatar {
+        bottom: -10px;
+        right: -6px;
+    }
+    .pub-hero-text {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+    .pub-hero-text h1 { font-size: 1.4em; }
+    .pub-hero-skills {
+        justify-content: center;
+        flex-wrap: wrap;
+        max-width: 100%;
+    }
+    .pub-cat-pill {
+        margin: 8px auto 0;
+    }
     .pub-narrative-col { padding: 0; }
-    .pub-stats-row { justify-content: center; }
+    .pub-stats-row { justify-content: center; flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+    .pub-layout {
+        padding: 16px 12px 32px;
+        gap: 16px;
+    }
+    .pub-hero-inner { padding: 0 12px 24px; }
+    .pub-hero img { width: 110px; height: 110px; }
+    .pub-hero-text h1 { font-size: 1.2em; }
+    .pub-hero-skills a.pub-skill-tag {
+        font-size: .75em;
+        padding: 3px 10px;
+    }
 }
 
 /* ===== REVIEWS ===== */
@@ -524,8 +618,8 @@
 
         <!-- Hero compatto -->
         <div class="pub-hero">
-            <div class="pub-hero-inner">
-                <div style="position: relative; flex-shrink: 0;">
+            <div class="pub-hero-inner" style="position: relative;">
+                <div style="position: relative; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;">
                     <img src="{{ user.profile_picture or user|default_avatar }}" 
                          alt="{{ user.nome }}"
                          id="profileImage"
@@ -770,35 +864,40 @@
                 <!-- Recensioni ricevute -->
                 {% if reviews %}
                 <section class="pub-narrative" style="margin-bottom: 32px; margin-top: 16px;">
-                    <div class="pub-section-label" style="font-size: 1.1rem; font-weight: 600; color: #1a202c; margin-bottom: 16px;">⭐ Recensioni ricevute ({{ reviews|length }})</div>
-                    <div class="pub-reviews-summary">
-                        <div class="pub-avg-rating">
-                            <span class="pub-avg-score">{{ avg_rating }}</span>
-                            <span class="pub-avg-stars">
+                    <div class="reviews-toggle-header" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');">
+                        <div class="reviews-toggle-left">
+                            <span style="font-size: 1.1rem; font-weight: 600; color: #1a202c;">⭐ Recensioni ricevute</span>
+                            <span class="pub-avg-score" style="font-size: 1.1rem;">{{ avg_rating }}</span>
+                            <span class="pub-avg-stars" style="font-size: 1rem;">
                                 {% for i in range(1, 6) %}
                                     {% if avg_rating >= i %}★{% elif avg_rating >= i - 0.5 %}★{% else %}☆{% endif %}
                                 {% endfor %}
                             </span>
-                            <span class="pub-avg-count">su {{ reviews|length }} recension{{ 'e' if reviews|length == 1 else 'i' }}</span>
+                            <span class="pub-avg-count">({{ reviews|length }})</span>
                         </div>
+                        <span class="reviews-toggle-arrow">▼</span>
                     </div>
-                    <div class="pub-reviews-list">
-                        {% for r in reviews[:10] %}
-                        <div class="pub-review-card">
-                            <div class="pub-review-header">
-                                <strong>{{ r.reviewer|display_name }}</strong>
-                                <span class="pub-review-date">{{ r.created_at.strftime('%d/%m/%Y') if r.created_at else 'N/A' }}</span>
+                    <div class="reviews-detail">
+                        <div class="reviews-detail-inner">
+                            <div class="pub-reviews-list">
+                                {% for r in reviews[:10] %}
+                                <div class="pub-review-card">
+                                    <div class="pub-review-header">
+                                        <strong>{{ r.reviewer|display_name }}</strong>
+                                        <span class="pub-review-date">{{ r.created_at.strftime('%d/%m/%Y') if r.created_at else 'N/A' }}</span>
+                                    </div>
+                                    <div class="pub-review-ratings">
+                                        <span title="Aiuto concreto">🎯 {{ r.rating_helpful }}/5</span>
+                                        <span title="Preparazione">📚 {{ r.rating_prepared }}/5</span>
+                                        <span title="Comunicazione">💬 {{ r.rating_communication }}/5</span>
+                                    </div>
+                                    {% if r.comment %}
+                                    <p class="pub-review-comment">{{ r.comment }}</p>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
                             </div>
-                            <div class="pub-review-ratings">
-                                <span title="Aiuto concreto">🎯 {{ r.rating_helpful }}/5</span>
-                                <span title="Preparazione">📚 {{ r.rating_prepared }}/5</span>
-                                <span title="Comunicazione">💬 {{ r.rating_communication }}/5</span>
-                            </div>
-                            {% if r.comment %}
-                            <p class="pub-review-comment">{{ r.comment }}</p>
-                            {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
                 </section>
                 {% endif %}

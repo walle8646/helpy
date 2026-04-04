@@ -595,6 +595,57 @@
     line-height: 1.6;
     margin: 0;
 }
+
+/* Collapsible reviews toggle */
+.reviews-toggle-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    padding: 12px 16px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 0;
+    transition: all .2s;
+}
+
+.reviews-toggle-header:hover {
+    background: #f0f8f0;
+    border-color: #d1e7dd;
+}
+
+.reviews-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.reviews-toggle-arrow {
+    font-size: .85em;
+    color: #6b7280;
+    transition: transform .3s;
+}
+
+.reviews-toggle-header.open .reviews-toggle-arrow {
+    transform: rotate(180deg);
+}
+
+.reviews-detail {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .4s ease;
+}
+
+.reviews-detail.open {
+    max-height: 5000px;
+}
+
+.reviews-detail-inner {
+    padding-top: 16px;
+}
 </style>
 {% endblock %}
 
@@ -681,35 +732,40 @@
 
                     <!-- Recensioni -->
                     {% if reviews %}
-                    <div class="pub-section-label">⭐ Recensioni ({{ reviews|length }})</div>
-                    <div class="pub-reviews-summary">
-                        <div class="pub-avg-rating">
-                            <span class="pub-avg-score">{{ avg_rating }}</span>
-                            <span class="pub-avg-stars">
+                    <div class="reviews-toggle-header" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');">
+                        <div class="reviews-toggle-left">
+                            <span style="font-size: 1.1rem; font-weight: 600; color: #1a202c;">⭐ Recensioni</span>
+                            <span class="pub-avg-score" style="font-size: 1.1rem;">{{ avg_rating }}</span>
+                            <span class="pub-avg-stars" style="font-size: 1rem;">
                                 {% for i in range(1, 6) %}
                                     {% if avg_rating >= i %}★{% elif avg_rating >= i - 0.5 %}★{% else %}☆{% endif %}
                                 {% endfor %}
                             </span>
-                            <span class="pub-avg-count">su {{ reviews|length }} recension{{ 'e' if reviews|length == 1 else 'i' }}</span>
+                            <span class="pub-avg-count">({{ reviews|length }})</span>
                         </div>
+                        <span class="reviews-toggle-arrow">▼</span>
                     </div>
-                    <div class="pub-reviews-list">
-                        {% for r in reviews[:10] %}
-                        <div class="pub-review-card">
-                            <div class="pub-review-header">
-                                <strong>{{ r.reviewer|display_name }}</strong>
-                                <span class="pub-review-date">{{ r.created_at.strftime('%d/%m/%Y') if r.created_at else 'N/A' }}</span>
+                    <div class="reviews-detail">
+                        <div class="reviews-detail-inner">
+                            <div class="pub-reviews-list">
+                                {% for r in reviews[:10] %}
+                                <div class="pub-review-card">
+                                    <div class="pub-review-header">
+                                        <strong>{{ r.reviewer|display_name }}</strong>
+                                        <span class="pub-review-date">{{ r.created_at.strftime('%d/%m/%Y') if r.created_at else 'N/A' }}</span>
+                                    </div>
+                                    <div class="pub-review-ratings">
+                                        <span title="Aiuto concreto">🎯 {{ r.rating_helpful }}/5</span>
+                                        <span title="Preparazione">📚 {{ r.rating_prepared }}/5</span>
+                                        <span title="Comunicazione">💬 {{ r.rating_communication }}/5</span>
+                                    </div>
+                                    {% if r.comment %}
+                                    <p class="pub-review-comment">{{ r.comment }}</p>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
                             </div>
-                            <div class="pub-review-ratings">
-                                <span title="Aiuto concreto">🎯 {{ r.rating_helpful }}/5</span>
-                                <span title="Preparazione">📚 {{ r.rating_prepared }}/5</span>
-                                <span title="Comunicazione">💬 {{ r.rating_communication }}/5</span>
-                            </div>
-                            {% if r.comment %}
-                            <p class="pub-review-comment">{{ r.comment }}</p>
-                            {% endif %}
                         </div>
-                        {% endfor %}
                     </div>
                     {% endif %}
 
