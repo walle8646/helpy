@@ -609,6 +609,14 @@
     }
 
     @media (max-width: 768px) {
+        body {
+            padding: 8px;
+        }
+
+        .availability-container {
+            padding: 0;
+        }
+
         .content-grid {
             grid-template-columns: 1fr;
             gap: 16px;
@@ -616,7 +624,15 @@
         
         .calendar-section {
             position: static;
-            padding: 16px;
+            padding: 12px;
+        }
+
+        .calendar-grid, .copy-calendar-grid {
+            gap: 4px;
+        }
+
+        .calendar-nav {
+            padding: 8px 12px;
         }
         
         .schedule-section {
@@ -637,13 +653,20 @@
         }
 
         .time-block {
+            flex-wrap: wrap;
             gap: 8px;
             padding: 10px;
         }
 
         .time-input {
+            flex: 1 1 40%;
+            min-width: 0;
             padding: 10px 8px;
             font-size: 0.95em;
+        }
+
+        .time-block .btn-danger {
+            width: 100%;
         }
 
         .actions {
@@ -654,6 +677,15 @@
         .actions .btn {
             width: 100%;
             text-align: center;
+        }
+
+        .page-header {
+            padding: 20px 16px;
+            margin-bottom: 16px;
+        }
+
+        .page-header h1 {
+            font-size: 1.3em;
         }
 
         .weekly-summary {
@@ -667,10 +699,6 @@
         .week-grid {
             grid-template-columns: repeat(2, 1fr);
             gap: 12px;
-        }
-        
-        .page-header h1 {
-            font-size: 1.3em;
         }
 
         .copy-modal-content {
@@ -699,16 +727,24 @@
     }
     
     @media (max-width: 480px) {
-        .availability-container {
+        body {
+            padding: 4px;
+        }
+
+        .calendar-section {
+            padding: 8px;
+        }
+
+        .calendar-grid, .copy-calendar-grid {
+            gap: 2px;
+        }
+
+        .schedule-section {
             padding: 12px;
         }
 
         .week-grid {
             grid-template-columns: 1fr;
-        }
-
-        .calendar-grid, .copy-calendar-grid {
-            gap: 4px;
         }
     }
 </style>

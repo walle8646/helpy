@@ -556,18 +556,22 @@
     .pub-cat-pill {
         margin: 8px auto 0;
     }
-    .pub-narrative-col { padding: 0; }
+    .pub-narrative-col { padding: 0; min-width: 0; overflow-x: hidden; }
     .pub-stats-row { justify-content: center; flex-wrap: wrap; }
 
     /* Edit form mobile */
     .edit-form { gap: 18px; }
-    .form-section { padding: 16px; }
+    .form-section { padding: 14px; }
     .form-row { grid-template-columns: 1fr !important; gap: 12px; }
     #subcategoriesList { grid-template-columns: 1fr !important; }
     .languages-grid { grid-template-columns: 1fr 1fr !important; }
     .gender-options { flex-wrap: wrap; }
     .form-actions { flex-direction: column; }
     .form-actions .btn { width: 100%; }
+    #editSection { overflow-x: hidden; }
+    .form-group select,
+    .form-group input,
+    .form-group textarea { max-width: 100%; width: 100%; box-sizing: border-box; }
 }
 
 @media (max-width: 480px) {
