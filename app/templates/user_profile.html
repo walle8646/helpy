@@ -411,18 +411,67 @@
         gap: 24px;
     }
     .pub-sidebar { position: static; }
+    .pub-hero {
+        margin-bottom: 24px;
+        padding: 32px 0 0 0;
+        margin-left: 0;
+        margin-right: 0;
+        overflow: visible;
+    }
     .pub-hero-inner {
         flex-direction: column;
         align-items: center;
         text-align: center;
         padding: 0 16px 32px;
+        gap: 16px;
     }
-    .pub-hero img { width: 150px; height: 150px; top: 60px; }
-    .pub-hero { margin-bottom: 60px; }
-    .pub-hero-text h1 { font-size: 1.5em; }
+    .pub-hero img {
+        width: 130px;
+        height: 130px;
+        top: 0;
+        position: relative;
+        margin: 0 auto;
+    }
+    .pub-hero-text {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+    .pub-hero-text h1 { font-size: 1.4em; }
+    .pub-hero-text > div:first-child {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .pub-hero-skills {
+        justify-content: center;
+        overflow-x: auto;
+        flex-wrap: wrap;
+        max-width: 100%;
+        padding-bottom: 4px;
+    }
+    .pub-cat-pill {
+        margin: 8px auto 0;
+    }
+    .fav-heart-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+    }
+    .fav-heart-btn svg {
+        width: 32px;
+        height: 32px;
+    }
+    .last-seen-badge {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        transform: none !important;
+        margin: 8px auto 0;
+        display: inline-flex;
+    }
     .pub-narrative-col { padding: 0; }
     .pub-stats-row { justify-content: center; flex-wrap: wrap; }
-    .last-seen-badge { font-size: .7em; }
 }
 
 @media (max-width: 480px) {
@@ -430,9 +479,13 @@
         padding: 16px 12px 32px;
         gap: 16px;
     }
-    .pub-hero img { width: 120px; height: 120px; }
-    .pub-hero-text h1 { font-size: 1.3em; }
     .pub-hero-inner { padding: 0 12px 24px; }
+    .pub-hero img { width: 110px; height: 110px; }
+    .pub-hero-text h1 { font-size: 1.2em; }
+    .pub-hero-skills a.pub-skill-tag {
+        font-size: .75em;
+        padding: 3px 10px;
+    }
 }
 
 /* Last Seen Badge */
@@ -551,8 +604,8 @@
     <main class="main-content">
         <!-- Hero compatto -->
         <div class="pub-hero">
-            <div class="pub-hero-inner">
-                <div style="position: relative; flex-shrink: 0;">
+            <div class="pub-hero-inner" style="position: relative;">
+                <div style="position: relative; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;">
                 <img src="{{ user.profile_picture or user|default_avatar }}" 
                      alt="{{ user.nome }}"
                      onerror="this.onerror=null; this.src='{{ user|default_avatar }}'">

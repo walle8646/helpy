@@ -103,6 +103,18 @@
         border-radius: 12px !important;
         max-height: 90vh !important;
     }
+    
+    /* Swipe handle indicator for modals */
+    .modal-content::before,
+    .modal-overlay .modal-content::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        background: #d1d5db;
+        border-radius: 4px;
+        margin: 0 auto 12px;
+    }
 }
 
 /* ========== HERO SECTIONS ========== */

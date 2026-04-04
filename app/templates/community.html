@@ -1437,6 +1437,11 @@
     }
 
     /* ========== MOBILE RESPONSIVE ========== */
+    /* Mobile filter toggle */
+    .community-mobile-filter-toggle {
+        display: none;
+    }
+
     @media (max-width: 768px) {
         .community-header h1 {
             font-size: 1.4rem;
@@ -1456,19 +1461,81 @@
             padding: 0 !important;
         }
         
+        /* Hide entire sidebar column by default */
+        .col-md-2 {
+            display: none;
+        }
+        
+        .col-md-2.mobile-open {
+            display: block;
+            animation: communitySlideDown .3s ease;
+        }
+        
+        @keyframes communitySlideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         .sidebar-left {
             position: static !important;
             max-height: none !important;
             overflow: visible !important;
         }
         
-        /* Collapse sidebar categories on mobile */
         .sidebar-categories {
-            display: none;
+            display: block;
+        }
+        
+        /* Collapsible category headings */
+        .sidebar-section-title {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .sidebar-section-title::after {
+            content: '▼';
+            font-size: .7em;
+            transition: transform .3s;
+            color: #2e7d32;
+        }
+        
+        .sidebar-section-title.collapsed::after {
+            transform: rotate(-90deg);
+        }
+        
+        .sidebar-section-title.collapsed + .category-list-vertical {
+            display: none !important;
         }
         
         .sidebar-stats {
             display: none;
+        }
+        
+        /* Mobile filter toggle button */
+        .community-mobile-filter-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 12px 20px;
+            background: white;
+            color: #2e7d32;
+            border: 2px solid #2e7d32;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            margin-bottom: 12px;
+        }
+        
+        .community-mobile-filter-toggle.active {
+            background: #2e7d32;
+            color: white;
         }
         
         .sort-pills {
@@ -1571,9 +1638,17 @@
 </div>
 
 <div class="container" style="max-width: 1400px; margin-top: 16px; margin-bottom: 40px;">
+    <!-- Mobile Filter Toggle (visible only on mobile) -->
+    <button class="community-mobile-filter-toggle" id="communityFilterToggle" onclick="toggleCommunityFilters()">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="5" x2="17" y2="5"/><line x1="5" y1="10" x2="15" y2="10"/><line x1="7" y1="15" x2="13" y2="15"/>
+        </svg>
+        Filtri Categorie
+    </button>
+
     <div class="row" style="display: flex; gap: 0;">
         <!-- SIDEBAR SINISTRA (20%) - Categorie -->
-        <div class="col-md-2" style="flex: 0 0 20%; max-width: 20%; padding-right: 15px;">
+        <div class="col-md-2" id="communitySidebar" style="flex: 0 0 20%; max-width: 20%; padding-right: 15px;">
             <div class="sidebar-left">
                 
                 <!-- Categorie -->
@@ -2690,6 +2765,26 @@ function searchCommunity() {
     
     url.searchParams.delete('page');
     window.location.href = url.toString();
+}
+
+// Mobile filter toggle for community
+function toggleCommunityFilters() {
+    const sidebar = document.getElementById('communitySidebar');
+    const btn = document.getElementById('communityFilterToggle');
+    sidebar.classList.toggle('mobile-open');
+    btn.classList.toggle('active');
+    btn.innerHTML = sidebar.classList.contains('mobile-open')
+        ? '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg> Chiudi Filtri'
+        : '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="5" x2="17" y2="5"/><line x1="5" y1="10" x2="15" y2="10"/><line x1="7" y1="15" x2="13" y2="15"/></svg> Filtri Categorie';
+}
+
+// Collapsible section title on mobile
+if (window.innerWidth <= 768) {
+    document.querySelectorAll('.sidebar-section-title').forEach(title => {
+        title.addEventListener('click', () => {
+            title.classList.toggle('collapsed');
+        });
+    });
 }
 
 async function submitQuestion(e) {
