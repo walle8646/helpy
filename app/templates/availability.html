@@ -619,6 +619,51 @@
             padding: 16px;
         }
         
+        .schedule-section {
+            padding: 16px;
+            min-height: auto;
+        }
+
+        .schedule-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .schedule-header h2 {
+            font-size: 1.3em;
+        }
+
+        .time-block {
+            gap: 8px;
+            padding: 10px;
+        }
+
+        .time-input {
+            padding: 10px 8px;
+            font-size: 0.95em;
+        }
+
+        .actions {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .actions .btn {
+            width: 100%;
+            text-align: center;
+        }
+
+        .weekly-summary {
+            padding: 16px;
+        }
+
+        .weekly-summary h2 {
+            font-size: 1.3em;
+        }
+
         .week-grid {
             grid-template-columns: repeat(2, 1fr);
             gap: 12px;
@@ -627,11 +672,43 @@
         .page-header h1 {
             font-size: 1.3em;
         }
+
+        .copy-modal-content {
+            padding: 20px;
+            width: 95%;
+            max-height: 90vh;
+        }
+
+        .copy-modal h3 {
+            font-size: 1.3em;
+        }
+
+        .modal-actions {
+            flex-direction: column;
+        }
+
+        .modal-actions .btn {
+            width: 100%;
+            text-align: center;
+        }
+
+        .day-column {
+            padding: 10px;
+            min-height: 120px;
+        }
     }
     
     @media (max-width: 480px) {
+        .availability-container {
+            padding: 12px;
+        }
+
         .week-grid {
             grid-template-columns: 1fr;
+        }
+
+        .calendar-grid, .copy-calendar-grid {
+            gap: 4px;
         }
     }
 </style>
