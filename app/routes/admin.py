@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field
 from typing import Optional
+import os
 
 from app.database import engine
 from app.models import User, Booking, Dispute, DisputeMessage, Review, CommunityQuestion
@@ -79,20 +80,20 @@ async def admin_dashboard(request: Request):
 
         # === STATISTICHE PAGAMENTI ===
         total_revenue_result = session.exec(
-            select(func.sum(Booking.price)).where(Booking.payment_status == "paid")
+            select(func.sum(Booking.price)).where(Booking.payment_status.in_(["paid", "held", "released", "partially_refunded"]))
         ).one()
         total_revenue = float(total_revenue_result) if total_revenue_result else 0.0
         
         revenue_30d_result = session.exec(
             select(func.sum(Booking.price)).where(
-                Booking.payment_status == "paid",
+                Booking.payment_status.in_(["paid", "held", "released", "partially_refunded"]),
                 Booking.created_at >= thirty_days_ago
             )
         ).one()
         revenue_30d = float(revenue_30d_result) if revenue_30d_result else 0.0
 
         paid_bookings = session.exec(
-            select(func.count(Booking.id)).where(Booking.payment_status == "paid")
+            select(func.count(Booking.id)).where(Booking.payment_status.in_(["paid", "held", "released", "partially_refunded"]))
         ).one()
 
         # === STATISTICHE RECENSIONI ===
@@ -311,6 +312,7 @@ async def admin_dispute_detail(dispute_id: int, request: Request):
                 "email": consultant.email if consultant else "?",
                 "profile_picture": consultant.profile_picture if consultant else None,
                 "professione": consultant.professione if consultant else None,
+                "platform_fee_percent": consultant.platform_fee_percent if consultant else 20,
             },
             "booking": {
                 "date": booking.booking_date if booking else None,
@@ -345,6 +347,7 @@ class DisputeMessageRequest(BaseModel):
 
 class DisputeStatusRequest(BaseModel):
     status: str
+    refund_percentage: Optional[int] = None  # 0-100, solo per status 'resolved'
 
 
 @router.post("/api/disputes/{dispute_id}/message")
@@ -400,6 +403,131 @@ async def admin_update_dispute_status(dispute_id: int, data: DisputeStatusReques
         session.commit()
 
         logger.info(f"🔄 [admin] Contestazione #{dispute_id} aggiornata a '{data.status}' da admin {admin_user.id}")
+        
+        # Se la contestazione è stata risolta o respinta, gestisci il pagamento
+        if data.status in ("resolved", "rejected"):
+            booking = session.get(Booking, dispute.booking_id)
+            if booking and booking.payment_status == "held":
+                if data.status == "rejected":
+                    # Contestazione respinta → paga il consulente (100%)
+                    from app.scheduler import release_booking_payment
+                    release_booking_payment(booking.id)
+                    logger.info(f"💰 Contestazione #{dispute_id} respinta: pagamento rilasciato per booking {booking.id}")
+                elif data.status == "resolved":
+                    # Contestazione risolta → rimborso (parziale o totale)
+                    refund_pct = data.refund_percentage if data.refund_percentage is not None else 100
+                    refund_pct = max(0, min(100, refund_pct))
+                    
+                    amount_cents = int(float(booking.price) * 100)
+                    
+                    if booking.payment_method == "paypal" and booking.paypal_capture_id:
+                        # === PayPal refund/payout ===
+                        try:
+                            from app.utils.paypal_config import refund_capture, create_payout
+                            
+                            if refund_pct > 0:
+                                refund_amount = round(float(booking.price) * refund_pct / 100, 2)
+                                result = refund_capture(booking.paypal_capture_id, amount=refund_amount, currency="EUR")
+                                if result:
+                                    from decimal import Decimal
+                                    booking.refund_amount = Decimal(str(refund_amount))
+                                    logger.info(f"💸 Rimborso PayPal {refund_pct}% (€{refund_amount:.2f}) per booking {booking.id}")
+                                else:
+                                    logger.error(f"❌ Errore rimborso PayPal per booking {booking.id}")
+                            
+                            if refund_pct < 100:
+                                remaining_cents = amount_cents - int(amount_cents * refund_pct / 100)
+                                consultant = session.get(User, booking.consultant_user_id)
+                                
+                                if consultant and consultant.paypal_email:
+                                    fee_pct = consultant.platform_fee_percent if consultant.platform_fee_percent else 20
+                                    transfer_amount = remaining_cents - int(remaining_cents * fee_pct / 100)
+                                    
+                                    if transfer_amount > 0:
+                                        payout = create_payout(
+                                            recipient_email=consultant.paypal_email,
+                                            amount=round(transfer_amount / 100, 2),
+                                            currency="EUR",
+                                            note=f"Pagamento parziale consulenza #{booking.id}",
+                                            sender_item_id=f"booking_{booking.id}_partial"
+                                        )
+                                        if payout:
+                                            payout_id = payout.get("batch_header", {}).get("payout_batch_id", "")
+                                            booking.paypal_payout_id = payout_id
+                                            booking.payment_released_at = datetime.now(ITALY_TZ)
+                                            logger.info(f"💰 PayPal payout parziale €{transfer_amount/100:.2f} al consulente per booking {booking.id}")
+                                            
+                                            from app.utils.notification_service import send_notification
+                                            send_notification(
+                                                user_id=consultant.id,
+                                                type_key="payment_released",
+                                                title="Pagamento parziale ricevuto",
+                                                message=f"Hai ricevuto €{transfer_amount/100:.2f} per la consulenza #{booking.id} (rimborso parziale {refund_pct}% al cliente)."
+                                            )
+                            
+                            booking.payment_status = "refunded" if refund_pct == 100 else "partially_refunded"
+                            session.add(booking)
+                            session.commit()
+                            
+                        except Exception as e:
+                            logger.error(f"❌ Errore rimborso/payout PayPal booking {booking.id}: {e}")
+                    
+                    elif booking.stripe_payment_intent_id:
+                        # === Stripe refund/transfer ===
+                        try:
+                            import stripe
+                            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+                            
+                            if refund_pct > 0:
+                                # Rimborso (parziale o totale) al cliente
+                                refund_amount_cents = int(amount_cents * refund_pct / 100)
+                                refund = stripe.Refund.create(
+                                    payment_intent=booking.stripe_payment_intent_id,
+                                    amount=refund_amount_cents
+                                )
+                                from decimal import Decimal
+                                booking.refund_amount = Decimal(str(refund_amount_cents / 100))
+                                logger.info(f"💸 Rimborso {refund_pct}% (€{refund_amount_cents/100:.2f}) per booking {booking.id}, refund {refund.id}")
+                            
+                            if refund_pct < 100:
+                                # Pagamento parziale al consulente (parte non rimborsata - fee piattaforma)
+                                remaining_cents = amount_cents - int(amount_cents * refund_pct / 100)
+                                consultant = session.get(User, booking.consultant_user_id)
+                                
+                                if consultant and consultant.stripe_account_id:
+                                    fee_pct = consultant.platform_fee_percent if consultant.platform_fee_percent else 20
+                                    transfer_amount = remaining_cents - int(remaining_cents * fee_pct / 100)
+                                    
+                                    if transfer_amount > 0:
+                                        transfer = stripe.Transfer.create(
+                                            amount=transfer_amount,
+                                            currency="eur",
+                                            destination=consultant.stripe_account_id,
+                                            transfer_group=f"booking_{booking.id}",
+                                            metadata={
+                                                "booking_id": str(booking.id),
+                                                "partial_payment": "true",
+                                                "refund_percentage": str(refund_pct),
+                                            }
+                                        )
+                                        booking.stripe_transfer_id = transfer.id
+                                        booking.payment_released_at = datetime.now(ITALY_TZ)
+                                        logger.info(f"💰 Pagamento parziale €{transfer_amount/100:.2f} al consulente per booking {booking.id}")
+                                        
+                                        from app.utils.notification_service import send_notification
+                                        send_notification(
+                                            user_id=consultant.id,
+                                            type_key="payment_released",
+                                            title="Pagamento parziale ricevuto",
+                                            message=f"Hai ricevuto €{transfer_amount/100:.2f} per la consulenza #{booking.id} (rimborso parziale {refund_pct}% al cliente)."
+                                        )
+                            
+                            booking.payment_status = "refunded" if refund_pct == 100 else "partially_refunded"
+                            session.add(booking)
+                            session.commit()
+                            
+                        except Exception as e:
+                            logger.error(f"❌ Errore rimborso/trasferimento booking {booking.id}: {e}")
 
     return JSONResponse({"success": True, "message": f"Stato aggiornato a {data.status}"})
 

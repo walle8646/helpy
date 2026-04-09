@@ -785,13 +785,24 @@
                     <div class="pub-sidebar-btn disabled">Non puoi prenotare te stesso</div>
                     {% elif not current_user %}
                     <a href="/login?redirect=/user/{{ user.id }}" class="pub-sidebar-btn">Accedi per Prenotare</a>
+                    {% elif not consultant_has_payment %}
+                    <div class="pub-sidebar-btn disabled" style="background: #f0f0f0; color: #999; cursor: not-allowed;">Prenotazione non disponibile</div>
+                    <p style="font-size: 0.8rem; color: #999; text-align: center; margin-top: 6px;">Il consulente non ha ancora configurato un metodo di pagamento</p>
                     {% else %}
                     <a href="/book/{{ user.id }}" class="pub-sidebar-btn">Prenota Ora</a>
                     {% endif %}
 
-                    {% if not is_own_profile and current_user %}
+                    {% if not is_own_profile and current_user and current_user.is_verified and current_user_has_payment %}
                     <button onclick="openChat({{ user.id }}, '{{ user.nome }} {{ user.cognome }}', '{{ user.profile_picture_url }}')" 
                             class="pub-sidebar-msg">💬 Invia un messaggio</button>
+                    {% elif not is_own_profile and current_user and (not current_user.is_verified or not current_user_has_payment) %}
+                    <a href="/profile" class="pub-sidebar-msg" style="background: #f59e0b; text-decoration: none; text-align: center;">
+                        {% if not current_user.is_verified %}
+                        📝 Completa il profilo per messaggiare
+                        {% else %}
+                        📝 Configura un metodo di pagamento per messaggiare
+                        {% endif %}
+                    </a>
                     {% endif %}
                 </div>
             </div>

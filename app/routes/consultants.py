@@ -7,6 +7,7 @@ import re
 from app.database import get_session
 from app.models import User, Category, CategoryHierarchy, Review
 from app.routes.auth import verify_token
+from app.utils_user import has_payment_method
 from loguru import logger
 
 router = APIRouter()
@@ -177,7 +178,7 @@ async def consultants_page(
                 })
             
             # ========== BASE QUERY ==========
-            query_stmt = select(User)
+            query_stmt = select(User).where(User.is_verified == True)
             
             # ========== FILTRO CATEGORIA ==========
             if category:
@@ -231,6 +232,9 @@ async def consultants_page(
             
             # ========== ESEGUI QUERY (senza paginazione per scoring) ==========
             all_results = session.exec(query_stmt).all()
+            
+            # ========== FILTRO METODO DI PAGAMENTO ==========
+            all_results = [u for u in all_results if has_payment_method(u)]
             
             # ========== SCORING E ORDINAMENTO ==========
             if search and keywords:

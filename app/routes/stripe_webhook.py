@@ -5,7 +5,7 @@ Receives and processes Stripe events (payment confirmations, etc.)
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
 import json
@@ -13,7 +13,7 @@ from app.database import engine
 from app.models import Booking, ConsultationOffer, User, Notification
 from app.utils.stripe_config import construct_webhook_event
 from app.logger_config import logger
-from app.scheduler import schedule_booking_reminders
+from app.scheduler import schedule_booking_reminders, schedule_payment_release, schedule_noshow_check
 from app.utils.notification_service import send_notification
 
 router = APIRouter()
@@ -141,6 +141,10 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
         # Parse booking datetime
         booking_datetime = datetime.strptime(f"{booking_date_str} {start_time}", "%Y-%m-%d %H:%M")
         
+        # Calcola fine consulenza + 48h per il hold
+        end_datetime = datetime.strptime(f"{booking_date_str} {end_time}", "%Y-%m-%d %H:%M")
+        held_until = end_datetime + timedelta(hours=48)
+        
         # Create booking
         new_booking = Booking(
             client_user_id=client_user_id,
@@ -152,10 +156,11 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
             duration_minutes=duration_minutes,
             price=price,
             status="confirmed",
-            payment_status="paid",
+            payment_status="held",
             payment_method="stripe",
             stripe_checkout_session_id=session_id,
             stripe_payment_intent_id=payment_intent_id,
+            payment_held_until=held_until,
             client_notes=client_notes or f"Prenotazione diretta",
             description=description,
             recording_requested=recording_requested
@@ -201,7 +206,13 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
             consultant_id=consultant_user_id
         )
         logger.info(f"📅 Notifiche reminder schedulate per booking {new_booking.id}")
-
+        
+        # Schedula rilascio pagamento 48h dopo fine consulenza
+        end_datetime_tz = end_datetime.replace(tzinfo=ITALY_TZ)
+        schedule_payment_release(new_booking.id, end_datetime_tz)
+        
+        # Schedula check no-show 15 min dopo fine consulenza
+        schedule_noshow_check(new_booking.id, end_datetime_tz)
 
 
 async def handle_consultation_offer_booking(session_id, payment_intent_id, metadata):
@@ -233,6 +244,10 @@ async def handle_consultation_offer_booking(session_id, payment_intent_id, metad
         # Parse booking datetime
         booking_datetime = datetime.strptime(f"{selected_date} {start_time}", "%Y-%m-%d %H:%M")
         
+        # Calcola fine consulenza + 48h per il hold
+        end_datetime = datetime.strptime(f"{selected_date} {end_time}", "%Y-%m-%d %H:%M")
+        held_until = end_datetime + timedelta(hours=48)
+        
         # Create booking
         new_booking = Booking(
             client_user_id=client_user_id,
@@ -243,10 +258,11 @@ async def handle_consultation_offer_booking(session_id, payment_intent_id, metad
             duration_minutes=duration_minutes,
             price=offer.price,
             status="confirmed",
-            payment_status="paid",
+            payment_status="held",
             payment_method="stripe",
             stripe_checkout_session_id=session_id,
             stripe_payment_intent_id=payment_intent_id,
+            payment_held_until=held_until,
             client_notes=f"Prenotazione da offerta consulenza #{offer.id}"
         )
         
@@ -297,4 +313,68 @@ async def handle_consultation_offer_booking(session_id, payment_intent_id, metad
             consultant_id=consultant_user_id
         )
         logger.info(f"📅 Notifiche reminder schedulate per booking {new_booking.id}")
+        
+        # Schedula rilascio pagamento 48h dopo fine consulenza
+        end_datetime_tz = end_datetime.replace(tzinfo=ITALY_TZ)
+        schedule_payment_release(new_booking.id, end_datetime_tz)
+        
+        # Schedula check no-show 15 min dopo fine consulenza
+        schedule_noshow_check(new_booking.id, end_datetime_tz)
+
+
+@router.post("/webhook/stripe/connect")
+async def stripe_connect_webhook(request: Request):
+    """
+    Handle Stripe Connect webhook events (account updates, payouts)
+    """
+    payload = await request.body()
+    sig_header = request.headers.get('stripe-signature')
+    
+    logger.info("🔔 Stripe Connect webhook received")
+    
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing Stripe signature")
+    
+    connect_secret = os.getenv("STRIPE_CONNECT_WEBHOOK_SECRET")
+    if not connect_secret:
+        connect_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+    
+    try:
+        from app.utils.stripe_config import stripe_module as stripe_lib
+        if not stripe_lib:
+            raise HTTPException(status_code=503, detail="Stripe non disponibile")
+        stripe_lib.Webhook.construct_event(payload, sig_header, connect_secret)
+    except ValueError as e:
+        logger.error(f"❌ Invalid Connect webhook payload: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"❌ Connect webhook signature error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    event_dict = json.loads(payload)
+    event_type = event_dict.get('type', '')
+    event_object = event_dict.get('data', {}).get('object', {})
+    
+    logger.info(f"📡 Connect event type: {event_type}")
+    
+    if event_type == 'account.updated':
+        account_id = event_object.get('id')
+        charges_enabled = event_object.get('charges_enabled', False)
+        payouts_enabled = event_object.get('payouts_enabled', False)
+        
+        with Session(engine) as db_session:
+            from sqlmodel import select
+            user = db_session.exec(
+                select(User).where(User.stripe_account_id == account_id)
+            ).first()
+            
+            if user:
+                is_complete = bool(charges_enabled and payouts_enabled)
+                if user.stripe_onboarding_complete != is_complete:
+                    user.stripe_onboarding_complete = is_complete
+                    db_session.add(user)
+                    db_session.commit()
+                    logger.info(f"✅ Account {account_id}: onboarding_complete={is_complete}")
+    
+    return JSONResponse({"status": "success"})
 

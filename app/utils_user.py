@@ -10,6 +10,10 @@ def hash_md5(password: str) -> str:
 def gen_code6() -> str:
     return f"{random.randint(0, 999999):06d}"
 
+def has_payment_method(user) -> bool:
+    """Controlla se un consulente ha almeno un metodo di pagamento configurato (Stripe o PayPal)."""
+    return bool(getattr(user, 'stripe_onboarding_complete', False)) or bool(getattr(user, 'paypal_email', None))
+
 def get_display_name(user, include_full_name=True):
     """
     Restituisce il nome da visualizzare per un utente.

@@ -664,6 +664,14 @@
             </div>
         </div>
 
+        <!-- Banner metodo di pagamento mancante -->
+        {% if user.is_verified and not has_payment_method %}
+        <div style="background: linear-gradient(135deg, #e76f00 0%, #f59e0b 100%); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 12px; border-radius: 0; font-size: 0.95rem; box-shadow: 0 2px 8px rgba(231,111,0,0.15);">
+            <span style="font-size: 1.4rem;">⚠️</span>
+            <span>Per ricevere i pagamenti dalle consulenze devi configurare almeno un metodo di incasso (<b>Stripe</b> o <b>PayPal</b>) nella sezione qui a destra. Senza non potrai essere prenotato dai clienti.</span>
+        </div>
+        {% endif %}
+
         <!-- Layout a due colonne -->
         <div class="pub-layout">
             <!-- Colonna sinistra: contenuto -->
@@ -946,6 +954,41 @@
                     </a>
                 </div>
 
+                <!-- Stripe Connect Card -->
+                <div class="pub-sidebar-card" id="stripeConnectCard" style="background: linear-gradient(135deg, #2d6a4f 0%, #40916c 100%);">
+                    <h3 style="color: white;">💳 Pagamenti Stripe</h3>
+                    <div id="stripeConnectContent">
+                        <p style="color: rgba(255,255,255,.85); font-size: .9em; margin-bottom: 14px;">Caricamento...</p>
+                    </div>
+                </div>
+
+                <!-- PayPal Card -->
+                <div class="pub-sidebar-card" id="paypalCard" style="background: linear-gradient(135deg, #003087 0%, #0070ba 100%);">
+                    <h3 style="color: white;"><i class="fab fa-paypal"></i> PayPal</h3>
+                    <div id="paypalContent">
+                        {% if user.paypal_email %}
+                        <p style="color: rgba(255,255,255,.9); font-size: .9em; margin-bottom: 8px;">✅ Collegato</p>
+                        <p style="color: rgba(255,255,255,.75); font-size: .82em; margin-bottom: 12px; word-break: break-all;">{{ user.paypal_email }}</p>
+                        <button onclick="togglePaypalEdit()" style="width: 100%; padding: 10px; background: white; color: #003087; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: .85em; transition: all .2s;">
+                            ✏️ Modifica Email PayPal
+                        </button>
+                        {% else %}
+                        <p style="color: rgba(255,255,255,.9); font-size: .9em; margin-bottom: 12px;">Inserisci la tua email PayPal per ricevere pagamenti tramite PayPal</p>
+                        <button onclick="togglePaypalEdit()" style="width: 100%; padding: 12px; background: white; color: #003087; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: .9em; transition: all .2s;">
+                            🔗 Collega PayPal
+                        </button>
+                        {% endif %}
+                        <div id="paypalEditForm" style="display: none; margin-top: 12px;">
+                            <input type="email" id="paypalEmailInput" value="{{ user.paypal_email or '' }}" placeholder="email@paypal.com" style="width: 100%; padding: 10px 12px; border: 2px solid rgba(255,255,255,.3); border-radius: 8px; background: rgba(255,255,255,.15); color: white; font-size: .9em; margin-bottom: 8px; box-sizing: border-box;" />
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="savePaypalEmail()" style="flex: 1; padding: 10px; background: #00b4d8; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: .85em;">💾 Salva</button>
+                                <button onclick="togglePaypalEdit()" style="flex: 1; padding: 10px; background: rgba(255,255,255,.2); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: .85em;">Annulla</button>
+                            </div>
+                            <p id="paypalError" style="display: none; color: #ff6b6b; font-size: .8em; margin-top: 6px;"></p>
+                        </div>
+                    </div>
+                </div>
+
                 {% if user.is_verified and user.category_id %}
                 <div class="pub-sidebar-card" style="background: linear-gradient(135deg, #1a4d2e 0%, #2d6a4f 100%);">
                     <button id="openCategoryRequestsBtn" style="width: 100%; padding: 14px; background: white; color: #1a4d2e; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 1em; position: relative; box-shadow: 0 4px 14px rgba(0,0,0,.1);">
@@ -1009,6 +1052,111 @@
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <script>
+    // ========== PAYPAL EMAIL ==========
+    function togglePaypalEdit() {
+        const form = document.getElementById('paypalEditForm');
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        document.getElementById('paypalError').style.display = 'none';
+    }
+
+    async function savePaypalEmail() {
+        const email = document.getElementById('paypalEmailInput').value.trim();
+        const errorEl = document.getElementById('paypalError');
+        errorEl.style.display = 'none';
+
+        const formData = new FormData();
+        formData.append('paypal_email', email);
+        
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const res = await fetch('/api/profile/update', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                location.reload();
+            } else {
+                errorEl.textContent = data.error || 'Errore nel salvataggio';
+                errorEl.style.display = 'block';
+            }
+        } catch (e) {
+            errorEl.textContent = 'Errore di connessione';
+            errorEl.style.display = 'block';
+        }
+    }
+
+    // ========== STRIPE CONNECT ==========
+    (async function loadStripeConnect() {
+        const card = document.getElementById('stripeConnectCard');
+        const content = document.getElementById('stripeConnectContent');
+        if (!card || !content) return;
+        
+        try {
+            const res = await fetch('/api/stripe/connect/status');
+            if (!res.ok) { card.style.display = 'none'; return; }
+            const data = await res.json();
+            
+            if (data.onboarding_complete) {
+                content.innerHTML = `
+                    <p style="color: rgba(255,255,255,.9); font-size: .9em; margin-bottom: 12px;">✅ Account Stripe collegato</p>
+                    <button onclick="openStripeDashboard()" style="width: 100%; padding: 12px; background: white; color: #2d6a4f; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: .9em; transition: all .2s;">
+                        📊 Dashboard Pagamenti
+                    </button>
+                `;
+            } else if (data.connected && !data.onboarding_complete) {
+                content.innerHTML = `
+                    <p style="color: rgba(255,255,255,.9); font-size: .9em; margin-bottom: 12px;">⏳ Completa la configurazione per ricevere pagamenti</p>
+                    <button onclick="startStripeOnboarding()" style="width: 100%; padding: 12px; background: white; color: #2d6a4f; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: .9em; transition: all .2s;">
+                        🔗 Completa Configurazione
+                    </button>
+                `;
+            } else {
+                content.innerHTML = `
+                    <p style="color: rgba(255,255,255,.9); font-size: .9em; margin-bottom: 12px;">Collega il tuo conto per ricevere i pagamenti delle consulenze direttamente</p>
+                    <button onclick="startStripeOnboarding()" style="width: 100%; padding: 12px; background: white; color: #2d6a4f; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: .9em; transition: all .2s;">
+                        🔗 Collega Conto Stripe
+                    </button>
+                `;
+            }
+        } catch (e) {
+            card.style.display = 'none';
+        }
+    })();
+
+    async function startStripeOnboarding() {
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const res = await fetch('/api/stripe/connect/onboard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+            });
+            const data = await res.json();
+            if (data.success && data.url) {
+                window.location.href = data.url;
+            } else {
+                alert('Errore: ' + (data.detail || 'Impossibile avviare la configurazione'));
+            }
+        } catch (e) {
+            alert('Errore di connessione');
+        }
+    }
+
+    async function openStripeDashboard() {
+        try {
+            const res = await fetch('/api/stripe/connect/dashboard');
+            const data = await res.json();
+            if (data.success && data.url) {
+                window.open(data.url, '_blank');
+            } else {
+                alert('Errore: ' + (data.detail || 'Impossibile aprire la dashboard'));
+            }
+        } catch (e) {
+            alert('Errore di connessione');
+        }
+    }
+
     // ========== EDIT PROFILE FUNCTIONALITY ==========
     const editBtn = document.getElementById('editProfileBtn');
     const cancelBtn = document.getElementById('cancelEditBtn');

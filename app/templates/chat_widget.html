@@ -891,6 +891,7 @@
     
     // User info for consultation button logic - will be fetched from API
     let currentUserIsVerified = false;
+    let currentUserHasPayment = false;
     let currentUserId = 0;
     
     // Fetch current logged-in user info
@@ -900,6 +901,7 @@
             if (response.ok) {
                 const userData = await response.json();
                 currentUserIsVerified = userData.is_verified || false;
+                currentUserHasPayment = userData.has_payment_method || false;
                 currentUserId = userData.id || 0;
                 console.log('👤 Current user fetched from API:', {
                     id: currentUserId,
@@ -1055,9 +1057,11 @@
         
         // Show consultation button only if:
         // 1. Current user is verified consultant (is_verified = 1)
-        // 2. We're in chat view (not list view)
-        // 3. Not chatting with self
+        // 2. Current user has at least one payment method
+        // 3. We're in chat view (not list view)
+        // 4. Not chatting with self
         const shouldShow = currentUserIsVerified && 
+                         currentUserHasPayment &&
                          chatWidget.currentView === 'chat' && 
                          chatWidget.currentUserId && 
                          chatWidget.currentUserId !== currentUserId;

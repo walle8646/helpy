@@ -4,6 +4,7 @@ from app.models import User, Category, CategoryHierarchy, FavoriteConsultant, Re
 from app.database import get_session
 from app.logger_config import logger
 from app.utils.template_helpers import get_all_categories
+from app.utils_user import has_payment_method
 from sqlmodel import select
 import json
 
@@ -132,6 +133,8 @@ def public_user_profile(request: Request, user_id: int):
             "last_seen_label": last_seen_label,
             "reviews": reviews,
             "avg_rating": avg_rating,
+            "consultant_has_payment": has_payment_method(user),
+            "current_user_has_payment": has_payment_method(current_user) if current_user else False,
         })
 
 

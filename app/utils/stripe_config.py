@@ -44,7 +44,9 @@ def create_checkout_session(
     currency: str,
     success_url: str,
     cancel_url: str,
-    metadata: dict = None
+    metadata: dict = None,
+    stripe_account_id: str = None,
+    application_fee_amount: int = None
 ):
     """
     Create a Stripe Checkout Session
@@ -55,6 +57,8 @@ def create_checkout_session(
         success_url: URL to redirect after successful payment
         cancel_url: URL to redirect if payment is cancelled
         metadata: Additional data to store with the session
+        stripe_account_id: Connected Account ID for destination charges
+        application_fee_amount: Platform fee in cents
     
     Returns:
         Stripe Checkout Session object
@@ -66,7 +70,7 @@ def create_checkout_session(
         raise RuntimeError("Stripe is not configured. Missing STRIPE_SECRET_KEY.")
     
     try:
-        session = stripe.checkout.Session.create(
+        params = dict(
             payment_method_types=['card'],
             line_items=[{
                 'price_data': {
@@ -84,6 +88,17 @@ def create_checkout_session(
             cancel_url=cancel_url,
             metadata=metadata or {},
         )
+        
+        # Destination charges via Stripe Connect
+        if stripe_account_id and application_fee_amount is not None:
+            params['payment_intent_data'] = {
+                'application_fee_amount': application_fee_amount,
+                'transfer_data': {
+                    'destination': stripe_account_id,
+                },
+            }
+        
+        session = stripe.checkout.Session.create(**params)
         return session
     except Exception as e:
         print(f"Error creating Stripe session: {e}")

@@ -449,8 +449,18 @@
         </div>
     </div>
     
+    {% if not consultant_has_payment %}
+    <div style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; padding: 1.2rem 1.5rem; border-radius: 10px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 12px; font-size: 0.95rem;">
+        <span style="font-size: 1.5rem;">⚠️</span>
+        <div>
+            <strong>Prenotazione non disponibile</strong><br>
+            Il consulente non ha ancora configurato un metodo di pagamento. Non è possibile procedere con la prenotazione al momento.
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Top Row: Durata e Calendario -->
-    <div class="top-row">
+    <div class="top-row" {% if not consultant_has_payment %}style="opacity: 0.5; pointer-events: none;"{% endif %}>
         <!-- Selettore Durata -->
         <div class="booking-section">
             <h3><i class="fas fa-clock"></i> Durata Consulenza</h3>
@@ -523,7 +533,7 @@
     </div>
     
     <!-- Descrizione Consulenza (Obbligatoria) -->
-    <div class="booking-section">
+    <div class="booking-section" {% if not consultant_has_payment %}style="opacity: 0.5; pointer-events: none;"{% endif %}>
         <h3><i class="fas fa-file-alt"></i> Descrizione della Consulenza <span style="color: #ff4757;">*</span></h3>
         <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
             Descrivi in dettaglio quello che vuoi discutere durante la consulenza. Questo aiuta il consulente a prepararsi meglio e a fornirti un servizio più efficace.
@@ -540,7 +550,7 @@
     </div>
     
     <!-- Riepilogo e Conferma -->
-    <div class="booking-summary" id="bookingSummary" style="display: none;">
+    <div class="booking-summary" id="bookingSummary" style="display: none;{% if not consultant_has_payment %} opacity: 0.5; pointer-events: none;{% endif %}">
         <h3><i class="fas fa-check-circle"></i> Riepilogo Prenotazione</h3>
         <div class="summary-row">
             <span>Consulente:</span>
@@ -586,6 +596,26 @@
             <p id="recordingWarning" style="display: none; font-size: 0.82rem; color: #e74c3c; margin: 10px 0 0 0; font-weight: 500;">
                 ⚠️ Senza registrazione non potrai aprire una contestazione dopo la consulenza.
             </p>
+        </div>
+        
+        <!-- Scelta metodo di pagamento -->
+        <div style="background: #f8f9fa; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; border: 1px solid #e0e0e0;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <i class="fas fa-credit-card" style="color: #2d6a4f;"></i>
+                <strong style="font-size: 0.95rem; color: #1a202c;">Metodo di pagamento</strong>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #635bff; background: #f0efff; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #1a202c; transition: all 0.2s;" id="payStripeLabel">
+                    <input type="radio" name="paymentMethod" value="stripe" checked style="accent-color: #635bff;" onchange="updatePaymentMethod()">
+                    <i class="fab fa-cc-stripe" style="color: #635bff; font-size: 1.2rem;"></i> Carta di credito
+                </label>
+                {% if paypal_available %}
+                <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #e0e0e0; background: #fff; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #666; transition: all 0.2s;" id="payPaypalLabel">
+                    <input type="radio" name="paymentMethod" value="paypal" style="accent-color: #0070ba;" onchange="updatePaymentMethod()">
+                    <i class="fab fa-paypal" style="color: #0070ba; font-size: 1.2rem;"></i> PayPal
+                </label>
+                {% endif %}
+            </div>
         </div>
         
         <button class="btn-book" id="confirmBookingBtn" disabled>
@@ -988,6 +1018,32 @@
         }
     }
     
+    function updatePaymentMethod() {
+        const stripeLabel = document.getElementById('payStripeLabel');
+        const paypalLabel = document.getElementById('payPaypalLabel');
+        const selected = document.querySelector('input[name="paymentMethod"]:checked').value;
+        
+        if (selected === 'stripe') {
+            stripeLabel.style.borderColor = '#635bff';
+            stripeLabel.style.background = '#f0efff';
+            stripeLabel.style.color = '#1a202c';
+            if (paypalLabel) {
+                paypalLabel.style.borderColor = '#e0e0e0';
+                paypalLabel.style.background = '#fff';
+                paypalLabel.style.color = '#666';
+            }
+        } else {
+            if (paypalLabel) {
+                paypalLabel.style.borderColor = '#0070ba';
+                paypalLabel.style.background = '#e8f4fd';
+                paypalLabel.style.color = '#1a202c';
+            }
+            stripeLabel.style.borderColor = '#e0e0e0';
+            stripeLabel.style.background = '#fff';
+            stripeLabel.style.color = '#666';
+        }
+    }
+    
     // Conferma Prenotazione
     document.getElementById('confirmBookingBtn').addEventListener('click', async function() {
         if (!selectedSlot || !selectedDate) return;
@@ -1027,7 +1083,10 @@
         };
         
         try {
-            const response = await fetch('/api/booking/create', {
+            const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+            const apiUrl = paymentMethod === 'paypal' ? '/api/booking/create-paypal' : '/api/booking/create';
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bookingData)

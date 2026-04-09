@@ -13,6 +13,7 @@ from app.routes.auth import get_current_user
 from app.utils.agora_recording import start_recording, stop_recording, get_recording_url
 from app.logger_config import logger
 from app.utils.stripe_config import create_checkout_session
+from app.utils_user import has_payment_method
 
 DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
 from app.utils.notification_service import send_notification
@@ -198,8 +199,18 @@ async def booking_page(
             "user": current_user,
             "current_user": current_user,  # Per la navbar
             "consultant": consultant,
-            "debug_mode": DEBUG_MODE
+            "debug_mode": DEBUG_MODE,
+            "paypal_available": _is_paypal_available(),
+            "consultant_has_payment": has_payment_method(consultant)
         })
+
+
+def _is_paypal_available():
+    try:
+        from app.utils.paypal_config import is_configured
+        return is_configured()
+    except Exception:
+        return False
 
 # ========== API ENDPOINTS ==========
 
@@ -349,6 +360,9 @@ async def create_booking(
         if not consultant:
             raise HTTPException(status_code=404, detail="Consulente non trovato")
         
+        if not has_payment_method(consultant):
+            raise HTTPException(status_code=400, detail="Il consulente non ha configurato un metodo di pagamento. Non è possibile prenotare.")
+        
         # Parse della data
         try:
             booking_date = datetime.strptime(booking_date_str, '%Y-%m-%d')
@@ -400,6 +414,10 @@ async def create_booking(
             # Convert price to cents (Stripe uses smallest currency unit)
             amount_cents = int(float(price) * 100)
             
+            # Pagamento alla piattaforma — il trasferimento al consulente avviene dopo 48h
+            if consultant.stripe_account_id and consultant.stripe_onboarding_complete:
+                logger.info(f"💰 Pagamento trattenuto: consulente {consultant.stripe_account_id} riceverà dopo 48h dalla fine consulenza")
+            
             checkout_session = create_checkout_session(
                 amount=amount_cents,
                 currency='eur',
@@ -417,7 +435,7 @@ async def create_booking(
                     'client_notes': client_notes,
                     'description': description,
                     'recording_requested': str(recording_requested).lower()  # 👈 Valore inviato a Stripe
-                }
+                },
             )
             
             return {
@@ -497,11 +515,11 @@ async def get_upcoming_bookings(request: Request):
         # Usa datetime.now() per l'ora locale
         now = datetime.now()
         
-        # Query per prenotazioni confermate FUTURE e pagate
+        # Query per prenotazioni confermate FUTURE e pagate (incluso 'held' per pagamenti in attesa di rilascio)
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
             Booking.status.in_(['confirmed', 'pending']),
-            Booking.payment_status == 'paid',
+            Booking.payment_status.in_(['paid', 'held']),
             Booking.booking_date >= now.date()
         ).order_by(Booking.booking_date, Booking.start_time)
         
@@ -597,7 +615,7 @@ async def get_booking_history(request: Request):
         
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
-            Booking.payment_status == 'paid'
+            Booking.payment_status.in_(['paid', 'held'])
         ).order_by(Booking.booking_date.desc(), Booking.start_time.desc())
         
         bookings = session.exec(statement).all()
@@ -918,6 +936,39 @@ async def cancel_booking(
         booking.cancelled_at = datetime.utcnow()
         booking.cancellation_reason = reason
         booking.updated_at = datetime.utcnow()
+        
+        # Rimborsa se il pagamento è stato effettuato
+        if booking.payment_status in ('paid', 'held'):
+            if booking.payment_method == "paypal" and booking.paypal_capture_id:
+                try:
+                    from app.utils.paypal_config import refund_capture
+                    result = refund_capture(booking.paypal_capture_id)
+                    if result:
+                        logger.info(f"✅ Rimborso PayPal creato per booking {booking_id}")
+                        booking.payment_status = "refunded"
+                    else:
+                        logger.error(f"❌ Errore rimborso PayPal per booking {booking_id}")
+                except Exception as e:
+                    logger.error(f"❌ Errore nel rimborso PayPal: {e}")
+            elif booking.stripe_payment_intent_id:
+                try:
+                    import stripe as stripe_module
+                    stripe_module.api_key = os.getenv("STRIPE_SECRET_KEY")
+                    refund = stripe_module.Refund.create(
+                        payment_intent=booking.stripe_payment_intent_id,
+                        reason='requested_by_customer'
+                    )
+                    logger.info(f"✅ Rimborso creato: {refund.id} per booking {booking_id}")
+                    booking.payment_status = "refunded"
+                except Exception as e:
+                    logger.error(f"❌ Errore nel rimborso: {e}")
+        
+        # Cancella il rilascio pagamento schedulato
+        try:
+            from app.scheduler import cancel_payment_release
+            cancel_payment_release(booking_id)
+        except Exception as e:
+            logger.warning(f"⚠️ Impossibile cancellare rilascio pagamento schedulato: {e}")
         
         session.add(booking)
         session.commit()
@@ -1262,29 +1313,48 @@ async def refuse_booking(booking_id: int, request: Request):
         session.add(booking)
         
         # ✅ 2. Rimborsa se il pagamento è avvenuto
-        if booking.payment_status == 'paid' and booking.stripe_payment_intent_id:
-            try:
-                import stripe as stripe_module
-                stripe_module.api_key = os.getenv("STRIPE_SECRET_KEY")
-                
-                # Effettua il rimborso
-                refund = stripe_module.Refund.create(
-                    payment_intent=booking.stripe_payment_intent_id,
-                    reason='requested_by_customer'
-                )
-                logger.info(f"✅ Rimborso creato: {refund.id} per booking {booking_id}")
-                booking.payment_status = "refunded"
-            except stripe_module.error.InvalidRequestError as e:
-                # Se la charge è già stata rimborsata, non è un errore
-                if "already been refunded" in str(e):
-                    logger.info(f"⚠️ Booking {booking_id} era già stato rimborsato prima")
+        if booking.payment_status in ('paid', 'held'):
+            if booking.payment_method == "paypal" and booking.paypal_capture_id:
+                try:
+                    from app.utils.paypal_config import refund_capture
+                    result = refund_capture(booking.paypal_capture_id)
+                    if result:
+                        logger.info(f"✅ Rimborso PayPal creato per booking {booking_id}")
+                        booking.payment_status = "refunded"
+                    else:
+                        logger.error(f"❌ Errore rimborso PayPal per booking {booking_id}")
+                except Exception as e:
+                    logger.error(f"❌ Errore nel rimborso PayPal: {e}")
+            elif booking.stripe_payment_intent_id:
+                try:
+                    import stripe as stripe_module
+                    stripe_module.api_key = os.getenv("STRIPE_SECRET_KEY")
+                    
+                    # Effettua il rimborso
+                    refund = stripe_module.Refund.create(
+                        payment_intent=booking.stripe_payment_intent_id,
+                        reason='requested_by_customer'
+                    )
+                    logger.info(f"✅ Rimborso creato: {refund.id} per booking {booking_id}")
                     booking.payment_status = "refunded"
-                else:
+                except stripe_module.error.InvalidRequestError as e:
+                    # Se la charge è già stata rimborsata, non è un errore
+                    if "already been refunded" in str(e):
+                        logger.info(f"⚠️ Booking {booking_id} era già stato rimborsato prima")
+                        booking.payment_status = "refunded"
+                    else:
+                        logger.error(f"❌ Errore nel rimborso: {e}")
+                        # Continua comunque, il rimborso manuale può essere fatto dopo
+                except Exception as e:
                     logger.error(f"❌ Errore nel rimborso: {e}")
                     # Continua comunque, il rimborso manuale può essere fatto dopo
-            except Exception as e:
-                logger.error(f"❌ Errore nel rimborso: {e}")
-                # Continua comunque, il rimborso manuale può essere fatto dopo
+        
+        # ✅ 2b. Cancella il rilascio pagamento schedulato
+        try:
+            from app.scheduler import cancel_payment_release
+            cancel_payment_release(booking_id)
+        except Exception as e:
+            logger.warning(f"⚠️ Impossibile cancellare rilascio pagamento schedulato: {e}")
         
         session.commit()
         

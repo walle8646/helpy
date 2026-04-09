@@ -9,9 +9,9 @@ from typing import Optional
 import os
 
 # ✅ Importa funzioni autenticazione da auth.py
-from app.routes.auth import verify_token, get_current_user
+from app.routes.auth import verify_token
+from app.utils_user import has_payment_method, get_display_name
 from app.utils.notification_manager import send_notification
-from app.utils_user import get_display_name
 
 router = APIRouter()
 
@@ -34,6 +34,7 @@ async def api_get_current_user(request: Request):
         "nome": user.nome,
         "cognome": user.cognome,
         "is_verified": user.is_verified,
+        "has_payment_method": has_payment_method(user),
         "category_id": user.category_id
     })
 

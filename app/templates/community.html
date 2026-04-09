@@ -1881,10 +1881,10 @@
                         </div>
                     </div>
                     
-                    <!-- Bottone Messaggia o Compila Profilo (controlla se l'utente LOGGATO è verificato) -->
+                    <!-- Bottone Messaggia o Compila Profilo (controlla se l'utente LOGGATO è verificato e ha metodo di pagamento) -->
                     {% if user and item.author.id != user.id %}
-                        {% if user.is_verified %}
-                        <!-- Utente LOGGATO verificato: può messaggiare -->
+                        {% if user.is_verified and user_has_payment %}
+                        <!-- Utente LOGGATO verificato con metodo di pagamento: può messaggiare -->
                         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                             <button class="btn-message-verified btn-contact-author"
                                data-question-id="{{ item.question.id }}"
@@ -1916,8 +1916,8 @@
                                 <i class="fas fa-heart"></i> Segui e Richiedi
                             </button>
                         </div>
-                        {% elif not user.is_verified %}
-                        <!-- Utente LOGGATO non verificato: deve completare il profilo -->
+                        {% elif not user.is_verified or not user_has_payment %}
+                        <!-- Utente LOGGATO non verificato o senza metodo di pagamento: deve completare il profilo -->
                         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                             <a href="/profile" 
                                class="btn-complete-profile"
@@ -1933,7 +1933,11 @@
                                       font-weight: 500;
                                       transition: all 0.2s;">
                                 <i class="fas fa-exclamation-circle"></i>
+                                {% if user.is_verified and not user_has_payment %}
+                                📝 Configura un metodo di pagamento per messaggiare
+                                {% else %}
                                 📝 Compila il tuo profilo per diventare un consulente
+                                {% endif %}
                             </a>
                             
                             <!-- Bottone Segui e Richiedi (destra) -->

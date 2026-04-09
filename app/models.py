@@ -64,6 +64,14 @@ class User(SQLModel, table=True):
     user_type_id: int = Field(default=1)  # 1=Utente, 2=Verificatore, 3=Amministratore
     languages: Optional[str] = Field(default=None)  # JSON array: '["it","en","fr"]'
     
+    # Stripe Connect
+    stripe_account_id: Optional[str] = Field(default=None)  # Stripe Connected Account ID (acct_xxx)
+    stripe_onboarding_complete: bool = Field(default=False)  # Onboarding Stripe completato
+    platform_fee_percent: int = Field(default=20)  # Commissione piattaforma % (default 20%)
+    
+    # PayPal
+    paypal_email: Optional[str] = Field(default=None)  # Email PayPal del consulente per ricevere pagamenti
+    
     # Timestamps
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     last_seen: Optional[datetime] = Field(default=None)
@@ -224,13 +232,24 @@ class Booking(SQLModel, table=True):
     
     status: str = Field(default="pending")  # pending, confirmed, completed, cancelled, no_show
     price: Optional[Decimal] = None
-    payment_status: str = Field(default="pending")  # pending, paid, refunded, failed
+    payment_status: str = Field(default="pending")  # pending, held, paid, released, refunded, partially_refunded, failed
     payment_method: Optional[str] = None
     transaction_id: Optional[str] = None
     
     # Stripe payment fields
     stripe_checkout_session_id: Optional[str] = None  # Stripe Checkout Session ID
     stripe_payment_intent_id: Optional[str] = None  # Stripe Payment Intent ID
+    
+    # PayPal payment fields
+    paypal_order_id: Optional[str] = None  # PayPal Order ID
+    paypal_capture_id: Optional[str] = None  # PayPal Capture ID (dopo cattura pagamento)
+    paypal_payout_id: Optional[str] = None  # PayPal Payout Batch ID (dopo rilascio fondi)
+    
+    # Transfer differito (48h hold)
+    stripe_transfer_id: Optional[str] = None  # Stripe Transfer ID (dopo rilascio fondi)
+    payment_held_until: Optional[datetime] = None  # Quando scade il hold (48h dopo fine consulenza)
+    payment_released_at: Optional[datetime] = None  # Quando i fondi sono stati trasferiti
+    refund_amount: Optional[Decimal] = None  # Importo rimborsato (può essere parziale)
     
     meeting_link: Optional[str] = None  # Link Zoom/Google Meet
     client_notes: Optional[str] = None

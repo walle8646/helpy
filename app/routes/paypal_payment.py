@@ -1,0 +1,410 @@
+"""
+PayPal Payment Routes
+Handles PayPal checkout flow: create order → user approves → capture → create booking
+"""
+from fastapi import APIRouter, Request, HTTPException
+from fastapi.responses import RedirectResponse, JSONResponse
+from sqlmodel import Session, select
+from sqlalchemy import func
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+import os
+import json
+
+from app.database import engine
+from app.models import Booking, User, ConsultationOffer
+from app.utils.paypal_config import create_order, capture_order, is_configured
+from app.routes.auth import verify_token
+from app.logger_config import logger
+from app.utils.notification_service import send_notification
+from app.utils_user import has_payment_method
+from app.scheduler import schedule_booking_reminders, schedule_payment_release, schedule_noshow_check
+
+router = APIRouter()
+ITALY_TZ = ZoneInfo("Europe/Rome")
+DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
+
+
+def get_current_user(request: Request):
+    return verify_token(request)
+
+
+# ==================== DIRECT BOOKING ====================
+
+@router.post("/api/booking/create-paypal")
+async def create_booking_paypal(request: Request):
+    """
+    Crea un ordine PayPal per una prenotazione diretta.
+    Crea un booking in status 'pending_payment', poi redirige l'utente a PayPal.
+    """
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    if current_user.is_anonymous:
+        raise HTTPException(status_code=403, detail="Non puoi prenotare in modalità anonima.")
+    
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="PayPal non configurato")
+    
+    booking_data = await request.json()
+    consultant_id = booking_data.get('consultant_user_id')
+    booking_date_str = booking_data.get('booking_date')
+    start_time = booking_data.get('start_time')
+    end_time = booking_data.get('end_time')
+    duration_minutes = booking_data.get('duration_minutes')
+    availability_block_id = booking_data.get('availability_block_id')
+    client_notes = booking_data.get('client_notes', '')
+    description = booking_data.get('description', '')
+    price = booking_data.get('price')
+    recording_requested = booking_data.get('recording_requested', True)
+    
+    if not all([consultant_id, booking_date_str, start_time, end_time, duration_minutes, price]):
+        raise HTTPException(status_code=400, detail="Campi obbligatori mancanti")
+    
+    if not description or not description.strip():
+        raise HTTPException(status_code=400, detail="Descrizione della consulenza obbligatoria")
+    
+    if duration_minutes not in [30, 60, 90, 120]:
+        raise HTTPException(status_code=400, detail="Durata non valida")
+    
+    if current_user.id == consultant_id:
+        raise HTTPException(status_code=400, detail="Non puoi prenotare con te stesso")
+    
+    with Session(engine) as session:
+        consultant = session.get(User, consultant_id)
+        if not consultant:
+            raise HTTPException(status_code=404, detail="Consulente non trovato")
+        
+        if not has_payment_method(consultant):
+            raise HTTPException(status_code=400, detail="Il consulente non ha configurato un metodo di pagamento. Non è possibile prenotare.")
+        
+        try:
+            booking_date = datetime.strptime(booking_date_str, '%Y-%m-%d')
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Formato data non valido")
+        
+        if not DEBUG_MODE:
+            booking_datetime = datetime.strptime(f"{booking_date_str} {start_time}", '%Y-%m-%d %H:%M')
+            time_until = (booking_datetime - datetime.utcnow()).total_seconds() / 3600
+            if time_until < 4:
+                raise HTTPException(status_code=400, detail="La consulenza deve essere prenotata almeno 4 ore nel futuro")
+        
+        existing = session.exec(
+            select(Booking)
+            .where(func.date(Booking.booking_date) == booking_date_str)
+            .where(Booking.consultant_user_id == consultant_id)
+            .where(Booking.start_time == start_time)
+            .where(Booking.status.in_(['pending', 'confirmed', 'pending_payment']))
+        ).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Questo slot è già stato prenotato")
+        
+        if not price or price <= 0:
+            raise HTTPException(status_code=400, detail="Prezzo non valido")
+        
+        hourly_rate = consultant.prezzo_consulenza if consultant.prezzo_consulenza else 0
+        if hourly_rate <= 0:
+            raise HTTPException(status_code=400, detail="Il consulente non ha impostato un prezzo")
+        expected_price = (hourly_rate / 60) * duration_minutes
+        if abs(price - expected_price) > 1:
+            raise HTTPException(status_code=400, detail="Prezzo non valido per la durata selezionata")
+        
+        # Calcola end_datetime e held_until
+        booking_dt = datetime.strptime(f"{booking_date_str} {start_time}", "%Y-%m-%d %H:%M")
+        end_dt = datetime.strptime(f"{booking_date_str} {end_time}", "%Y-%m-%d %H:%M")
+        held_until = end_dt + timedelta(hours=48)
+        
+        # Crea booking in stato pending_payment
+        new_booking = Booking(
+            client_user_id=current_user.id,
+            consultant_user_id=consultant_id,
+            availability_block_id=int(availability_block_id) if availability_block_id else None,
+            booking_date=booking_dt,
+            start_time=start_time,
+            end_time=end_time,
+            duration_minutes=duration_minutes,
+            price=price,
+            status="pending_payment",
+            payment_status="pending",
+            payment_method="paypal",
+            payment_held_until=held_until,
+            client_notes=client_notes or "Prenotazione diretta",
+            description=description,
+            recording_requested=recording_requested if isinstance(recording_requested, bool) else str(recording_requested).lower() == 'true'
+        )
+        session.add(new_booking)
+        session.commit()
+        session.refresh(new_booking)
+        
+        # Crea ordine PayPal
+        app_url = os.getenv("BASE_URL", "http://localhost:8080")
+        order = create_order(
+            amount=float(price),
+            currency="EUR",
+            return_url=f"{app_url}/booking/paypal/capture?booking_id={new_booking.id}",
+            cancel_url=f"{app_url}/booking/paypal/cancel?booking_id={new_booking.id}",
+            metadata={"booking_id": new_booking.id, "booking_type": "direct"}
+        )
+        
+        if not order:
+            # Rimuovi il booking fallito
+            session.delete(new_booking)
+            session.commit()
+            raise HTTPException(status_code=500, detail="Errore nella creazione dell'ordine PayPal")
+        
+        # Salva l'order_id sul booking
+        new_booking.paypal_order_id = order["id"]
+        session.add(new_booking)
+        session.commit()
+        
+        # Trova l'approval URL
+        approval_url = None
+        for link in order.get("links", []):
+            if link.get("rel") == "payer-action":
+                approval_url = link["href"]
+                break
+        
+        if not approval_url:
+            session.delete(new_booking)
+            session.commit()
+            raise HTTPException(status_code=500, detail="URL di approvazione PayPal non trovato")
+        
+        logger.info(f"✅ PayPal order {order['id']} creato per booking {new_booking.id}")
+        
+        return JSONResponse({
+            "success": True,
+            "checkout_url": approval_url,
+            "order_id": order["id"]
+        })
+
+
+# ==================== CONSULTATION OFFER ====================
+
+@router.post("/api/consultation/{offer_id}/pay-paypal")
+async def create_consultation_paypal(offer_id: int, request: Request):
+    """
+    Crea un ordine PayPal per un'offerta di consulenza.
+    """
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+    
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="PayPal non configurato")
+    
+    body = await request.json()
+    selected_date = body.get('date')
+    start_time = body.get('start_time')
+    end_time = body.get('end_time')
+    
+    if not all([selected_date, start_time, end_time]):
+        raise HTTPException(status_code=400, detail="Dati slot mancanti")
+    
+    with Session(engine) as session:
+        offer = session.get(ConsultationOffer, offer_id)
+        if not offer:
+            raise HTTPException(status_code=404, detail="Offerta non trovata")
+        
+        if current_user.id != offer.client_user_id:
+            raise HTTPException(status_code=403, detail="Non sei autorizzato")
+        
+        if offer.status != "pending":
+            raise HTTPException(status_code=400, detail="Questa offerta non è più disponibile")
+        
+        if offer.expires_at < datetime.utcnow():
+            offer.status = "expired"
+            session.add(offer)
+            session.commit()
+            raise HTTPException(status_code=400, detail="Questa offerta è scaduta")
+        
+        consultant = session.get(User, offer.consultant_user_id)
+        if not has_payment_method(consultant):
+            raise HTTPException(status_code=400, detail="Il consulente non ha configurato un metodo di pagamento. Non è possibile prenotare.")
+        
+        booking_dt = datetime.strptime(f"{selected_date} {start_time}", "%Y-%m-%d %H:%M")
+        end_dt = datetime.strptime(f"{selected_date} {end_time}", "%Y-%m-%d %H:%M")
+        held_until = end_dt + timedelta(hours=48)
+        
+        new_booking = Booking(
+            client_user_id=offer.client_user_id,
+            consultant_user_id=offer.consultant_user_id,
+            booking_date=booking_dt,
+            start_time=start_time,
+            end_time=end_time,
+            duration_minutes=offer.duration_minutes,
+            price=offer.price,
+            status="pending_payment",
+            payment_status="pending",
+            payment_method="paypal",
+            payment_held_until=held_until,
+            client_notes=f"Prenotazione da offerta consulenza #{offer.id}"
+        )
+        session.add(new_booking)
+        session.commit()
+        session.refresh(new_booking)
+        
+        app_url = os.getenv("BASE_URL", "http://localhost:8080")
+        order = create_order(
+            amount=float(offer.price),
+            currency="EUR",
+            return_url=f"{app_url}/booking/paypal/capture?booking_id={new_booking.id}&offer_id={offer.id}",
+            cancel_url=f"{app_url}/booking/paypal/cancel?booking_id={new_booking.id}",
+            metadata={"booking_id": new_booking.id, "booking_type": "consultation_offer", "offer_id": offer.id}
+        )
+        
+        if not order:
+            session.delete(new_booking)
+            session.commit()
+            raise HTTPException(status_code=500, detail="Errore nella creazione dell'ordine PayPal")
+        
+        new_booking.paypal_order_id = order["id"]
+        session.add(new_booking)
+        session.commit()
+        
+        approval_url = None
+        for link in order.get("links", []):
+            if link.get("rel") == "payer-action":
+                approval_url = link["href"]
+                break
+        
+        if not approval_url:
+            session.delete(new_booking)
+            session.commit()
+            raise HTTPException(status_code=500, detail="URL di approvazione PayPal non trovato")
+        
+        logger.info(f"✅ PayPal order {order['id']} creato per offerta {offer.id}, booking {new_booking.id}")
+        
+        return JSONResponse({
+            "success": True,
+            "checkout_url": approval_url,
+            "order_id": order["id"]
+        })
+
+
+# ==================== CAPTURE (return da PayPal) ====================
+
+@router.get("/booking/paypal/capture")
+async def paypal_capture(request: Request):
+    """
+    Callback dopo approvazione PayPal. Cattura il pagamento e conferma il booking.
+    """
+    booking_id = request.query_params.get("booking_id")
+    offer_id = request.query_params.get("offer_id")  # solo per consultation offers
+    
+    if not booking_id:
+        return RedirectResponse("/profile?error=paypal_missing_booking", status_code=302)
+    
+    with Session(engine) as session:
+        booking = session.get(Booking, int(booking_id))
+        if not booking:
+            return RedirectResponse("/profile?error=paypal_booking_not_found", status_code=302)
+        
+        if booking.status != "pending_payment":
+            # Già processato (doppio click o webhook)
+            return RedirectResponse("/profile", status_code=302)
+        
+        if not booking.paypal_order_id:
+            return RedirectResponse("/profile?error=paypal_no_order", status_code=302)
+        
+        # Cattura il pagamento
+        capture_data = capture_order(booking.paypal_order_id)
+        if not capture_data or capture_data.get("status") != "COMPLETED":
+            logger.error(f"❌ PayPal capture fallita per booking {booking_id}: {capture_data}")
+            return RedirectResponse("/profile?error=paypal_capture_failed", status_code=302)
+        
+        # Estrai capture_id
+        capture_id = None
+        try:
+            purchase_units = capture_data.get("purchase_units", [])
+            if purchase_units:
+                captures = purchase_units[0].get("payments", {}).get("captures", [])
+                if captures:
+                    capture_id = captures[0].get("id")
+        except (IndexError, KeyError):
+            pass
+        
+        # Aggiorna booking
+        booking.status = "confirmed"
+        booking.payment_status = "held"
+        booking.paypal_capture_id = capture_id
+        session.add(booking)
+        
+        # Se è un'offerta consulenza, aggiorna lo stato dell'offerta
+        if offer_id:
+            offer = session.get(ConsultationOffer, int(offer_id))
+            if offer:
+                offer.status = "accepted"
+                offer.booking_id = booking.id
+                offer.updated_at = datetime.utcnow()
+                session.add(offer)
+        
+        session.commit()
+        
+        # Notifica al consulente
+        client = session.get(User, booking.client_user_id)
+        consultant = session.get(User, booking.consultant_user_id)
+        client_name = f"{client.nome} {client.cognome}" if client and client.nome else "Un utente"
+        consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant and consultant.nome else "Il consulente"
+        
+        booking_date_str = booking.booking_date.strftime('%Y-%m-%d') if isinstance(booking.booking_date, datetime) else str(booking.booking_date)
+        
+        send_notification(
+            user_id=booking.consultant_user_id,
+            type_key='booking_confirmed',
+            title="Nuova Prenotazione!",
+            message=f"{client_name} ha prenotato una consulenza per il {booking_date_str} alle {booking.start_time}",
+            template_data={
+                'consultant_name': consultant_name,
+                'client_name': client_name,
+                'date': booking_date_str,
+                'time': booking.start_time,
+                'duration': str(booking.duration_minutes),
+                'action_url': f"{os.getenv('BASE_URL', 'http://localhost:8080')}/profile#bookings"
+            },
+            related_booking_id=booking.id,
+            related_user_id=booking.client_user_id,
+            action_url="/profile#bookings"
+        )
+        
+        # Schedula reminders, payment release, no-show check
+        start_dt_naive = datetime.strptime(f"{booking_date_str} {booking.start_time}", "%Y-%m-%d %H:%M")
+        booking_datetime_tz = start_dt_naive.replace(tzinfo=ITALY_TZ)
+        
+        end_dt_naive = datetime.strptime(f"{booking_date_str} {booking.end_time}", "%Y-%m-%d %H:%M")
+        end_datetime_tz = end_dt_naive.replace(tzinfo=ITALY_TZ)
+        
+        schedule_booking_reminders(
+            booking_id=booking.id,
+            booking_datetime=booking_datetime_tz,
+            client_id=booking.client_user_id,
+            consultant_id=booking.consultant_user_id
+        )
+        
+        schedule_payment_release(booking.id, end_datetime_tz)
+        schedule_noshow_check(booking.id, end_datetime_tz)
+        
+        logger.info(f"✅ PayPal booking {booking.id} confermato, capture {capture_id}")
+        
+    return RedirectResponse("/profile", status_code=302)
+
+
+# ==================== CANCEL (ritorno da PayPal senza pagare) ====================
+
+@router.get("/booking/paypal/cancel")
+async def paypal_cancel(request: Request):
+    """
+    L'utente ha annullato il pagamento su PayPal.
+    Rimuove il booking pending_payment.
+    """
+    booking_id = request.query_params.get("booking_id")
+    
+    if booking_id:
+        with Session(engine) as session:
+            booking = session.get(Booking, int(booking_id))
+            if booking and booking.status == "pending_payment":
+                session.delete(booking)
+                session.commit()
+                logger.info(f"🗑️ Booking {booking_id} rimosso (PayPal cancellato)")
+    
+    return RedirectResponse("/profile", status_code=302)

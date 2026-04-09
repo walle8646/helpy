@@ -77,7 +77,7 @@ def verify_token(request: Request) -> Optional[User]:
             return user
     
     except Exception as e:
-        logger.error(f"Error verifying token: {str(e)}", exc_info=True)
+        logger.error("Error verifying token: " + str(e).replace("{", "{{").replace("}", "}}"), exc_info=True)
         return None
 
 
@@ -195,7 +195,7 @@ async def api_login(
             }, status_code=200)
     
     except Exception as e:
-        logger.error(f"Login error: {str(e)}", exc_info=True)
+        logger.error("Login error: " + str(e).replace("{", "{{").replace("}", "}}"), exc_info=True)
         return JSONResponse(
             {"error": "Errore durante il login"},
             status_code=500

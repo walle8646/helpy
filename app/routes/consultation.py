@@ -8,6 +8,7 @@ from decimal import Decimal
 from ..database import engine
 from ..models import User, ConsultationOffer, Message
 from .auth import get_current_user
+from app.utils_user import has_payment_method
 
 router = APIRouter()
 
@@ -28,6 +29,9 @@ async def show_create_consultation_form(
         # Verify current user is a verified consultant
         if not user.is_verified:
             raise HTTPException(status_code=403, detail="Solo i consulenti possono creare offerte di consulenza")
+        
+        if not has_payment_method(user):
+            raise HTTPException(status_code=403, detail="Configura un metodo di pagamento (Stripe o PayPal) nel tuo profilo prima di offrire consulenze")
         
         # Get client user
         client = session.get(User, client_user_id)
@@ -72,6 +76,9 @@ async def create_consultation_offer(
         # Verify current user is a verified consultant
         if not user.is_verified:
             raise HTTPException(status_code=403, detail="Solo i consulenti possono creare offerte di consulenza")
+        
+        if not has_payment_method(user):
+            raise HTTPException(status_code=403, detail="Configura un metodo di pagamento (Stripe o PayPal) nel tuo profilo prima di offrire consulenze")
         
         # Validate inputs
         if price < 15:
@@ -212,8 +219,17 @@ async def show_booking_page(
             "request": request,
             "user": user,
             "offer": offer,
-            "consultant": consultant
+            "consultant": consultant,
+            "paypal_available": _is_paypal_available()
         })
+
+
+def _is_paypal_available():
+    try:
+        from app.utils.paypal_config import is_configured
+        return is_configured()
+    except Exception:
+        return False
 
 
 @router.get("/api/consultation-offers/{offer_id}")
@@ -305,6 +321,8 @@ async def confirm_booking(
             # Convert price to cents (Stripe uses smallest currency unit)
             amount_cents = int(float(offer.price) * 100)
             
+            # Pagamento alla piattaforma — il trasferimento al consulente avviene dopo 48h
+            
             checkout_session = create_checkout_session(
                 amount=amount_cents,
                 currency='eur',
@@ -318,7 +336,7 @@ async def confirm_booking(
                     'start_time': start_time,
                     'end_time': end_time,
                     'duration_minutes': str(offer.duration_minutes)
-                }
+                },
             )
             
             return JSONResponse({

@@ -11,7 +11,7 @@ import base64
 from app.database import get_session
 from app.models import User, Category, CommunityQuestion, CommunityLike, CommunityContact, CommunityQuestionFollow, QuestionStatus, CategoryHierarchy, CategoryRequestNotification, Review
 from app.routes.auth import verify_token
-from app.utils_user import get_display_name
+from app.utils_user import get_display_name, has_payment_method
 from app.utils.email import send_email
 from app.utils.ai_service import genera_tags, modera_immagine, valida_richiesta, controlla_duplicato
 from loguru import logger
@@ -350,7 +350,8 @@ async def community_page(
                     "stats": stats,
                     "top_consultants": top_consultants,
                     "can_create_question": can_create_question,
-                    "user_questions_count": user_questions_count
+                    "user_questions_count": user_questions_count,
+                    "user_has_payment": has_payment_method(current_user) if current_user else False
                 }
             )
     

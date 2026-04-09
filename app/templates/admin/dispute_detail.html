@@ -526,9 +526,51 @@
         <label>Cambia stato:</label>
         <button class="status-btn btn-open {% if dispute.status == 'open' %}active{% endif %}" onclick="updateStatus('open')">Aperta</button>
         <button class="status-btn btn-in_review {% if dispute.status == 'in_review' %}active{% endif %}" onclick="updateStatus('in_review')">In revisione</button>
-        <button class="status-btn btn-resolved {% if dispute.status == 'resolved' %}active{% endif %}" onclick="updateStatus('resolved')">Risolta</button>
+        <button class="status-btn btn-resolved {% if dispute.status == 'resolved' %}active{% endif %}" onclick="showRefundPanel()">Risolta</button>
         <button class="status-btn btn-rejected {% if dispute.status == 'rejected' %}active{% endif %}" onclick="updateStatus('rejected')">Rifiutata</button>
         <div id="statusMsg" class="status-msg"></div>
+    </div>
+
+    <!-- Pannello rimborso parziale -->
+    <div id="refundPanel" style="display:none; background:#fff; border-radius:14px; padding:24px; box-shadow:0 2px 12px rgba(0,0,0,0.06); margin-bottom:20px;">
+        <h3 style="color:#1a1a2e; font-size:1rem; margin:0 0 16px 0;">
+            <i class="fas fa-hand-holding-usd" style="color:#2d6a4f; margin-right:6px;"></i> Rimborso al cliente
+        </h3>
+        <p style="color:#666; font-size:0.9rem; margin-bottom:16px;">
+            Specifica la percentuale di rimborso. Il restante verrà trasferito al consulente (meno la commissione piattaforma).
+        </p>
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:12px;">
+            <input type="range" id="refundSlider" min="0" max="100" value="100" step="5" 
+                   style="flex:1; accent-color:#2d6a4f;" oninput="updateRefundPreview()">
+            <div style="display:flex; align-items:center; gap:4px;">
+                <input type="number" id="refundPctInput" min="0" max="100" value="100" 
+                       style="width:60px; padding:6px 8px; border:1px solid #ddd; border-radius:8px; text-align:center; font-weight:600; font-size:1rem;"
+                       oninput="updateRefundPreview(true)">
+                <span style="font-weight:600; color:#333;">%</span>
+            </div>
+        </div>
+        {% set price_val = dispute.booking.price|float if dispute.booking.price else 0 %}
+        <div id="refundPreview" style="background:#f8f9fa; border-radius:10px; padding:16px; margin-bottom:16px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div>
+                    <div style="font-size:0.8rem; color:#888; text-transform:uppercase; letter-spacing:0.3px;">Rimborso al cliente</div>
+                    <div id="refundAmountDisplay" style="font-size:1.2rem; font-weight:700; color:#c62828;">€{{ "%.2f"|format(price_val) }}</div>
+                </div>
+                <div>
+                    <div style="font-size:0.8rem; color:#888; text-transform:uppercase; letter-spacing:0.3px;">Pagamento al consulente</div>
+                    <div id="consultantAmountDisplay" style="font-size:1.2rem; font-weight:700; color:#2d6a4f;">€0.00</div>
+                    <div id="consultantFeeNote" style="font-size:0.75rem; color:#999; display:none;">al netto della commissione piattaforma</div>
+                </div>
+            </div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button onclick="confirmResolve()" style="flex:1; padding:10px 20px; background:#4caf50; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">
+                <i class="fas fa-check"></i> Conferma risoluzione
+            </button>
+            <button onclick="hideRefundPanel()" style="padding:10px 20px; background:#f5f5f5; color:#555; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">
+                Annulla
+            </button>
+        </div>
     </div>
 
     <!-- Thread messaggi -->
@@ -610,12 +652,51 @@
         btn.disabled = false;
     }
 
-    async function updateStatus(status) {
+    const BOOKING_PRICE = {{ dispute.booking.price|float if dispute.booking.price else 0 }};
+    const PLATFORM_FEE_PCT = {{ dispute.consultant.platform_fee_percent or 20 }};
+
+    function showRefundPanel() {
+        document.getElementById('refundPanel').style.display = 'block';
+        updateRefundPreview();
+    }
+    function hideRefundPanel() {
+        document.getElementById('refundPanel').style.display = 'none';
+    }
+    function updateRefundPreview(fromInput) {
+        const slider = document.getElementById('refundSlider');
+        const input = document.getElementById('refundPctInput');
+        if (fromInput) {
+            slider.value = Math.max(0, Math.min(100, parseInt(input.value) || 0));
+        } else {
+            input.value = slider.value;
+        }
+        const pct = parseInt(slider.value);
+        const refundAmount = BOOKING_PRICE * pct / 100;
+        const remaining = BOOKING_PRICE - refundAmount;
+        const consultantAmount = remaining - (remaining * PLATFORM_FEE_PCT / 100);
+        
+        document.getElementById('refundAmountDisplay').textContent = '€' + refundAmount.toFixed(2);
+        document.getElementById('consultantAmountDisplay').textContent = '€' + (consultantAmount > 0 ? consultantAmount.toFixed(2) : '0.00');
+        document.getElementById('consultantFeeNote').style.display = pct < 100 ? 'block' : 'none';
+    }
+
+    async function confirmResolve() {
+        const pct = parseInt(document.getElementById('refundSlider').value);
+        const label = pct === 100 ? 'rimborso totale' : `rimborso ${pct}%`;
+        if (!confirm(`Confermare risoluzione con ${label} al cliente?`)) return;
+        await updateStatus('resolved', pct);
+        hideRefundPanel();
+    }
+
+    async function updateStatus(status, refundPercentage) {
+        const body = { status };
+        if (refundPercentage !== undefined) body.refund_percentage = refundPercentage;
+        
         try {
             const resp = await fetch('/admin/api/disputes/{{ dispute.id }}/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status })
+                body: JSON.stringify(body)
             });
             const data = await resp.json();
             if (resp.ok) {

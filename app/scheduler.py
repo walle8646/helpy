@@ -11,11 +11,12 @@ APScheduler funziona così:
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.jobstores.base import JobLookupError
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from sqlmodel import Session, select
 from app.database import engine
-from app.models import Notification, Booking, User, Review
+from app.models import Notification, Booking, User, Review, Dispute
 from app.logger_config import logger
 from app.utils.notification_service import send_notification
 import os
@@ -256,6 +257,335 @@ def schedule_review_reminder(booking_id: int, client_id: int, review_token: str,
         logger.info(f"📅 Schedulato promemoria recensione per booking {booking_id} alle {run_date}")
     except Exception as e:
         logger.error(f"❌ Errore scheduling promemoria recensione: {e}")
+
+
+def release_booking_payment(booking_id: int):
+    """
+    Rilascia il pagamento trattenuto al consulente dopo 48h dalla fine della consulenza.
+    Verifica che non ci siano contestazioni aperte prima di trasferire.
+    """
+    try:
+        with Session(engine) as session:
+            booking = session.get(Booking, booking_id)
+            if not booking:
+                logger.error(f"❌ Booking {booking_id} non trovato per rilascio pagamento")
+                return
+            
+            # Se il pagamento non è più in stato held, skip
+            if booking.payment_status != "held":
+                logger.info(f"⏭️ Booking {booking_id}: payment_status={booking.payment_status}, skip rilascio")
+                return
+            
+            # Verifica contestazioni aperte
+            open_disputes = session.exec(
+                select(Dispute).where(
+                    Dispute.booking_id == booking_id,
+                    Dispute.status.in_(["open", "in_review"])
+                )
+            ).all()
+            
+            if open_disputes:
+                logger.info(f"⚠️ Booking {booking_id}: contestazione aperta, rilascio bloccato")
+                send_notification(
+                    user_id=booking.consultant_user_id,
+                    type_key="payment_hold",
+                    title="Pagamento in attesa",
+                    message=f"Il pagamento per la consulenza #{booking_id} è in attesa per una contestazione in corso."
+                )
+                return
+            
+            # Recupera consulente
+            consultant = session.get(User, booking.consultant_user_id)
+            
+            # Calcola importo da trasferire (totale - fee piattaforma)
+            amount_cents = int(float(booking.price) * 100)
+            fee_percent = consultant.platform_fee_percent if consultant.platform_fee_percent else 20
+            transfer_amount = amount_cents - int(amount_cents * fee_percent / 100)
+            
+            if booking.payment_method == "paypal":
+                # === PayPal Payout ===
+                if not consultant or not consultant.paypal_email:
+                    logger.error(f"❌ Booking {booking_id}: consulente senza email PayPal, impossibile trasferire")
+                    booking.payment_status = "paid"
+                    session.add(booking)
+                    session.commit()
+                    return
+                
+                try:
+                    from app.utils.paypal_config import create_payout
+                    payout = create_payout(
+                        recipient_email=consultant.paypal_email,
+                        amount=round(transfer_amount / 100, 2),
+                        currency="EUR",
+                        note=f"Pagamento consulenza #{booking_id}",
+                        sender_item_id=f"booking_{booking_id}"
+                    )
+                    
+                    if payout:
+                        payout_id = payout.get("batch_header", {}).get("payout_batch_id", "")
+                        booking.paypal_payout_id = payout_id
+                        booking.payment_status = "released"
+                        booking.payment_released_at = datetime.now(ITALY_TZ)
+                        session.add(booking)
+                        session.commit()
+                        
+                        logger.info(f"✅ Booking {booking_id}: PayPal payout {payout_id}, €{transfer_amount/100:.2f} → {consultant.paypal_email}")
+                        
+                        send_notification(
+                            user_id=booking.consultant_user_id,
+                            type_key="payment_released",
+                            title="Pagamento ricevuto!",
+                            message=f"Il pagamento di €{transfer_amount/100:.2f} per la consulenza #{booking_id} è stato trasferito al tuo conto PayPal."
+                        )
+                    else:
+                        logger.error(f"❌ Booking {booking_id}: PayPal payout fallito")
+                        
+                except Exception as e:
+                    logger.error(f"❌ Booking {booking_id}: errore PayPal Payout: {e}")
+            else:
+                # === Stripe Transfer ===
+                if not consultant or not consultant.stripe_account_id:
+                    logger.error(f"❌ Booking {booking_id}: consulente senza account Stripe, impossibile trasferire")
+                    booking.payment_status = "paid"
+                    session.add(booking)
+                    session.commit()
+                    return
+                
+                try:
+                    import stripe
+                    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+                    transfer = stripe.Transfer.create(
+                        amount=transfer_amount,
+                        currency="eur",
+                        destination=consultant.stripe_account_id,
+                        transfer_group=f"booking_{booking_id}",
+                        metadata={
+                            "booking_id": str(booking_id),
+                            "consultant_user_id": str(consultant.id),
+                        }
+                    )
+                    
+                    booking.stripe_transfer_id = transfer.id
+                    booking.payment_status = "released"
+                    booking.payment_released_at = datetime.now(ITALY_TZ)
+                    session.add(booking)
+                    session.commit()
+                    
+                    logger.info(f"✅ Booking {booking_id}: pagamento rilasciato, transfer {transfer.id}, €{transfer_amount/100:.2f} → {consultant.stripe_account_id}")
+                    
+                    send_notification(
+                        user_id=booking.consultant_user_id,
+                        type_key="payment_released",
+                        title="Pagamento ricevuto!",
+                        message=f"Il pagamento di €{transfer_amount/100:.2f} per la consulenza #{booking_id} è stato trasferito al tuo conto."
+                    )
+                    
+                except Exception as e:
+                    logger.error(f"❌ Booking {booking_id}: errore Stripe Transfer: {e}")
+                
+    except Exception as e:
+        logger.error(f"❌ Errore rilascio pagamento booking {booking_id}: {e}")
+
+
+def schedule_payment_release(booking_id: int, consultation_end_datetime: datetime):
+    """
+    Schedula il rilascio del pagamento 48h dopo la fine della consulenza.
+    """
+    try:
+        if consultation_end_datetime.tzinfo is None:
+            consultation_end_datetime = consultation_end_datetime.replace(tzinfo=ITALY_TZ)
+        
+        release_time = consultation_end_datetime + timedelta(hours=48)
+        
+        scheduler.add_job(
+            release_booking_payment,
+            trigger=DateTrigger(run_date=release_time),
+            args=[booking_id],
+            id=f"payment_release_{booking_id}",
+            replace_existing=True,
+            misfire_grace_time=3600  # 1 ora di tolleranza
+        )
+        logger.info(f"💰 Schedulato rilascio pagamento booking {booking_id} per {release_time}")
+    except Exception as e:
+        logger.error(f"❌ Errore scheduling rilascio pagamento: {e}")
+
+
+def cancel_payment_release(booking_id: int):
+    """
+    Cancella il job schedulato di rilascio pagamento per un booking.
+    Usato quando il booking viene cancellato/rifiutato.
+    """
+    try:
+        job_id = f"payment_release_{booking_id}"
+        scheduler.remove_job(job_id)
+        logger.info(f"🗑️ Cancellato rilascio pagamento schedulato per booking {booking_id}")
+    except JobLookupError:
+        logger.info(f"ℹ️ Nessun job di rilascio pagamento da cancellare per booking {booking_id}")
+    except Exception as e:
+        logger.error(f"❌ Errore cancellazione rilascio pagamento: {e}")
+
+
+def check_booking_noshow(booking_id: int):
+    """
+    Controlla la partecipazione alla consulenza dopo la fine della finestra temporale.
+    - Consulente non si presenta → rimborso automatico al cliente
+    - Cliente non si presenta → il consulente incassa normalmente
+    - Entrambi presenti → booking completato
+    """
+    try:
+        with Session(engine) as session:
+            booking = session.get(Booking, booking_id)
+            if not booking:
+                logger.error(f"❌ Booking {booking_id} non trovato per check no-show")
+                return
+            
+            # Solo booking confermati e non già gestiti
+            if booking.status not in ("confirmed",):
+                logger.info(f"⏭️ Booking {booking_id}: status={booking.status}, skip check no-show")
+                return
+            
+            consultant_joined = booking.consultant_joined_at is not None
+            client_joined = booking.client_joined_at is not None
+            
+            if consultant_joined and client_joined:
+                # Entrambi presenti → consulenza completata
+                booking.status = "completed"
+                session.add(booking)
+                session.commit()
+                logger.info(f"✅ Booking {booking_id}: consulenza completata (entrambi presenti)")
+                
+            elif not consultant_joined and client_joined:
+                # Consulente assente → rimborso automatico al cliente
+                booking.status = "no_show"
+                logger.info(f"⚠️ Booking {booking_id}: consulente non si è presentato, rimborso automatico")
+                
+                if booking.payment_status == "held":
+                    if booking.payment_method == "paypal" and booking.paypal_capture_id:
+                        try:
+                            from app.utils.paypal_config import refund_capture
+                            result = refund_capture(booking.paypal_capture_id)
+                            if result:
+                                booking.payment_status = "refunded"
+                                logger.info(f"💸 Rimborso PayPal automatico per no-show consulente, booking {booking_id}")
+                            else:
+                                logger.error(f"❌ Errore rimborso PayPal no-show booking {booking_id}")
+                        except Exception as e:
+                            logger.error(f"❌ Errore rimborso PayPal no-show booking {booking_id}: {e}")
+                    elif booking.stripe_payment_intent_id:
+                        try:
+                            import stripe
+                            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+                            refund = stripe.Refund.create(
+                                payment_intent=booking.stripe_payment_intent_id,
+                                reason='requested_by_customer'
+                            )
+                            booking.payment_status = "refunded"
+                            logger.info(f"💸 Rimborso automatico {refund.id} per no-show consulente, booking {booking_id}")
+                        except Exception as e:
+                            logger.error(f"❌ Errore rimborso no-show booking {booking_id}: {e}")
+                
+                # Cancella il rilascio pagamento schedulato
+                cancel_payment_release(booking_id)
+                
+                session.add(booking)
+                session.commit()
+                
+                # Notifica al cliente
+                send_notification(
+                    user_id=booking.client_user_id,
+                    type_key="booking_noshow",
+                    title="Consulente assente",
+                    message=f"Il consulente non si è presentato alla consulenza #{booking_id}. Il rimborso è stato effettuato automaticamente."
+                )
+                # Notifica al consulente
+                send_notification(
+                    user_id=booking.consultant_user_id,
+                    type_key="booking_noshow",
+                    title="Consulenza persa",
+                    message=f"Non ti sei presentato alla consulenza #{booking_id}. Il cliente è stato rimborsato automaticamente."
+                )
+                
+            elif not client_joined and consultant_joined:
+                # Cliente assente → consulente incassa normalmente
+                booking.status = "no_show"
+                session.add(booking)
+                session.commit()
+                logger.info(f"⚠️ Booking {booking_id}: cliente non si è presentato, pagamento procede normalmente")
+                
+                send_notification(
+                    user_id=booking.consultant_user_id,
+                    type_key="booking_noshow",
+                    title="Cliente assente",
+                    message=f"Il cliente non si è presentato alla consulenza #{booking_id}. Il pagamento procede regolarmente."
+                )
+                
+            else:
+                # Nessuno si è presentato → rimborso al cliente
+                booking.status = "no_show"
+                logger.info(f"⚠️ Booking {booking_id}: nessuno si è presentato, rimborso al cliente")
+                
+                if booking.payment_status == "held":
+                    if booking.payment_method == "paypal" and booking.paypal_capture_id:
+                        try:
+                            from app.utils.paypal_config import refund_capture
+                            result = refund_capture(booking.paypal_capture_id)
+                            if result:
+                                booking.payment_status = "refunded"
+                                logger.info(f"💸 Rimborso PayPal automatico (nessuno presente), booking {booking_id}")
+                            else:
+                                logger.error(f"❌ Errore rimborso PayPal no-show booking {booking_id}")
+                        except Exception as e:
+                            logger.error(f"❌ Errore rimborso PayPal no-show booking {booking_id}: {e}")
+                    elif booking.stripe_payment_intent_id:
+                        try:
+                            import stripe
+                            stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+                            refund = stripe.Refund.create(
+                                payment_intent=booking.stripe_payment_intent_id,
+                                reason='requested_by_customer'
+                            )
+                            booking.payment_status = "refunded"
+                            logger.info(f"💸 Rimborso automatico {refund.id} (nessuno presente), booking {booking_id}")
+                        except Exception as e:
+                            logger.error(f"❌ Errore rimborso no-show booking {booking_id}: {e}")
+                
+                cancel_payment_release(booking_id)
+                
+                session.add(booking)
+                session.commit()
+                
+                send_notification(
+                    user_id=booking.client_user_id,
+                    type_key="booking_noshow",
+                    title="Consulenza non avvenuta",
+                    message=f"La consulenza #{booking_id} non si è svolta. Il rimborso è stato effettuato automaticamente."
+                )
+                
+    except Exception as e:
+        logger.error(f"❌ Errore check no-show booking {booking_id}: {e}")
+
+
+def schedule_noshow_check(booking_id: int, consultation_end_datetime: datetime):
+    """
+    Schedula il controllo no-show 15 minuti dopo la fine della consulenza.
+    """
+    try:
+        if consultation_end_datetime.tzinfo is None:
+            consultation_end_datetime = consultation_end_datetime.replace(tzinfo=ITALY_TZ)
+        
+        check_time = consultation_end_datetime + timedelta(minutes=15)
+        
+        scheduler.add_job(
+            check_booking_noshow,
+            trigger=DateTrigger(run_date=check_time),
+            args=[booking_id],
+            id=f"noshow_check_{booking_id}",
+            replace_existing=True,
+            misfire_grace_time=3600
+        )
+        logger.info(f"👀 Schedulato check no-show booking {booking_id} per {check_time}")
+    except Exception as e:
+        logger.error(f"❌ Errore scheduling check no-show: {e}")
 
 
 def start_scheduler():

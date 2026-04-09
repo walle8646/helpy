@@ -8,7 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from app.database import create_db_and_tables
-from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, notifications, review, dispute, admin
+from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, stripe_connect, notifications, review, dispute, admin, paypal_payment
 from app.logger_config import logger
 from app.scheduler import start_scheduler, shutdown_scheduler
 from app.utils.template_helpers import get_all_categories
@@ -30,7 +30,7 @@ class CategoriesMiddleware(BaseHTTPMiddleware):
 
 # CSRF Protection Middleware
 CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-CSRF_EXEMPT_PATHS = {"/api/stripe/webhook", "/api/stripe/connect-webhook"}
+CSRF_EXEMPT_PATHS = {"/api/stripe/webhook", "/api/stripe/connect-webhook", "/webhook/stripe", "/webhook/stripe/connect"}
 
 class CSRFMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -128,10 +128,12 @@ app.include_router(availability.router, tags=["availability"])
 app.include_router(booking.router, tags=["booking"])
 app.include_router(consultation.router, tags=["consultation"])
 app.include_router(stripe_webhook.router, tags=["webhooks"])
+app.include_router(stripe_connect.router, tags=["stripe_connect"])
 app.include_router(notifications.router, tags=["notifications"])
 app.include_router(review.router, tags=["reviews"])
 app.include_router(dispute.router, tags=["disputes"])
 app.include_router(admin.router, tags=["admin"])
+app.include_router(paypal_payment.router, tags=["paypal"])
 
 
 # Test S3 credentials

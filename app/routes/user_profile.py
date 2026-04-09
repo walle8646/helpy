@@ -6,6 +6,7 @@ from sqlmodel import select, and_, func
 from app.routes.auth import verify_token
 from app.logger_config import logger
 from app.utils.email import send_profile_verification_request
+from app.utils_user import has_payment_method
 from app.utils.ai_service import genera_aree_interesse, genera_tags, valida_profilo, modera_immagine
 from typing import Optional
 import os
@@ -105,7 +106,8 @@ async def user_profile(request: Request):
                     "user_other_language": user_other_language,
                     "reviews": reviews,
                     "avg_rating": avg_rating,
-                    "formatted_created_at": formatted_created_at
+                    "formatted_created_at": formatted_created_at,
+                    "has_payment_method": has_payment_method(fresh_user)
                 }
             )
     
@@ -276,7 +278,8 @@ async def update_profile(
     genere: Optional[str] = Form(None),  # ✅ Genere: M/F/None
     tags: str = Form(None),  # 🏷️ JSON array di tags generati da AI
     languages: str = Form(None),  # 🌐 JSON array di language codes
-    other_language: str = Form(None)  # 🌍 Altra lingua specificata
+    other_language: str = Form(None),  # 🌍 Altra lingua specificata
+    paypal_email: Optional[str] = Form(None)  # 💰 PayPal email per ricevere pagamenti
 ):
     """Aggiorna profilo utente"""
     try:
@@ -340,6 +343,17 @@ async def update_profile(
             if languages is not None:
                 db_user.languages = languages
                 logger.info(f"🌐 Languages updated for user {db_user.id}: {languages}")
+            if paypal_email is not None:
+                import re
+                paypal_email_clean = paypal_email.strip()
+                if paypal_email_clean == "":
+                    db_user.paypal_email = None
+                    logger.info(f"💰 PayPal email rimossa per user {db_user.id}")
+                elif re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', paypal_email_clean):
+                    db_user.paypal_email = paypal_email_clean
+                    logger.info(f"💰 PayPal email aggiornata per user {db_user.id}: {paypal_email_clean}")
+                else:
+                    return JSONResponse({"error": "Email PayPal non valida"}, status_code=400)
             
             session.add(db_user)
             session.commit()
