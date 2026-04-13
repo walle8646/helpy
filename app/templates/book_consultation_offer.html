@@ -437,13 +437,15 @@
             <strong style="font-size: 0.95rem; color: #1a202c;">Metodo di pagamento</strong>
         </div>
         <div style="display: flex; gap: 10px;">
+            {% if stripe_available %}
             <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #635bff; background: #f0efff; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #1a202c; transition: all 0.2s;" id="payStripeLabel">
-                <input type="radio" name="paymentMethod" value="stripe" checked style="accent-color: #635bff;" onchange="updatePaymentMethod()">
+                <input type="radio" name="paymentMethod" value="stripe" {% if stripe_available %}checked{% endif %} style="accent-color: #635bff;" onchange="updatePaymentMethod()">
                 <i class="fab fa-cc-stripe" style="color: #635bff; font-size: 1.2rem;"></i> Carta di credito
             </label>
+            {% endif %}
             {% if paypal_available %}
-            <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #e0e0e0; background: #fff; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #666; transition: all 0.2s;" id="payPaypalLabel">
-                <input type="radio" name="paymentMethod" value="paypal" style="accent-color: #0070ba;" onchange="updatePaymentMethod()">
+            <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid {% if not stripe_available %}#0070ba{% else %}#e0e0e0{% endif %}; background: {% if not stripe_available %}#e8f4fd{% else %}#fff{% endif %}; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: {% if not stripe_available %}#1a202c{% else %}#666{% endif %}; transition: all 0.2s;" id="payPaypalLabel">
+                <input type="radio" name="paymentMethod" value="paypal" {% if not stripe_available %}checked{% endif %} style="accent-color: #0070ba;" onchange="updatePaymentMethod()">
                 <i class="fab fa-paypal" style="color: #0070ba; font-size: 1.2rem;"></i> PayPal
             </label>
             {% endif %}
@@ -708,9 +710,11 @@ function updatePaymentMethod() {
     const selected = document.querySelector('input[name="paymentMethod"]:checked').value;
     
     if (selected === 'stripe') {
-        stripeLabel.style.borderColor = '#635bff';
-        stripeLabel.style.background = '#f0efff';
-        stripeLabel.style.color = '#1a202c';
+        if (stripeLabel) {
+            stripeLabel.style.borderColor = '#635bff';
+            stripeLabel.style.background = '#f0efff';
+            stripeLabel.style.color = '#1a202c';
+        }
         if (paypalLabel) {
             paypalLabel.style.borderColor = '#e0e0e0';
             paypalLabel.style.background = '#fff';
@@ -722,9 +726,11 @@ function updatePaymentMethod() {
             paypalLabel.style.background = '#e8f4fd';
             paypalLabel.style.color = '#1a202c';
         }
-        stripeLabel.style.borderColor = '#e0e0e0';
-        stripeLabel.style.background = '#fff';
-        stripeLabel.style.color = '#666';
+        if (stripeLabel) {
+            stripeLabel.style.borderColor = '#e0e0e0';
+            stripeLabel.style.background = '#fff';
+            stripeLabel.style.color = '#666';
+        }
     }
 }
 

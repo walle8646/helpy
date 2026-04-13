@@ -200,7 +200,8 @@ async def booking_page(
             "current_user": current_user,  # Per la navbar
             "consultant": consultant,
             "debug_mode": DEBUG_MODE,
-            "paypal_available": _is_paypal_available(),
+            "stripe_available": bool(getattr(consultant, 'stripe_onboarding_complete', False)),
+            "paypal_available": _is_paypal_available() and bool(getattr(consultant, 'paypal_email', None)),
             "consultant_has_payment": has_payment_method(consultant)
         })
 

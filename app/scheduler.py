@@ -596,6 +596,80 @@ def start_scheduler():
     if not scheduler.running:
         scheduler.start()
         logger.info("🚀 APScheduler avviato con successo")
+    
+    # Recovery: processa booking rimasti bloccati durante il downtime
+    recover_stuck_bookings()
+
+
+def recover_stuck_bookings():
+    """
+    Trova e processa booking rimasti con payment_status='held' che avrebbero
+    dovuto essere gestiti (no-show check o rilascio pagamento) mentre il server
+    era offline. Eseguita ad ogni startup.
+    """
+    try:
+        now = datetime.now(ITALY_TZ)
+        
+        with Session(engine) as session:
+            held_bookings = session.exec(
+                select(Booking).where(Booking.payment_status == "held")
+            ).all()
+            
+            if not held_bookings:
+                logger.info("✅ Recovery: nessun booking bloccato trovato")
+                return
+            
+            logger.info(f"🔍 Recovery: trovati {len(held_bookings)} booking con payment_status='held'")
+            
+            for booking in held_bookings:
+                try:
+                    if not booking.booking_date or not booking.end_time:
+                        continue
+                    
+                    # Parse end_time (può essere str o time)
+                    end_time = booking.end_time
+                    if isinstance(end_time, str):
+                        parts = end_time.split(":")
+                        from datetime import time as dt_time
+                        end_time = dt_time(int(parts[0]), int(parts[1]))
+                    
+                    end_dt = datetime.combine(booking.booking_date, end_time).replace(tzinfo=ITALY_TZ)
+                    noshow_due = end_dt + timedelta(minutes=15)
+                    release_due = end_dt + timedelta(hours=48)
+                    
+                    if now < noshow_due:
+                        # Consulenza non ancora finita o nel grace period, rischedula normalmente
+                        logger.info(f"⏳ Recovery booking {booking.id}: consulenza non ancora finita, rischedulo")
+                        schedule_noshow_check(booking.id, end_dt)
+                        schedule_payment_release(booking.id, end_dt)
+                        
+                    elif now >= noshow_due and booking.status == "confirmed":
+                        # No-show check non eseguito, eseguilo ora
+                        logger.info(f"🔄 Recovery booking {booking.id}: eseguo check no-show mancato")
+                        check_booking_noshow(booking.id)
+                        # Se dopo il no-show check è ancora held (es. client no-show), schedula il rilascio
+                        session.refresh(booking)
+                        if booking.payment_status == "held" and now >= release_due:
+                            release_booking_payment(booking.id)
+                        elif booking.payment_status == "held":
+                            schedule_payment_release(booking.id, end_dt)
+                            
+                    elif now >= release_due:
+                        # Rilascio pagamento scaduto, eseguilo ora
+                        logger.info(f"🔄 Recovery booking {booking.id}: eseguo rilascio pagamento mancato")
+                        release_booking_payment(booking.id)
+                        
+                    elif now >= noshow_due:
+                        # Tra no-show e release, rischedula solo il rilascio
+                        schedule_payment_release(booking.id, end_dt)
+                    
+                except Exception as e:
+                    logger.error(f"❌ Recovery booking {booking.id}: errore: {e}")
+            
+            logger.info("✅ Recovery completata")
+    
+    except Exception as e:
+        logger.error(f"❌ Errore recovery booking bloccati: {e}")
 
 
 def shutdown_scheduler():

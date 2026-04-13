@@ -79,7 +79,7 @@
         max-width: 1200px;
         margin: 0 auto;
         display: grid;
-        grid-template-columns: 0.7fr 0.3fr;
+        grid-template-columns: 0.5fr 0.5fr;
         gap: 30px;
         align-items: center;
         padding: 0 20px;
@@ -137,31 +137,77 @@
         justify-content: center;
     }
 
-    .hero-image {
+    .hero-video-container {
         width: 100%;
-        max-width: 350px;
-        border-radius: 12px;
+        max-width: 580px;
+        border-radius: 16px;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        position: relative;
+        cursor: pointer;
+    }
+
+    .hero-video-container video {
+        width: 100%;
+        display: block;
+        border-radius: 16px;
     }
 
     .video-play-overlay {
         position: absolute;
-        width: 60px;
-        height: 60px;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80px;
+        height: 80px;
         background: rgba(255, 255, 255, 0.9);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 24px;
+        font-size: 32px;
         cursor: pointer;
         transition: all 0.3s ease;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        z-index: 2;
     }
 
     .video-play-overlay:hover {
-        transform: scale(1.1);
+        transform: translate(-50%, -50%) scale(1.1);
         background: white;
+    }
+
+    .video-play-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .video-unmute-btn {
+        position: absolute;
+        bottom: 16px;
+        right: 16px;
+        padding: 8px 16px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.3s ease;
+    }
+
+    .video-unmute-btn:hover {
+        background: rgba(0, 0, 0, 0.9);
+    }
+
+    .video-unmute-btn.hidden {
+        opacity: 0;
+        pointer-events: none;
     }
 
     @media (max-width: 968px) {
@@ -178,14 +224,18 @@
             order: -1;
         }
 
-        .hero-image {
-            max-width: 280px;
+        .hero-video-container {
+            max-width: 440px;
         }
     }
 
     @media (max-width: 768px) {
         .hero-main {
             padding: 30px 20px;
+        }
+
+        .hero-video-container {
+            max-width: 350px;
         }
 
         .hero-title {
@@ -569,18 +619,13 @@
         </div>
         
         <div class="hero-right">
-            <div class="hero-image" style="background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; min-height: 300px;">
-                <svg width="100%" height="300" viewBox="0 0 400 500" style="max-width: 350px;">
-                    <!-- Mock Phone Frame -->
-                    <rect x="50" y="20" width="300" height="450" rx="20" fill="white" stroke="#ccc" stroke-width="2"/>
-                    <!-- Mock Content -->
-                    <rect x="60" y="40" width="280" height="60" rx="4" fill="#f0f0f0"/>
-                    <rect x="60" y="120" width="280" height="40" rx="4" fill="#f0f0f0"/>
-                    <rect x="60" y="180" width="280" height="120" rx="8" fill="#4caf50" opacity="0.2"/>
-                    <circle cx="200" cy="240" r="30" fill="#4caf50" opacity="0.3"/>
-                </svg>
+            <div class="hero-video-container" id="heroVideoContainer">
+                <video id="heroVideo" preload="auto" playsinline muted autoplay>
+                    <source src="https://contenuti-sito.s3.eu-north-1.amazonaws.com/video_homepage.mp4" type="video/mp4">
+                </video>
+                <div class="video-play-overlay" id="videoPlayBtn">▶️</div>
+                <button class="video-unmute-btn" id="videoUnmuteBtn">🔇 Attiva audio</button>
             </div>
-            <div class="video-play-overlay">▶️</div>
         </div>
     </div>
 </section>
@@ -683,5 +728,45 @@
     </p>
     {% endif %}
 </section>
+
+<script>
+(function() {
+    const video = document.getElementById('heroVideo');
+    const playBtn = document.getElementById('videoPlayBtn');
+    const unmuteBtn = document.getElementById('videoUnmuteBtn');
+    if (!video || !playBtn || !unmuteBtn) return;
+
+    // Autoplay muted
+    video.play().then(function() {
+        playBtn.classList.add('hidden');
+    }).catch(function() {});
+
+    // Unmute button
+    unmuteBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        video.muted = false;
+        unmuteBtn.innerHTML = '🔊 Audio attivo';
+        unmuteBtn.classList.add('hidden');
+    });
+
+    function toggleVideo() {
+        if (video.paused) {
+            video.muted = false;
+            video.play();
+            playBtn.classList.add('hidden');
+            unmuteBtn.classList.add('hidden');
+        } else {
+            video.pause();
+            playBtn.classList.remove('hidden');
+        }
+    }
+
+    playBtn.addEventListener('click', toggleVideo);
+    video.addEventListener('click', toggleVideo);
+    video.addEventListener('ended', function() {
+        playBtn.classList.remove('hidden');
+    });
+})();
+</script>
 
 {% endblock %}

@@ -72,6 +72,9 @@ class User(SQLModel, table=True):
     # PayPal
     paypal_email: Optional[str] = Field(default=None)  # Email PayPal del consulente per ricevere pagamenti
     
+    # Google OAuth
+    google_id: Optional[str] = Field(default=None, index=True)  # Google sub ID per login OAuth
+    
     # Timestamps
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     last_seen: Optional[datetime] = Field(default=None)

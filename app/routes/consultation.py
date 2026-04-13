@@ -220,7 +220,8 @@ async def show_booking_page(
             "user": user,
             "offer": offer,
             "consultant": consultant,
-            "paypal_available": _is_paypal_available()
+            "stripe_available": bool(getattr(consultant, 'stripe_onboarding_complete', False)),
+            "paypal_available": _is_paypal_available() and bool(getattr(consultant, 'paypal_email', None))
         })
 
 
