@@ -8,7 +8,7 @@ from pydantic import BaseModel
 import os
 import asyncio
 from app.database import engine
-from app.models import Booking, User, AvailabilityBlock, CallMessage
+from app.models import Booking, User, AvailabilityBlock, CallMessage, Dispute, Review
 from app.routes.auth import get_current_user
 from app.utils.agora_recording import start_recording, stop_recording, get_recording_url
 from app.logger_config import logger
@@ -646,6 +646,32 @@ async def get_booking_history(request: Request):
             other_user_id = booking.consultant_user_id if is_client else booking.client_user_id
             other_user = session.get(User, other_user_id)
             
+            # Check if a dispute already exists for this booking
+            existing_dispute = session.exec(
+                select(Dispute).where(Dispute.booking_id == booking.id)
+            ).first()
+            
+            # Check if a review already exists for this booking
+            existing_review = session.exec(
+                select(Review).where(Review.booking_id == booking.id)
+            ).first()
+            
+            # Can dispute: client, within 48h, recording was requested, no existing dispute
+            hours_since_end = (now - end_datetime).total_seconds() / 3600
+            can_dispute = (
+                is_client
+                and hours_since_end <= 48
+                and booking.recording_requested
+                and existing_dispute is None
+            )
+            
+            # Can review: client, no existing review, booking completed
+            can_review = (
+                is_client
+                and existing_review is None
+                and booking.status == 'completed'
+            )
+            
             history.append({
                 "id": booking.id,
                 "date": str(booking_date),
@@ -654,6 +680,11 @@ async def get_booking_history(request: Request):
                 "duration": booking.duration_minutes,
                 "status": booking.status,
                 "role": role,
+                "can_dispute": can_dispute,
+                "has_dispute": existing_dispute is not None,
+                "dispute_status": existing_dispute.status if existing_dispute else None,
+                "has_review": existing_review is not None,
+                "can_review": can_review,
                 "other_user": {
                     "id": other_user.id if other_user else None,
                     "name": f"{other_user.nome or ''} {other_user.cognome or ''}".strip() if other_user else "Utente",

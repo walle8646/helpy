@@ -167,11 +167,13 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         margin-bottom: 16px;
         transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
     }
     
     .question-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        z-index: 10;
     }
     
     .question-header {
@@ -305,7 +307,7 @@
     .question-description {
         color: #666;
         line-height: 1.6;
-        margin-bottom: 16px;
+        margin-bottom: 4px;
         display: -webkit-box;
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
@@ -320,7 +322,7 @@
         font-size: 0.85rem;
         font-weight: 600;
         cursor: pointer;
-        margin-top: -10px;
+        margin-top: 2px;
         margin-bottom: 12px;
         display: none;
     }
@@ -1090,6 +1092,40 @@
         background: #d97706;
     }
 
+    /* Instant Tooltip */
+    [data-tip] {
+        position: relative;
+    }
+    [data-tip]::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1a202c;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 400;
+        white-space: normal;
+        width: max-content;
+        max-width: 240px;
+        line-height: 1.4;
+        text-align: center;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+        z-index: 99999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    [data-tip]:hover::after {
+        opacity: 1;
+    }
+    [data-tip]:hover {
+        z-index: 99999;
+    }
+
     /* Like Button Styles */
     .btn-like {
         display: inline-flex;
@@ -1103,7 +1139,6 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         background: white;
         position: relative;
-        overflow: hidden;
     }
     
     .btn-like::before {
@@ -1629,9 +1664,9 @@
                 <h3 style="color: white; margin: 0 0 4px 0; font-size: 1.1rem;">✨ Diventa anche tu un Helpyer</h3>
                 <p style="opacity: 0.9; margin: 0; font-size: 0.9rem;">Aiuta gli altri e guadagna condividendo le tue competenze.</p>
             </div>
-            <button onclick="openBecomeConsultantModal()" style="background: white; color: #4caf50; padding: 10px 24px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0;">
-                Scopri di più →
-            </button>
+            <a href="/profile?edit=true" style="background: white; color: #4caf50; padding: 10px 24px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: inline-block;">
+                Vai al tuo Profilo →
+            </a>
         </div>
     </div>
     {% endif %}
@@ -1708,8 +1743,9 @@
                     placeholder="Cerca tra le domande..." 
                     value="{{ search_query }}"
                     id="community-search"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();searchCommunityPage()}"
                 >
-                <button onclick="searchCommunity()">
+                <button onclick="searchCommunityPage()">
                     <i class="fas fa-search"></i> Cerca
                 </button>
             </div>
@@ -1861,7 +1897,7 @@
                         </div>
                         
                         <div class="question-meta">
-                            <span><i class="fas fa-comment"></i> <span class="views-count">{{ item.question.views }}</span></span>
+                            <span class="btn-like" style="cursor:default;" data-tip="Numero di consulenti che hanno scritto al cliente"><i class="fas fa-comment"></i> <span class="views-count">{{ item.question.views }}</span></span>
                             
                             <!-- Like Button (cliccabile solo se loggato e non è l'autore) -->
                             {% if user and not item.is_owner %}
@@ -1869,12 +1905,12 @@
                                 class="btn-like {% if item.user_liked %}liked{% endif %}" 
                                 data-question-id="{{ item.question.id }}"
                                 onclick="toggleLike({{ item.question.id }})"
-                                title="{% if item.user_liked %}Rimuovi like{% else %}Metti like{% endif %}">
+                                data-tip="Metti like per seguire la domanda sul tuo profilo">
                                 <i class="fas fa-thumbs-up"></i>
                                 <span class="upvotes-count">{{ item.question.upvotes }}</span>
                             </button>
                             {% else %}
-                            <span style="color: #999; display: inline-flex; align-items: center; gap: 6px;">
+                            <span class="btn-like" style="cursor:default;" data-tip="Metti like per seguire la domanda sul tuo profilo">
                                 <i class="fas fa-thumbs-up"></i> {{ item.question.upvotes }}
                             </span>
                             {% endif %}
@@ -1912,14 +1948,14 @@
                                 class="btn-follow-question" 
                                 data-question-id="{{ item.question.id }}"
                                 onclick="toggleFollowQuestion({{ item.question.id }})"
-                                title="Segui questa domanda">
+                                data-tip="Segui per ricevere aggiornamenti e per essere contattati sull'argomento dai consulenti che hanno contattato questo cliente">
                                 <i class="fas fa-heart"></i> Segui e Richiedi
                             </button>
                         </div>
                         {% elif not user.is_verified or not user_has_payment %}
                         <!-- Utente LOGGATO non verificato o senza metodo di pagamento: deve completare il profilo -->
                         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-                            <a href="/profile" 
+                            <a href="/profile?edit=true" 
                                class="btn-complete-profile"
                                style="display: inline-flex; 
                                       align-items: center; 
@@ -1936,7 +1972,7 @@
                                 {% if user.is_verified and not user_has_payment %}
                                 📝 Configura un metodo di pagamento per messaggiare
                                 {% else %}
-                                📝 Compila il tuo profilo per diventare un consulente
+                                🚀 Diventa consulente per contattare il cliente
                                 {% endif %}
                             </a>
                             
@@ -1945,7 +1981,7 @@
                                 class="btn-follow-question" 
                                 data-question-id="{{ item.question.id }}"
                                 onclick="toggleFollowQuestion({{ item.question.id }})"
-                                title="Segui questa domanda">
+                                data-tip="Segui per ricevere aggiornamenti e per essere contattati sull'argomento dai consulenti che hanno contattato questo cliente">
                                 <i class="fas fa-heart"></i> Segui e Richiedi
                             </button>
                         </div>
@@ -2060,102 +2096,12 @@
             <h3 style="color: white; margin: 0 0 8px 0; font-size: 1.3rem;">✨ Diventa anche tu un Helpyer</h3>
             <p style="opacity: 0.9; margin: 0; font-size: 1rem;">Aiuta gli altri e guadagna condividendo le tue competenze.</p>
         </div>
-        <button onclick="openBecomeConsultantModal()" style="background: white; color: #4caf50; padding: 12px 28px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; font-size: 1rem;">
-            Scopri di più →
-        </button>
+        <a href="/profile?edit=true" style="background: white; color: #4caf50; padding: 12px 28px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; font-size: 1rem; display: inline-block;">
+            Vai al tuo Profilo →
+        </a>
     </div>
 </div>
 {% endif %}
-
-<!-- Modal Diventa Consultant -->
-<div class="modal" id="becomeConsultantModal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
-        <div class="modal-header">
-            <h2 class="modal-title">Diventa un Helpyer</h2>
-            <button class="modal-close" onclick="closeBecomeConsultantModal()">&times;</button>
-        </div>
-        
-        <div style="padding: 20px; color: #333;">
-            <p style="font-size: 1.05em; margin-bottom: 20px; color: #4caf50; font-weight: 500;">
-                Compila il tuo profilo per diventare un Helpyer
-            </p>
-            
-            <form id="becomeConsultantForm" onsubmit="saveBecomeConsultantProfile(event)">
-                <!-- Foto Profilo -->
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label style="font-weight: 600; display: block; margin-bottom: 10px;">Foto Profilo</label>
-                    <div style="display: flex; gap: 20px; align-items: flex-start;">
-                        <div id="consultantAvatarPreview" style="width: 100px; height: 100px; border-radius: 50%; background: #e8f5e8; display: flex; align-items: center; justify-content: center; font-size: 3em; flex-shrink: 0;">
-                            👤
-                        </div>
-                        <div style="flex: 1;">
-                            <input type="file" id="consultantProfilePictureInput" accept="image/*" style="display: block; margin-bottom: 8px;">
-                            <small style="color: #888;">Formati supportati: JPG, PNG. Max 5MB</small>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label style="font-weight: 600;">Nome</label>
-                    <input type="text" name="nome" placeholder="Inserisci il tuo nome" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box;">
-                </div>
-                
-                <div class="form-group">
-                    <label style="font-weight: 600;">Cognome</label>
-                    <input type="text" name="cognome" placeholder="Inserisci il tuo cognome" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box;">
-                </div>
-
-                <div class="form-group">
-                    <label style="font-weight: 600;">Professione</label>
-                    <input type="text" name="professione" placeholder="Es: Lead Software Developer" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box;">
-                </div>
-
-                <div class="form-group">
-                    <label style="font-weight: 600;">Categoria</label>
-                    <select id="consultantCategorySelect" name="category_id" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box;">
-                        <option value="">Seleziona una categoria</option>
-                        {% for cat in categories %}
-                        <option value="{{ cat.id }}">{{ cat.icon }} {{ cat.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label style="font-weight: 600;">Descrizione <span style="float: right; font-size: 0.9rem; color: #dc3545;" id="consultantCharCounter">0/200 caratteri</span></label>
-                    <textarea 
-                        id="consultantDescrizioneTextarea"
-                        name="descrizione" 
-                        rows="4" 
-                        placeholder="Raccontaci di te, della tua esperienza e come puoi aiutare gli altri (minimo 200 caratteri)"
-                        style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box; font-family: inherit;"
-                    ></textarea>
-                    <small id="consultantDescrizioneHint" style="color: #dc3545; display: block; margin-top: 4px;">La descrizione deve essere di almeno 200 caratteri per richiedere la verifica del profilo.</small>
-                </div>
-
-                <div class="form-group">
-                    <label style="font-weight: 600;">Aree di Interesse</label>
-                    <textarea name="aree_interesse" rows="3" placeholder="Es: Sviluppo Mobile, Leadership, Crescita Personale" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box; font-family: inherit;"></textarea>
-                    <small style="color: #888;">Separa con virgole</small>
-                </div>
-
-                <div class="form-group">
-                    <label style="font-weight: 600;">Prezzo della Consulenza Orario (€) <span style="color: #d32f2f;">*</span></label>
-                    <input type="number" name="prezzo_consulenza" value="150" min="15" step="5" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box;">
-                    <small style="color: #d32f2f;">⚠️ Minimo 15€/ora</small>
-                </div>
-
-                <div class="form-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 12px; background: #4caf50; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                        Salva Profilo
-                    </button>
-                    <button type="button" class="btn btn-secondary" onclick="closeBecomeConsultantModal()" style="flex: 1; padding: 12px; background: #f0f0f0; color: #333; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                        Annulla
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 <!-- Modal Fai Domanda -->
 <div class="modal" id="askModal">
@@ -2389,6 +2335,21 @@
         </div>
     </div>
 </div>
+
+<script>
+// ========== RICERCA COMMUNITY (script isolato) ==========
+function searchCommunityPage() {
+    const query = document.getElementById('community-search').value;
+    const url = new URL(window.location.href);
+    if (query) {
+        url.searchParams.set('search', query);
+    } else {
+        url.searchParams.delete('search');
+    }
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+}
+</script>
 
 <script>
 // ========== TOGGLE DESCRIZIONE ==========
@@ -2685,7 +2646,7 @@ document.getElementById('descriptionTextarea')?.addEventListener('input', functi
 });
 
 // ========== CARICA SOTTOCATEGORIE ==========
-document.getElementById('primaryCategorySelect').addEventListener('change', async (e) => {
+document.getElementById('primaryCategorySelect')?.addEventListener('change', async (e) => {
     const categoryId = e.target.value;
     const subcategorySelect = document.getElementById('subcategorySelect');
     
@@ -2756,20 +2717,6 @@ document.querySelectorAll('.category-toggle-btn').forEach(button => {
         }
     });
 });
-
-function searchCommunity() {
-    const query = document.getElementById('community-search').value;
-    const url = new URL(window.location.href);
-    
-    if (query) {
-        url.searchParams.set('search', query);
-    } else {
-        url.searchParams.delete('search');
-    }
-    
-    url.searchParams.delete('page');
-    window.location.href = url.toString();
-}
 
 // Mobile filter toggle for community
 function toggleCommunityFilters() {
@@ -2990,7 +2937,7 @@ function updateUploadAreaVisibility() {
 }
 
 // Chiudi modal cliccando fuori
-document.getElementById('askModal').addEventListener('click', function(e) {
+document.getElementById('askModal')?.addEventListener('click', function(e) {
     if (e.target === this) {
         closeAskModal();
     }
@@ -3542,7 +3489,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Chiudi modale quando clicchi fuori
-    document.getElementById('followersModal').addEventListener('click', function(e) {
+    document.getElementById('followersModal')?.addEventListener('click', function(e) {
         if (e.target === this) {
             closeFollowersModal();
         }
@@ -3561,125 +3508,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ========== BECOME CONSULTANT MODAL ==========
-    function openBecomeConsultantModal() {
-        const modal = document.getElementById('becomeConsultantModal');
-        if (modal) {
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-            setupConsultantFormListeners();
-        }
-    }
-
-    function closeBecomeConsultantModal() {
-        const modal = document.getElementById('becomeConsultantModal');
-        if (modal) {
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-        }
-    }
-
-    function setupConsultantFormListeners() {
-        // Character counter per descrizione
-        const textarea = document.getElementById('consultantDescrizioneTextarea');
-        const counter = document.getElementById('consultantCharCounter');
-        const hint = document.getElementById('consultantDescrizioneHint');
-
-        if (textarea) {
-            function updateCounter() {
-                const length = textarea.value.length;
-                counter.textContent = `${length}/200 caratteri`;
-                
-                if (length >= 200) {
-                    counter.style.color = '#28a745';
-                    hint.style.color = '#28a745';
-                    hint.textContent = '✓ La descrizione soddisfa i requisiti!';
-                } else {
-                    counter.style.color = '#dc3545';
-                    hint.style.color = '#dc3545';
-                    hint.textContent = `La descrizione deve essere di almeno 200 caratteri. (ne mancano ${200 - length})`;
-                }
-            }
-
-            textarea.addEventListener('input', updateCounter);
-            updateCounter();
-        }
-
-        // Avatar preview
-        const fileInput = document.getElementById('consultantProfilePictureInput');
-        const preview = document.getElementById('consultantAvatarPreview');
-
-        if (fileInput) {
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        preview.style.backgroundImage = `url('${event.target.result}')`;
-                        preview.style.backgroundSize = 'cover';
-                        preview.style.backgroundPosition = 'center';
-                        preview.textContent = '';
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-    }
-
-    async function saveBecomeConsultantProfile(event) {
-        event.preventDefault();
-
-        const form = document.getElementById('becomeConsultantForm');
-        const descrizione = document.getElementById('consultantDescrizioneTextarea').value;
-
-        // Validazione descrizione
-        if (descrizione.length < 200) {
-            alert('❌ La descrizione deve essere di almeno 200 caratteri');
-            return;
-        }
-
-        const formData = new FormData(form);
-        const fileInput = document.getElementById('consultantProfilePictureInput');
-
-        if (fileInput && fileInput.files.length > 0) {
-            formData.set('profile_picture', fileInput.files[0]);
-        }
-
-        try {
-            const response = await fetch('/api/profile/update', {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                alert('✅ Profilo salvato con successo! Ora sei un Helpyer!');
-                closeBecomeConsultantModal();
-                // Recarica la pagina per mostrare i cambiamenti
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                alert('❌ Errore: ' + (data.detail || 'Impossibile salvare il profilo'));
-            }
-        } catch (error) {
-            console.error('Errore:', error);
-            alert('❌ Errore di connessione');
-        }
-    }
-
-    // Chiudi modal cliccando fuori
-    document.addEventListener('DOMContentLoaded', () => {
-        const modal = document.getElementById('becomeConsultantModal');
-        if (modal) {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    closeBecomeConsultantModal();
-                }
-            });
-        }
-    });
-
-// ========== IMAGE GALLERY ==========
+    // ========== IMAGE GALLERY ==========
 let galleryImages = [];
 let galleryIndex = 0;
 
@@ -3800,7 +3629,7 @@ function closeEditQuestionModal() {
 }
 
 // Close modal clicking outside
-document.getElementById('editQuestionModal').addEventListener('click', function(e) {
+document.getElementById('editQuestionModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeEditQuestionModal();
 });
 
@@ -3837,7 +3666,7 @@ async function loadEditSubcategoriesCommunity(preselectedCategoryId) {
     }
 }
 
-document.getElementById('editPrimaryCategorySelect').addEventListener('change', () => loadEditSubcategoriesCommunity(null));
+document.getElementById('editPrimaryCategorySelect')?.addEventListener('change', () => loadEditSubcategoriesCommunity(null));
 
 function renderEditImagePreviewsCommunity() {
     const previewsDiv = document.getElementById('editImagePreviews');
@@ -3933,7 +3762,7 @@ async function uploadEditImageCommunity(file) {
 }
 
 // Generate tags with AI for edit
-document.getElementById('editGenTagsBtn').addEventListener('click', async function() {
+document.getElementById('editGenTagsBtn')?.addEventListener('click', async function() {
     const titolo = document.getElementById('editQuestionTitle')?.value?.trim() || '';
     const descrizione = document.getElementById('editQuestionDesc')?.value?.trim() || '';
     const subcatSelect = document.getElementById('editSubcategorySelect');

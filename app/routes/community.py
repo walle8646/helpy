@@ -130,12 +130,13 @@ async def community_page(
                 query_stmt = query_stmt.where(
                     or_(
                         CommunityQuestion.title.ilike(search_pattern),
-                        CommunityQuestion.description.ilike(search_pattern)
+                        CommunityQuestion.description.ilike(search_pattern),
+                        and_(CommunityQuestion.tags.isnot(None), CommunityQuestion.tags.ilike(search_pattern))
                     )
                 )
             
             # ========== COUNT TOTALE ==========
-            count_query = select(func.count(CommunityQuestion.id))
+            count_query = select(func.count(CommunityQuestion.id)).where(base_where)
             
             if category:
                 # Usa la stessa logica di filtro della query principale

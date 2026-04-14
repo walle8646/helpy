@@ -279,7 +279,8 @@ async def update_profile(
     tags: str = Form(None),  # 🏷️ JSON array di tags generati da AI
     languages: str = Form(None),  # 🌐 JSON array di language codes
     other_language: str = Form(None),  # 🌍 Altra lingua specificata
-    paypal_email: Optional[str] = Form(None)  # 💰 PayPal email per ricevere pagamenti
+    paypal_email: Optional[str] = Form(None),  # 💰 PayPal email per ricevere pagamenti
+    simple_mode: Optional[str] = Form(None)  # 🔄 Modalità semplice (no AI, no verifica)
 ):
     """Aggiorna profilo utente"""
     try:
@@ -360,6 +361,21 @@ async def update_profile(
             session.refresh(db_user)
             
             logger.info(f"✅ Profile updated for user: {db_user.email}")
+            
+            is_simple = simple_mode and simple_mode.lower() == 'true'
+            
+            if is_simple:
+                # Modalità semplice: salva solo i campi base, niente AI e niente verifica
+                logger.info(f"🔄 Simple mode save for user {db_user.email}, skipping AI validation")
+                return JSONResponse({
+                    "message": "Profilo aggiornato con successo!",
+                    "user": {
+                        "nome": db_user.nome,
+                        "cognome": db_user.cognome,
+                        "professione": db_user.professione
+                    },
+                    "is_verified": db_user.is_verified
+                })
             
             # Check if profile meets verification criteria
             has_professione = db_user.professione and db_user.professione.strip() != ""
