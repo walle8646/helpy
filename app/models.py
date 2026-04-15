@@ -257,6 +257,7 @@ class Booking(SQLModel, table=True):
     meeting_link: Optional[str] = None  # Link Zoom/Google Meet
     client_notes: Optional[str] = None
     description: Optional[str] = Field(default=None, max_length=2000)  # 🆕 Descrizione della consulenza richiesta dal cliente
+    community_question_id: Optional[int] = Field(default=None, foreign_key="community_questions.id", index=True)  # Domanda community associata
     consultant_notes: Optional[str] = None
     
     # Join tracking - quando client/consultant cliccano "Partecipa"

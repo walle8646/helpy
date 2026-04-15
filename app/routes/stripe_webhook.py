@@ -104,6 +104,7 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
     availability_block_id = metadata.get('availability_block_id')
     client_notes = metadata.get('client_notes', '')
     description = metadata.get('description', '')
+    community_question_id = metadata.get('community_question_id', '')
     recording_requested_raw = metadata.get('recording_requested', 'true')
     recording_requested = recording_requested_raw == 'true'
     logger.info(f"📹 recording_requested da Stripe metadata: raw='{recording_requested_raw}', parsed={recording_requested}")
@@ -163,6 +164,7 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
             payment_held_until=held_until,
             client_notes=client_notes or f"Prenotazione diretta",
             description=description,
+            community_question_id=int(community_question_id) if community_question_id else None,
             recording_requested=recording_requested
         )
         
@@ -224,6 +226,8 @@ async def handle_consultation_offer_booking(session_id, payment_intent_id, metad
     start_time = metadata.get('start_time')
     end_time = metadata.get('end_time')
     duration_minutes = int(metadata.get('duration_minutes'))
+    community_question_id = metadata.get('community_question_id', '')
+    description = metadata.get('description', '')
     
     with Session(engine) as db_session:
         # Get consultation offer
@@ -263,7 +267,8 @@ async def handle_consultation_offer_booking(session_id, payment_intent_id, metad
             stripe_checkout_session_id=session_id,
             stripe_payment_intent_id=payment_intent_id,
             payment_held_until=held_until,
-            client_notes=f"Prenotazione da offerta consulenza #{offer.id}"
+            community_question_id=int(community_question_id) if community_question_id else None,
+            client_notes=description if description.strip() else f"Prenotazione da offerta consulenza #{offer.id}"
         )
         
         db_session.add(new_booking)

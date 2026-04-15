@@ -6,7 +6,7 @@ from typing import Optional
 from decimal import Decimal
 
 from ..database import engine
-from ..models import User, ConsultationOffer, Message
+from ..models import User, ConsultationOffer, Message, Category, CommunityQuestion
 from .auth import get_current_user
 from app.utils_user import has_payment_method
 
@@ -215,11 +215,56 @@ async def show_booking_page(
         if not consultant:
             raise HTTPException(status_code=404, detail="Consulente non trovato")
         
+        # Categoria del consulente
+        consultant_category = None
+        if consultant.category_id:
+            consultant_category = session.get(Category, consultant.category_id)
+        
+        # Aree di interesse parsate
+        consultant_skills = []
+        if consultant.aree_interesse:
+            consultant_skills = [s.strip() for s in consultant.aree_interesse.split(',') if s.strip()]
+        
+        # Domande community del cliente (validate)
+        client_questions = []
+        try:
+            questions = session.exec(
+                select(CommunityQuestion).where(
+                    CommunityQuestion.user_id == user.id,
+                    CommunityQuestion.validation == True
+                ).order_by(CommunityQuestion.created_at.desc())
+            ).all()
+            for q in questions:
+                cat_name = None
+                primary_cat_name = None
+                if q.category_id:
+                    cat = session.get(Category, q.category_id)
+                    if cat:
+                        cat_name = cat.nome
+                        if cat.is_principal:
+                            primary_cat_name = cat.nome
+                        else:
+                            from sqlmodel import text
+                            parent = session.exec(
+                                text("SELECT c.nome FROM category c JOIN category_hierarchy ch ON c.id = ch.parent_id WHERE ch.child_id = :cid AND c.is_principal = 1"),
+                                params={"cid": cat.id}
+                            ).first()
+                            if parent:
+                                primary_cat_name = parent[0]
+                q._category_name = cat_name
+                q._primary_category_name = primary_cat_name
+                client_questions.append(q)
+        except Exception as e:
+            logger.error(f"Error loading client questions: {e}")
+        
         return request.app.state.templates.TemplateResponse("book_consultation_offer.html", {
             "request": request,
             "user": user,
             "offer": offer,
             "consultant": consultant,
+            "consultant_category": consultant_category,
+            "consultant_skills": consultant_skills,
+            "client_questions": client_questions,
             "stripe_available": bool(getattr(consultant, 'stripe_onboarding_complete', False)),
             "paypal_available": _is_paypal_available() and bool(getattr(consultant, 'paypal_email', None))
         })
@@ -290,9 +335,14 @@ async def confirm_booking(
     selected_date = body.get('date')
     start_time = body.get('start_time')
     end_time = body.get('end_time')
+    community_question_id = body.get('community_question_id')
+    description = body.get('description', '')
     
     if not selected_date or not start_time or not end_time:
         raise HTTPException(status_code=400, detail="Dati slot mancanti")
+    
+    if not community_question_id and not description.strip():
+        raise HTTPException(status_code=400, detail="Descrizione della consulenza obbligatoria")
     
     with Session(engine) as session:
         # Get consultation offer
@@ -336,7 +386,9 @@ async def confirm_booking(
                     'selected_date': selected_date,
                     'start_time': start_time,
                     'end_time': end_time,
-                    'duration_minutes': str(offer.duration_minutes)
+                    'duration_minutes': str(offer.duration_minutes),
+                    'community_question_id': str(community_question_id) if community_question_id else '',
+                    'description': description
                 },
             )
             

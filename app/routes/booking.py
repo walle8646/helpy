@@ -8,7 +8,7 @@ from pydantic import BaseModel
 import os
 import asyncio
 from app.database import engine
-from app.models import Booking, User, AvailabilityBlock, CallMessage, Dispute, Review
+from app.models import Booking, User, AvailabilityBlock, CallMessage, Dispute, Review, CommunityQuestion, Category
 from app.routes.auth import get_current_user
 from app.utils.agora_recording import start_recording, stop_recording, get_recording_url
 from app.logger_config import logger
@@ -194,15 +194,49 @@ async def booking_page(
         if current_user.id == consultant_id:
             raise HTTPException(status_code=400, detail="Non puoi prenotare una consulenza con te stesso")
         
+        # Prendi le domande community del cliente (validate)
+        client_questions = session.exec(
+            select(CommunityQuestion)
+            .where(CommunityQuestion.user_id == current_user.id)
+            .where(CommunityQuestion.validation == True)
+            .order_by(CommunityQuestion.created_at.desc())
+        ).all()
+        
+        # Arricchisci con nomi categoria
+        for q in client_questions:
+            q._category_name = None
+            q._primary_category_name = None
+            if q.category_id:
+                cat = session.get(Category, q.category_id)
+                if cat:
+                    q._category_name = cat.name
+            if q.primary_category_id:
+                pcat = session.get(Category, q.primary_category_id)
+                if pcat:
+                    q._primary_category_name = pcat.name
+        
+        # Categoria del consulente
+        consultant_category = None
+        if consultant.category_id:
+            consultant_category = session.get(Category, consultant.category_id)
+        
+        # Aree di interesse parsate
+        consultant_skills = []
+        if consultant.aree_interesse:
+            consultant_skills = [s.strip() for s in consultant.aree_interesse.split(',') if s.strip()]
+        
         return request.app.state.templates.TemplateResponse("booking.html", {
             "request": request,
             "user": current_user,
             "current_user": current_user,  # Per la navbar
             "consultant": consultant,
+            "consultant_category": consultant_category,
+            "consultant_skills": consultant_skills,
             "debug_mode": DEBUG_MODE,
             "stripe_available": bool(getattr(consultant, 'stripe_onboarding_complete', False)),
             "paypal_available": _is_paypal_available() and bool(getattr(consultant, 'paypal_email', None)),
-            "consultant_has_payment": has_payment_method(consultant)
+            "consultant_has_payment": has_payment_method(consultant),
+            "client_questions": client_questions
         })
 
 
@@ -336,6 +370,7 @@ async def create_booking(
     availability_block_id = booking_data.get('availability_block_id')
     client_notes = booking_data.get('client_notes', '')
     description = booking_data.get('description', '')  # 🆕 Descrizione della consulenza
+    community_question_id = booking_data.get('community_question_id')  # Domanda community associata
     price = booking_data.get('price')  # Prezzo calcolato dal frontend
     recording_requested = booking_data.get('recording_requested', True)  # Default: registra
     logger.info(f"📹 recording_requested ricevuto dal frontend: {recording_requested} (tipo: {type(recording_requested).__name__})")
@@ -344,8 +379,8 @@ async def create_booking(
     if not all([consultant_id, booking_date_str, start_time, end_time, duration_minutes, price]):
         raise HTTPException(status_code=400, detail="Campi obbligatori mancanti")
     
-    # Validazione descrizione (obbligatoria)
-    if not description or not description.strip():
+    # Validazione descrizione (obbligatoria solo se nessuna domanda community associata)
+    if not community_question_id and (not description or not description.strip()):
         raise HTTPException(status_code=400, detail="Descrizione della consulenza obbligatoria")
     
     if duration_minutes not in [30, 60, 90, 120]:
@@ -435,6 +470,7 @@ async def create_booking(
                     'availability_block_id': str(availability_block_id) if availability_block_id else '',
                     'client_notes': client_notes,
                     'description': description,
+                    'community_question_id': str(community_question_id) if community_question_id else '',
                     'recording_requested': str(recording_requested).lower()  # 👈 Valore inviato a Stripe
                 },
             )

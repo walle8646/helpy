@@ -56,13 +56,14 @@ async def create_booking_paypal(request: Request):
     availability_block_id = booking_data.get('availability_block_id')
     client_notes = booking_data.get('client_notes', '')
     description = booking_data.get('description', '')
+    community_question_id = booking_data.get('community_question_id')
     price = booking_data.get('price')
     recording_requested = booking_data.get('recording_requested', True)
     
     if not all([consultant_id, booking_date_str, start_time, end_time, duration_minutes, price]):
         raise HTTPException(status_code=400, detail="Campi obbligatori mancanti")
     
-    if not description or not description.strip():
+    if not community_question_id and (not description or not description.strip()):
         raise HTTPException(status_code=400, detail="Descrizione della consulenza obbligatoria")
     
     if duration_minutes not in [30, 60, 90, 120]:
@@ -131,6 +132,7 @@ async def create_booking_paypal(request: Request):
             payment_held_until=held_until,
             client_notes=client_notes or "Prenotazione diretta",
             description=description,
+            community_question_id=int(community_question_id) if community_question_id else None,
             recording_requested=recording_requested if isinstance(recording_requested, bool) else str(recording_requested).lower() == 'true'
         )
         session.add(new_booking)
@@ -197,6 +199,8 @@ async def create_consultation_paypal(offer_id: int, request: Request):
     selected_date = body.get('date')
     start_time = body.get('start_time')
     end_time = body.get('end_time')
+    community_question_id = body.get('community_question_id')
+    description = body.get('description', '')
     
     if not all([selected_date, start_time, end_time]):
         raise HTTPException(status_code=400, detail="Dati slot mancanti")
@@ -238,7 +242,8 @@ async def create_consultation_paypal(offer_id: int, request: Request):
             payment_status="pending",
             payment_method="paypal",
             payment_held_until=held_until,
-            client_notes=f"Prenotazione da offerta consulenza #{offer.id}"
+            community_question_id=int(community_question_id) if community_question_id else None,
+            client_notes=description if description.strip() else f"Prenotazione da offerta consulenza #{offer.id}"
         )
         session.add(new_booking)
         session.commit()
