@@ -371,6 +371,10 @@
     }
     
     @media (max-width: 600px) {
+        .booking-consultation-container {
+            padding: 16px 10px;
+            margin: 16px auto;
+        }
         .offer-header {
             flex-direction: column;
             align-items: center;
@@ -390,6 +394,79 @@
         .offer-header .consultant-name-row { justify-content: center; }
         .offer-header .consultant-skills { justify-content: center; }
         .offer-header .consultant-cat-pill { margin-left: auto; margin-right: auto; }
+
+        /* Calendar section mobile */
+        .calendar-section {
+            padding: 16px 12px;
+        }
+        .calendar-section h3 {
+            font-size: 17px;
+        }
+        /* Week nav: stack title on top, buttons below */
+        .week-nav {
+            flex-direction: column !important;
+            gap: 10px !important;
+            padding: 12px !important;
+        }
+        .week-nav #weekRangeDisplay {
+            order: -1;
+            font-size: 14px !important;
+            text-align: center;
+        }
+        .week-nav .week-nav-buttons {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+        }
+        .week-nav #prevWeekBtn,
+        .week-nav #nextWeekBtn {
+            padding: 10px 16px !important;
+            font-size: 0.85rem !important;
+        }
+        .week-nav .btn-label-long {
+            display: none;
+        }
+        .week-nav .btn-label-short {
+            display: inline !important;
+        }
+
+        /* Days grid: horizontal scroll with snap */
+        #daysContainer {
+            display: flex !important;
+            overflow-x: auto !important;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            gap: 10px !important;
+            padding-bottom: 8px;
+        }
+        #daysContainer::-webkit-scrollbar {
+            height: 4px;
+        }
+        #daysContainer::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 2px;
+        }
+        #daysContainer .day-card {
+            min-width: 150px;
+            max-width: 170px;
+            flex-shrink: 0;
+            scroll-snap-align: start;
+            min-height: 180px;
+        }
+        .day-name { font-size: 13px !important; }
+        .day-date { font-size: 11px !important; }
+        .slot-button { font-size: 12px !important; padding: 8px 6px !important; }
+
+        /* Offer details compact */
+        .offer-details { padding: 16px; }
+        .detail-value { font-size: 16px; }
+        .price-highlight { font-size: 20px; }
+
+        /* Stack radio buttons vertically */
+        .recording-options,
+        .payment-method-options {
+            flex-direction: column !important;
+        }
     }
 </style>
 {% endblock %}
@@ -551,16 +628,22 @@
         <h3>📅 Seleziona Data e Ora</h3>
         
         <!-- Week navigation -->
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-            <button id="prevWeekBtn" style="padding: 10px 20px; background: white; border: 2px solid #4caf50; color: #4caf50; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
-                <i class="fas fa-chevron-left"></i> Settimana Precedente
-            </button>
-            <div id="weekRangeDisplay" style="font-weight: 600; font-size: 16px; color: #333;">
+        <div class="week-nav" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px; flex-wrap: wrap; gap: 10px;">
+            <div id="weekRangeDisplay" style="font-weight: 600; font-size: 16px; color: #333; text-align: center; flex: 1 1 100%; order: -1;">
                 <!-- Verrà popolato dinamicamente -->
             </div>
-            <button id="nextWeekBtn" style="padding: 10px 20px; background: white; border: 2px solid #4caf50; color: #4caf50; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
-                Settimana Successiva <i class="fas fa-chevron-right"></i>
-            </button>
+            <div class="week-nav-buttons" style="display: flex; width: 100%; justify-content: space-between;">
+                <button id="prevWeekBtn" style="padding: 10px 20px; background: white; border: 2px solid #4caf50; color: #4caf50; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                    <i class="fas fa-chevron-left"></i>
+                    <span class="btn-label-long">Settimana Precedente</span>
+                    <span class="btn-label-short" style="display: none;">Precedente</span>
+                </button>
+                <button id="nextWeekBtn" style="padding: 10px 20px; background: white; border: 2px solid #4caf50; color: #4caf50; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                    <span class="btn-label-long">Settimana Successiva</span>
+                    <span class="btn-label-short" style="display: none;">Successiva</span>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
         </div>
         
         <!-- Calendar picker (optional - per scegliere una settimana specifica) -->
@@ -593,13 +676,38 @@
         </div>
     </div>
     
+    <!-- Scelta registrazione -->
+    <div class="recording-choice" style="margin-top: 18px; padding: 16px; background: #f8f9fa; border-radius: 10px; border: 1px solid #e0e0e0; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <i class="fas fa-video" style="color: #2d6a4f; font-size: 1.1em;"></i>
+            <strong style="font-size: 0.95rem; color: #1a202c;">Registrazione della consulenza</strong>
+        </div>
+        <p style="font-size: 0.85rem; color: #555; margin: 0 0 12px 0; line-height: 1.5;">
+            La registrazione ti permette di aprire una contestazione in caso di problemi. 
+            Senza registrazione perdi questa possibilità.
+        </p>
+        <div class="recording-options" style="display: flex; gap: 10px;">
+            <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #2d6a4f; background: #e8f5e9; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #1a202c; transition: all 0.2s;" id="recordYesLabel">
+                <input type="radio" name="recordingChoice" value="yes" checked style="accent-color: #2d6a4f;" onchange="updateRecordingChoice()">
+                <i class="fas fa-check-circle" style="color: #2d6a4f;"></i> Sì, registra
+            </label>
+            <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #e0e0e0; background: #fff; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #666; transition: all 0.2s;" id="recordNoLabel">
+                <input type="radio" name="recordingChoice" value="no" style="accent-color: #e74c3c;" onchange="updateRecordingChoice()">
+                <i class="fas fa-times-circle" style="color: #999;"></i> No, non registrare
+            </label>
+        </div>
+        <p id="recordingWarning" style="display: none; font-size: 0.82rem; color: #e74c3c; margin: 10px 0 0 0; font-weight: 500;">
+            ⚠️ Senza registrazione non potrai aprire una contestazione dopo la consulenza.
+        </p>
+    </div>
+
     <!-- Scelta metodo di pagamento -->
     <div style="background: #f8f9fa; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; border: 1px solid #e0e0e0;">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
             <i class="fas fa-credit-card" style="color: #2d6a4f;"></i>
             <strong style="font-size: 0.95rem; color: #1a202c;">Metodo di pagamento</strong>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div class="payment-method-options" style="display: flex; gap: 10px;">
             {% if stripe_available %}
             <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #635bff; background: #f0efff; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #1a202c; transition: all 0.2s;" id="payStripeLabel">
                 <input type="radio" name="paymentMethod" value="stripe" {% if stripe_available %}checked{% endif %} style="accent-color: #635bff;" onchange="updatePaymentMethod()">
@@ -637,6 +745,32 @@ const durationMinutes = {{ offer.duration_minutes }};
 let selectedSlot = null;
 let currentWeekStart = new Date();
 let selectedQuestionId = null;
+
+// Gestione scelta registrazione
+function updateRecordingChoice() {
+    const choice = document.querySelector('input[name="recordingChoice"]:checked').value;
+    const yesLabel = document.getElementById('recordYesLabel');
+    const noLabel = document.getElementById('recordNoLabel');
+    const warning = document.getElementById('recordingWarning');
+    
+    if (choice === 'yes') {
+        yesLabel.style.borderColor = '#2d6a4f';
+        yesLabel.style.background = '#e8f5e9';
+        yesLabel.style.color = '#1a202c';
+        noLabel.style.borderColor = '#e0e0e0';
+        noLabel.style.background = '#fff';
+        noLabel.style.color = '#666';
+        warning.style.display = 'none';
+    } else {
+        noLabel.style.borderColor = '#e74c3c';
+        noLabel.style.background = '#fef2f2';
+        noLabel.style.color = '#1a202c';
+        yesLabel.style.borderColor = '#e0e0e0';
+        yesLabel.style.background = '#fff';
+        yesLabel.style.color = '#666';
+        warning.style.display = 'block';
+    }
+}
 
 function selectQuestionCard(card, questionId) {
     const descSection = document.getElementById('descriptionSection');
@@ -954,10 +1088,14 @@ confirmBtn.addEventListener('click', async function() {
             ? `/api/consultation/${offerId}/pay-paypal`
             : `/consulenza/prenota/${offerId}/confirm`;
         
+        const recordingChoice = document.querySelector('input[name="recordingChoice"]:checked');
+        const recordingRequested = recordingChoice ? recordingChoice.value === 'yes' : true;
+
         const bodyData = {
             ...selectedSlot,
             community_question_id: selectedQuestionId,
-            description: description
+            description: description,
+            recording_requested: recordingRequested
         };
         
         const response = await fetch(apiUrl, {

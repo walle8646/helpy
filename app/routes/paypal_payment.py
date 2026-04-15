@@ -201,6 +201,7 @@ async def create_consultation_paypal(offer_id: int, request: Request):
     end_time = body.get('end_time')
     community_question_id = body.get('community_question_id')
     description = body.get('description', '')
+    recording_requested = body.get('recording_requested', True)
     
     if not all([selected_date, start_time, end_time]):
         raise HTTPException(status_code=400, detail="Dati slot mancanti")
@@ -243,7 +244,8 @@ async def create_consultation_paypal(offer_id: int, request: Request):
             payment_method="paypal",
             payment_held_until=held_until,
             community_question_id=int(community_question_id) if community_question_id else None,
-            client_notes=description if description.strip() else f"Prenotazione da offerta consulenza #{offer.id}"
+            client_notes=description if description.strip() else f"Prenotazione da offerta consulenza #{offer.id}",
+            recording_requested=recording_requested
         )
         session.add(new_booking)
         session.commit()

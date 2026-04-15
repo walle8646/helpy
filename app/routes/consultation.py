@@ -334,6 +334,7 @@ async def confirm_booking(
     end_time = body.get('end_time')
     community_question_id = body.get('community_question_id')
     description = body.get('description', '')
+    recording_requested = body.get('recording_requested', True)
     
     if not selected_date or not start_time or not end_time:
         raise HTTPException(status_code=400, detail="Dati slot mancanti")
@@ -385,7 +386,8 @@ async def confirm_booking(
                     'end_time': end_time,
                     'duration_minutes': str(offer.duration_minutes),
                     'community_question_id': str(community_question_id) if community_question_id else '',
-                    'description': description
+                    'description': description,
+                    'recording_requested': str(recording_requested).lower()
                 },
             )
             

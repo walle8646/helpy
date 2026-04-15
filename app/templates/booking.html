@@ -533,6 +533,13 @@
             grid-template-columns: 1fr;
         }
     }
+
+    @media (max-width: 600px) {
+        .recording-options,
+        .payment-method-options {
+            flex-direction: column !important;
+        }
+    }
 </style>
 
 <div class="booking-container">
@@ -762,7 +769,7 @@
                 La registrazione ti permette di aprire una contestazione in caso di problemi. 
                 Senza registrazione perdi questa possibilità.
             </p>
-            <div style="display: flex; gap: 10px;">
+            <div class="recording-options" style="display: flex; gap: 10px;">
                 <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #2d6a4f; background: #e8f5e9; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #1a202c; transition: all 0.2s;" id="recordYesLabel">
                     <input type="radio" name="recordingChoice" value="yes" checked style="accent-color: #2d6a4f;" onchange="updateRecordingChoice()">
                     <i class="fas fa-check-circle" style="color: #2d6a4f;"></i> Sì, registra
@@ -783,7 +790,7 @@
                 <i class="fas fa-credit-card" style="color: #2d6a4f;"></i>
                 <strong style="font-size: 0.95rem; color: #1a202c;">Metodo di pagamento</strong>
             </div>
-            <div style="display: flex; gap: 10px;">
+            <div class="payment-method-options" style="display: flex; gap: 10px;">
                 {% if stripe_available %}
                 <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid {% if stripe_available and not paypal_available %}#635bff{% else %}#635bff{% endif %}; background: {% if stripe_available %}#f0efff{% else %}#fff{% endif %}; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #1a202c; transition: all 0.2s;" id="payStripeLabel">
                     <input type="radio" name="paymentMethod" value="stripe" {% if stripe_available %}checked{% endif %} style="accent-color: #635bff;" onchange="updatePaymentMethod()">

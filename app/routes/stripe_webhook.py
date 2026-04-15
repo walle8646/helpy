@@ -228,6 +228,8 @@ async def handle_consultation_offer_booking(session_id, payment_intent_id, metad
     duration_minutes = int(metadata.get('duration_minutes'))
     community_question_id = metadata.get('community_question_id', '')
     description = metadata.get('description', '')
+    recording_requested_raw = metadata.get('recording_requested', 'true')
+    recording_requested = recording_requested_raw == 'true'
     
     with Session(engine) as db_session:
         # Get consultation offer
@@ -268,7 +270,8 @@ async def handle_consultation_offer_booking(session_id, payment_intent_id, metad
             stripe_payment_intent_id=payment_intent_id,
             payment_held_until=held_until,
             community_question_id=int(community_question_id) if community_question_id else None,
-            client_notes=description if description.strip() else f"Prenotazione da offerta consulenza #{offer.id}"
+            client_notes=description if description.strip() else f"Prenotazione da offerta consulenza #{offer.id}",
+            recording_requested=recording_requested
         )
         
         db_session.add(new_booking)
