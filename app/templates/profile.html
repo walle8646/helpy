@@ -556,6 +556,9 @@
     .pub-cat-pill {
         margin: 8px auto 0;
     }
+    #mobileBecomeCta {
+        display: inline-block !important;
+    }
     .pub-narrative-col { padding: 0; min-width: 0; overflow-x: hidden; }
     .pub-stats-row { justify-content: center; flex-wrap: wrap; }
 
@@ -663,6 +666,7 @@
                     <button id="editProfileBtn" class="btn-edit">✏️ Modifica Profilo</button>
                     {% else %}
                     <button id="simpleEditBtn" class="btn-edit">✏️ Modifica Profilo</button>
+                    <button id="mobileBecomeCta" onclick="document.getElementById('simpleEditBtn').click()" class="btn-edit" style="display:none; margin-top:8px; background:linear-gradient(135deg,#2d6a4f,#40916c); color:white; border:none;">🚀 Diventa Consulente</button>
                     {% endif %}
                     {% if user.is_verified and not has_payment_method %}
                     <p style="color: #e65100; font-size: 0.85rem; margin-top: 8px; background: #fff3e0; padding: 8px 14px; border-radius: 8px; border-left: 3px solid #e65100;">
@@ -1772,7 +1776,7 @@
         modal.className = 'modal-overlay';
         modal.id = 'history-modal';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width:550px;padding:24px;">
+            <div class="modal-content" style="max-width:550px;padding:24px;width:calc(100% - 32px);box-sizing:border-box;">
                 <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                     <h3 style="margin:0;font-size:1.2rem;"><i class="fas fa-history"></i> Storico Appuntamenti</h3>
                     <button class="close-btn" onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;">✕</button>
@@ -1845,16 +1849,16 @@
                 }
 
                 return `
-                    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0f0f0;">
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f0;">
                         ${avatarHTML}
-                        <div style="flex:1;min-width:0;">
-                            <div style="display:flex;align-items:center;gap:6px;">${nameLink} ${statusHTML}</div>
+                        <div style="flex:1;min-width:120px;">
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${nameLink} ${statusHTML}</div>
                             <div style="font-size:0.82rem;color:#6b7280;">${roleLabel}</div>
                             <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">${reviewHTML}${disputeHTML}</div>
                         </div>
-                        <div style="text-align:right;flex-shrink:0;">
-                            <div style="font-size:0.85rem;font-weight:500;">${dateStr}</div>
-                            <div style="font-size:0.8rem;color:#6b7280;">${b.start_time} · ${b.duration} min</div>
+                        <div style="text-align:right;flex-shrink:0;font-size:0.82rem;">
+                            <div style="font-weight:500;">${dateStr}</div>
+                            <div style="color:#6b7280;">${b.start_time} · ${b.duration} min</div>
                         </div>
                     </div>
                 `;

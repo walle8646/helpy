@@ -848,10 +848,11 @@
                 <span class="navbar-title">Helpy</span>
             </a>
             <!-- Hamburger Menu Button (mobile only) -->
-            <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMobileMenu()" aria-label="Menu">
+            <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMobileMenu()" aria-label="Menu" style="position:relative;">
                 <span class="hamburger-line"></span>
                 <span class="hamburger-line"></span>
                 <span class="hamburger-line"></span>
+                <span id="hamburgerDot" style="display:none;position:absolute;top:6px;right:6px;width:10px;height:10px;background:#dc3545;border-radius:50%;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>
             </button>
         </div>
         
@@ -1351,6 +1352,7 @@
                 } else {
                     badge.style.display = 'none';
                 }
+                updateHamburgerDot();
                 
                 // Se il dropdown è aperto, aggiorna anche le notifiche
                 const dropdown = document.getElementById('notificationsDropdown');
@@ -1369,6 +1371,17 @@
             setTimeout(() => {
                 icon.style.animation = 'bellRing 0.5s ease-in-out';
             }, 10);
+        }
+        
+        // Aggiorna pallino rosso sull'hamburger menu mobile
+        function updateHamburgerDot() {
+            const dot = document.getElementById('hamburgerDot');
+            if (!dot) return;
+            const notifBadge = document.getElementById('notificationsBadge');
+            const chatBadge = document.getElementById('headerChatBadge');
+            const hasNotif = notifBadge && notifBadge.style.display !== 'none' && parseInt(notifBadge.textContent) > 0;
+            const hasChat = chatBadge && chatBadge.style.display !== 'none' && parseInt(chatBadge.textContent) > 0;
+            dot.style.display = (hasNotif || hasChat) ? 'block' : 'none';
         }
         
         // Polling notifiche (ogni 10 secondi)

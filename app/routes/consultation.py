@@ -9,6 +9,7 @@ from ..database import engine
 from ..models import User, ConsultationOffer, Message, Category, CommunityQuestion
 from .auth import get_current_user
 from app.utils_user import has_payment_method
+from app.logger_config import logger
 
 router = APIRouter()
 
@@ -189,6 +190,9 @@ async def show_booking_page(
 ):
     """Show booking page for client to book consultation"""
     
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    
     with Session(engine) as session:
         # Get consultation offer
         offer = session.get(ConsultationOffer, offer_id)
@@ -235,24 +239,16 @@ async def show_booking_page(
                 ).order_by(CommunityQuestion.created_at.desc())
             ).all()
             for q in questions:
-                cat_name = None
-                primary_cat_name = None
+                q._category_name = None
+                q._primary_category_name = None
                 if q.category_id:
                     cat = session.get(Category, q.category_id)
                     if cat:
-                        cat_name = cat.nome
-                        if cat.is_principal:
-                            primary_cat_name = cat.nome
-                        else:
-                            from sqlmodel import text
-                            parent = session.exec(
-                                text("SELECT c.nome FROM category c JOIN category_hierarchy ch ON c.id = ch.parent_id WHERE ch.child_id = :cid AND c.is_principal = 1"),
-                                params={"cid": cat.id}
-                            ).first()
-                            if parent:
-                                primary_cat_name = parent[0]
-                q._category_name = cat_name
-                q._primary_category_name = primary_cat_name
+                        q._category_name = cat.name
+                if q.primary_category_id:
+                    pcat = session.get(Category, q.primary_category_id)
+                    if pcat:
+                        q._primary_category_name = pcat.name
                 client_questions.append(q)
         except Exception as e:
             logger.error(f"Error loading client questions: {e}")
@@ -260,6 +256,7 @@ async def show_booking_page(
         return request.app.state.templates.TemplateResponse("book_consultation_offer.html", {
             "request": request,
             "user": user,
+            "current_user": user,
             "offer": offer,
             "consultant": consultant,
             "consultant_category": consultant_category,

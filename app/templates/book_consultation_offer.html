@@ -412,7 +412,7 @@
             <p class="consultant-role">{{ consultant.professione or 'Consulente' }}</p>
             {% if consultant_category %}
             <div class="consultant-cat-pill">
-                <i class="fas fa-tag"></i> {{ consultant_category }}
+                {{ consultant_category.icon }} {{ consultant_category.name }}
             </div>
             {% endif %}
             {% if consultant_skills and consultant_skills|length > 0 %}
