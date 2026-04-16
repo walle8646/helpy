@@ -742,6 +742,7 @@
 const consultantId = {{ consultant.id }};
 const offerId = {{ offer.id }};
 const durationMinutes = {{ offer.duration_minutes }};
+const DEBUG_MODE = {{ debug_mode|default(false)|tojson }};
 let selectedSlot = null;
 let currentWeekStart = new Date();
 let selectedQuestionId = null;
@@ -854,16 +855,27 @@ async function loadWeeklyAvailability() {
     weekEnd.setDate(weekEnd.getDate() + 6);
     weekRangeDisplay.innerHTML = `📅 Riepilogo Prossimi 7 Giorni<br><small style="font-size: 13px; color: #888;">${formatDate(currentWeekStart)} - ${formatDate(weekEnd)}</small>`;
     
-    // Generate 7 days
+    // Generate 7 days, skip past days (compare as YYYYMMDD integers to avoid timezone issues)
+    const _now = new Date();
+    const todayNum = _now.getFullYear() * 10000 + (_now.getMonth() + 1) * 100 + _now.getDate();
     const days = [];
     for (let i = 0; i < 7; i++) {
         const date = new Date(currentWeekStart);
         date.setDate(date.getDate() + i);
-        days.push(date);
+        const dateNum = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
+        if (dateNum >= todayNum) {
+            days.push(date);
+        }
+    }
+    
+    if (days.length === 0) {
+        loadingWeek.style.display = 'none';
+        noAvailability.style.display = 'block';
+        return;
     }
     
     try {
-        // Load availability for all 7 days
+        // Load availability only for today and future days
         const availabilityPromises = days.map(date => 
             loadDayAvailability(date.toISOString().split('T')[0])
         );
@@ -986,7 +998,7 @@ function generateTimeSlots(blocks, duration) {
                 const millisecondsUntilSlot = slotDateTime - now;
                 const hoursUntilSlot = millisecondsUntilSlot / (1000 * 60 * 60);
                 
-                const isValid = hoursUntilSlot >= 4;
+                const isValid = DEBUG_MODE || hoursUntilSlot >= 4;
                 console.log(`Slot ${blockDate} ${slotStartHour}:${String(slotStartMin).padStart(2, '0')} (${slotDateTime.toString()}) - Ore: ${hoursUntilSlot.toFixed(2)} - Mostra: ${isValid}`);
                 
                 // Se la fascia è almeno 4 ore nel futuro, la mostriamo

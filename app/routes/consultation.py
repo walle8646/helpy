@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from datetime import datetime, timedelta
 from typing import Optional
 from decimal import Decimal
+import os
 
 from ..database import engine
 from ..models import User, ConsultationOffer, Message, Category, CommunityQuestion
@@ -263,7 +264,8 @@ async def show_booking_page(
             "consultant_skills": consultant_skills,
             "client_questions": client_questions,
             "stripe_available": bool(getattr(consultant, 'stripe_onboarding_complete', False)),
-            "paypal_available": _is_paypal_available() and bool(getattr(consultant, 'paypal_email', None))
+            "paypal_available": _is_paypal_available() and bool(getattr(consultant, 'paypal_email', None)),
+            "debug_mode": os.getenv("DEBUG", "false").lower() == "true"
         })
 
 
