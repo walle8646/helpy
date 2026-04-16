@@ -1286,6 +1286,30 @@
         // Nascondi errore se presente
         document.getElementById('descriptionError').style.display = 'none';
         
+        // Validazione AI della descrizione (solo se scritta manualmente, non da community)
+        if (description && !selectedQuestionId) {
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifica descrizione...';
+            try {
+                const valRes = await fetch('/api/booking/validate-description', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description })
+                });
+                const valData = await valRes.json();
+                if (!valData.approved) {
+                    document.getElementById('descriptionError').textContent = valData.reason || 'La descrizione non è valida. Riscrivi qualcosa di pertinente alla consulenza.';
+                    document.getElementById('descriptionError').style.display = 'block';
+                    document.getElementById('consultationDescription').focus();
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-calendar-check"></i> Conferma Prenotazione';
+                    return;
+                }
+            } catch (e) {
+                console.warn('AI validation failed, proceeding anyway:', e);
+            }
+        }
+        
         this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Prenotazione in corso...';
         

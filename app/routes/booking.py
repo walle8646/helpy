@@ -330,6 +330,29 @@ async def get_available_slots(
             "duration_minutes": duration
         }
 
+
+@router.post("/api/booking/validate-description")
+async def validate_booking_description(request: Request):
+    """Valida la descrizione della consulenza tramite AI"""
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+
+    body = await request.json()
+    description = (body.get("description") or "").strip()
+
+    if not description:
+        return {"approved": False, "reason": "La descrizione è vuota"}
+
+    try:
+        from app.utils.ai_service import valida_descrizione_consulenza
+        result = await valida_descrizione_consulenza(description)
+        return result
+    except Exception as e:
+        logger.error(f"Errore validazione AI descrizione: {e}")
+        return {"approved": True, "reason": "OK"}
+
+
 @router.post("/api/booking/create")
 async def create_booking(
     request: Request,

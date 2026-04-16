@@ -513,6 +513,87 @@ async def controlla_duplicato(titolo: str, descrizione: str, domande_precedenti:
         return {"is_duplicate": False, "reason": "Richiesta originale"}
 
 
+async def valida_descrizione_consulenza(descrizione: str) -> dict:
+    """
+    Valida la descrizione di una consulenza scritta dal cliente.
+    Verifica che sia una richiesta sensata e inerente a una consulenza.
+
+    Returns:
+        dict con {approved: bool, reason: str}
+    """
+    try:
+        client = _get_client()
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Sei un moderatore per Helpy, una piattaforma italiana di consulenze professionali. "
+                        "Un cliente sta prenotando una consulenza e ha scritto una descrizione di ciò che vuole discutere.\n\n"
+                        "Devi verificare che la descrizione:\n"
+                        "1. Esprima un argomento o una necessità comprensibile\n"
+                        "2. NON sia testo casuale, senza senso, lettere a caso o test\n"
+                        "3. NON contenga insulti, volgarità o contenuti offensivi\n"
+                        "4. NON sia spam o pubblicità\n"
+                        "5. Sia minimamente inerente a una richiesta di consulenza o aiuto professionale\n\n"
+                        "Sii PERMISSIVO: se il testo è breve ma ha senso, approvalo. "
+                        "Rifiuta solo testo chiaramente privo di significato, offensivo o spam.\n\n"
+                        "Rispondi ESCLUSIVAMENTE con un oggetto JSON (senza markdown, senza backtick):\n"
+                        '{"approved": true, "reason": "OK"}\n'
+                        'oppure {"approved": false, "reason": "motivo del rifiuto in italiano"}'
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": f"Descrizione consulenza: {descrizione}"
+                }
+            ],
+            temperature=0.1,
+            max_tokens=150
+        )
+
+        choice = response.choices[0]
+        if choice.finish_reason == "content_filter":
+            return {"approved": False, "reason": "Il contenuto non è stato approvato dal sistema di moderazione."}
+
+        result = (choice.message.content or "").strip()
+        if not result:
+            return {"approved": True, "reason": "OK"}
+
+        # Parsing JSON robusto
+        validation_result = None
+        try:
+            validation_result = json.loads(result)
+        except json.JSONDecodeError:
+            cleaned = result.strip('`').strip()
+            if cleaned.startswith('json'):
+                cleaned = cleaned[4:].strip()
+            try:
+                validation_result = json.loads(cleaned)
+            except json.JSONDecodeError:
+                import re
+                m = re.search(r'\{[^{}]*"approved"\s*:\s*(true|false)[^{}]*\}', result, re.IGNORECASE)
+                if m:
+                    try:
+                        validation_result = json.loads(m.group())
+                    except json.JSONDecodeError:
+                        pass
+
+        if validation_result is None:
+            return {"approved": True, "reason": "OK"}
+
+        approved = validation_result.get("approved", True)
+        reason = validation_result.get("reason", "OK" if approved else "Descrizione non valida")
+        logger.info(f"📝 Validazione descrizione consulenza: {'✅' if approved else '❌'} - {reason}")
+        return {"approved": approved, "reason": reason}
+
+    except Exception as e:
+        logger.error(f"❌ Errore validazione descrizione consulenza: {e}")
+        return {"approved": True, "reason": "OK"}
+
+
 async def valida_profilo(descrizione: str, professione: str = None, aree_interesse: str = None) -> dict:
     """
     Valida la descrizione del profilo di un consulente tramite AI.
