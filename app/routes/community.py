@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form, Query, HTTPException, UploadFile, File
+﻿from fastapi import APIRouter, Request, Form, Query, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import select, func, or_, and_
 from sqlalchemy import cast, String
@@ -638,7 +638,7 @@ async def upload_community_image(
         
         aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        s3_bucket = os.getenv("S3_BUCKET_NAME", "helpy-images")
+        s3_bucket = os.getenv("S3_BUCKET_NAME", "ispiramy-images")
         s3_region = os.getenv("AWS_REGION", "eu-west-1")
         
         if not aws_access_key or not aws_secret_key:

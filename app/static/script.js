@@ -1,4 +1,4 @@
-console.log('Helpy frontend loaded');
+﻿console.log('Ispiramy frontend loaded');
 
 document.addEventListener('DOMContentLoaded', () => {
     // Registration form handler

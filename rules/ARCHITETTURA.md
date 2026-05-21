@@ -1,6 +1,6 @@
-# 🏗️ Architettura Tecnica — Helpy
+﻿# 🏗️ Architettura Tecnica — Ispiramy
 
-Questo documento descrive l'architettura tecnica dettagliata della piattaforma Helpy.
+Questo documento descrive l'architettura tecnica dettagliata della piattaforma Ispiramy.
 
 ---
 
@@ -172,7 +172,7 @@ Cliente → Click sul link nell'offerta
 
 ### Dual Auth Strategy
 
-Helpy usa un sistema di autenticazione a due livelli:
+Ispiramy usa un sistema di autenticazione a due livelli:
 
 1. **JWT Token** — Generato al login AJAX, salvato nella sessione Starlette
 2. **Session Fallback** — Se il JWT non è presente, controlla `user_id` nella sessione
@@ -210,7 +210,7 @@ def verify_token(request: Request) -> Optional[User]:
 
 ```python
 # database.py
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./helpy.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ispiramy.db")
 
 # Fix automatico per Render: postgres:// → postgresql://
 if DATABASE_URL.startswith("postgres://"):

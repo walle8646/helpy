@@ -1,8 +1,8 @@
-# 📚 API Reference — Helpy
+﻿# 📚 API Reference — Ispiramy
 
-Documentazione completa di tutte le API REST esposte dalla piattaforma Helpy.
+Documentazione completa di tutte le API REST esposte dalla piattaforma Ispiramy.
 
-> **Base URL**: `http://localhost:10000` (sviluppo) / `https://helpy.onrender.com` (produzione)
+> **Base URL**: `http://localhost:10000` (sviluppo) / `https://ispiramy.onrender.com` (produzione)
 
 ---
 

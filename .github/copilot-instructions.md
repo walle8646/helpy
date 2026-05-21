@@ -1,7 +1,7 @@
-# Helpy — Copilot Instructions
+# Ispiramy — Copilot Instructions
 
 ## Project Overview
-Helpy is an Italian-language professional consultation marketplace built with **FastAPI + SQLModel + Jinja2 server-rendered templates**. It connects clients with consultants via bookings, video calls (Agora.io), Stripe payments, and community Q&A. The codebase uses Italian for all UI text, comments, variable names, and user-facing strings.
+Ispiramy is an Italian-language professional consultation marketplace built with **FastAPI + SQLModel + Jinja2 server-rendered templates**. It connects clients with consultants via bookings, video calls (Agora.io), Stripe payments, and community Q&A. The codebase uses Italian for all UI text, comments, variable names, and user-facing strings.
 
 ## Architecture & Key Files
 - **Entry point**: `app/main.py` — FastAPI app, middleware setup, route registration, startup/shutdown hooks

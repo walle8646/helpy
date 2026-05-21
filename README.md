@@ -1,4 +1,4 @@
-# 🚀 Helpy — Piattaforma di Consulenze Online
+﻿# 🚀 Ispiramy — Piattaforma di Consulenze Online
 
 <p align="center">
   <strong>Marketplace per consulenze professionali con video-call, pagamenti e community Q&A</strong>
@@ -26,7 +26,7 @@
 
 ## 🎯 Panoramica
 
-**Helpy** è una piattaforma web full-stack che mette in contatto utenti con consulenti professionisti. Gli utenti possono:
+**Ispiramy** è una piattaforma web full-stack che mette in contatto utenti con consulenti professionisti. Gli utenti possono:
 
 - Cercare consulenti per categoria/sottocategoria o tramite ricerca intelligente
 - Prenotare consulenze con pagamento Stripe
@@ -140,7 +140,7 @@ Il sistema supporta sia SQLite (sviluppo) che PostgreSQL (produzione) ed è cont
 ## 📁 Architettura del Progetto
 
 ```
-helpy/
+ispiramy/
 │
 ├── app/                          # Codice sorgente principale
 │   ├── __init__.py
@@ -358,11 +358,11 @@ Crea un file `.env` nella root del progetto:
 
 ```env
 # ============ DATABASE ============
-DATABASE_URL=sqlite:///./helpy.db
-# Per PostgreSQL: postgresql://user:password@host:5432/helpy_db
+DATABASE_URL=sqlite:///./ispiramy.db
+# Per PostgreSQL: postgresql://user:password@host:5432/ispiramy_db
 
 # ============ APP ============
-SESSION_SECRET=helpy-super-secret-key-change-in-production
+SESSION_SECRET=ispiramy-super-secret-key-change-in-production
 JWT_SECRET=your-secret-key-change-in-production
 BASE_URL=http://localhost:8080
 LOG_LEVEL=INFO
@@ -373,9 +373,9 @@ SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
 SMTP_USER=apikey
 SMTP_PASSWORD=SG.xxxxxxxxxxxxxxxxxxxxxxxx
-FROM_EMAIL=noreply@helpy.com
+FROM_EMAIL=noreply@ispiramy.com
 SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxx
-EMAIL_FROM=Helpy <noreply@helpy.com>
+EMAIL_FROM=Ispiramy <noreply@ispiramy.com>
 
 # ============ STRIPE (Pagamenti) ============
 STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -391,9 +391,9 @@ AGORA_CUSTOMER_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # ============ AWS S3 (Storage) ============
 AWS_ACCESS_KEY_ID=AKIAxxxxxxxxxxxxxxxx
 AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-AWS_S3_BUCKET_NAME=helpy-recordings
+AWS_S3_BUCKET_NAME=ispiramy-recordings
 AWS_S3_REGION=eu-south-1
-S3_BUCKET_NAME=helpy-images
+S3_BUCKET_NAME=ispiramy-images
 AWS_REGION=eu-west-1
 ```
 
@@ -412,8 +412,8 @@ AWS_REGION=eu-west-1
 
 ```bash
 # 1. Clona il repository
-git clone https://github.com/your-org/helpy.git
-cd helpy
+git clone https://github.com/your-org/ispiramy.git
+cd ispiramy
 
 # 2. Crea ambiente virtuale
 python -m venv venv
@@ -509,10 +509,10 @@ Le migrazioni SQL si trovano in `sql_update/`. Ogni migrazione ha versione SQLit
 
 ```bash
 # SQLite
-sqlite3 helpy.db < sql_update/migration_add_booking.sql
+sqlite3 ispiramy.db < sql_update/migration_add_booking.sql
 
 # PostgreSQL
-psql -U postgres -d helpy_db -f sql_update/migration_add_booking_postgres.sql
+psql -U postgres -d ispiramy_db -f sql_update/migration_add_booking_postgres.sql
 ```
 
 ### Migrazioni Principali

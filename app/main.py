@@ -1,4 +1,4 @@
-import os
+﻿import os
 import secrets
 from pathlib import Path
 from fastapi import FastAPI, Request
@@ -14,7 +14,7 @@ from app.scheduler import start_scheduler, shutdown_scheduler
 from app.utils.template_helpers import get_all_categories
 from app.utils_user import get_display_name, get_default_avatar
 
-app = FastAPI(title="Helpy", version="1.0.0")
+app = FastAPI(title="Ispiramy", version="1.0.0")
 
 
 # Middleware per aggiungere categorie globalmente ai template
@@ -82,7 +82,7 @@ app.add_middleware(CSRFMiddleware)
 # 3. Session middleware — più esterno, gestisce le sessioni
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "helpy-super-secret-key-change-in-production-2024"),
+    secret_key=os.getenv("SESSION_SECRET", "ispiramy-super-secret-key-change-in-production-2024"),
     max_age=86400
 )
 
@@ -233,13 +233,13 @@ def on_startup():
     create_db_and_tables()
     test_s3_credentials()  # Test S3 credentials early
     start_scheduler()  # Avvia lo scheduler per le notifiche programmate
-    logger.info("✅ Helpy started successfully")
+    logger.info("✅ Ispiramy started successfully")
 
 
 @app.on_event("shutdown")
 def on_shutdown():
     shutdown_scheduler()  # Ferma lo scheduler in modo pulito
-    logger.info("👋 Helpy shutting down")
+    logger.info("👋 Ispiramy shutting down")
 
 
 # Esecuzione locale

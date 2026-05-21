@@ -1,4 +1,4 @@
-"""
+﻿"""
 Scheduler per notifiche programmate usando APScheduler.
 
 APScheduler funziona così:
@@ -26,7 +26,7 @@ ITALY_TZ = ZoneInfo("Europe/Rome")
 
 # Configurazione APScheduler
 jobstores = {
-    'default': SQLAlchemyJobStore(url=os.getenv('DATABASE_URL', 'sqlite:///helpy.db'))
+    'default': SQLAlchemyJobStore(url=os.getenv('DATABASE_URL', 'sqlite:///ispiramy.db'))
 }
 
 # Crea lo scheduler (BackgroundScheduler = esegue in un thread separato)

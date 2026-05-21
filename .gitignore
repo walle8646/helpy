@@ -15,3 +15,8 @@ uploads/
 .env          # 🔥 AGGIUNGI QUESTA RIGA
 .env.*
 *.env
+.env.local
+db_query.py
+.claude/
+scripts/sync_env_local.ps1
+scripts/rename_helpy_to_ispiramy.ps1

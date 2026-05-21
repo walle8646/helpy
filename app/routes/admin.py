@@ -1,4 +1,4 @@
-"""
+﻿"""
 Routes per il pannello di amministrazione.
 Solo utenti con user_type_id >= 2 possono accedere.
 """
@@ -289,7 +289,7 @@ async def admin_dispute_detail(dispute_id: int, request: Request):
                 "id": m.id,
                 "message": m.message,
                 "is_admin": m.is_admin,
-                "sender_name": f"{sender.nome or ''} {sender.cognome or ''}".strip() if sender else "Team Helpy",
+                "sender_name": f"{sender.nome or ''} {sender.cognome or ''}".strip() if sender else "Team Ispiramy",
                 "created_at": m.created_at,
             })
 

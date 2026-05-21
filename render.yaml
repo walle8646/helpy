@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: helpy
+    name: ispiramy
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile

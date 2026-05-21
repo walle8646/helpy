@@ -1,4 +1,4 @@
-import os
+﻿import os
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 from app.logger_config import logger
@@ -12,25 +12,29 @@ def generate_verification_code() -> str:
 def send_verification_email(to_email: str, code: str, nome: str = "User") -> bool:
     """Invia email di verifica tramite SendGrid API HTTP"""
     
+    from app.utils.email_backend import is_backend_available, active_backend_name
     sendgrid_api_key = os.getenv("SENDGRID_API_KEY") or os.getenv("SMTP_PASSWORD")
     from_email = os.getenv("FROM_EMAIL") or os.getenv("EMAIL_FROM")
-    
-    if not sendgrid_api_key or not from_email:
-        logger.error("❌ SendGrid API key or FROM_EMAIL not configured")
+
+    if not from_email:
+        logger.error("❌ FROM_EMAIL not configured")
+        return False
+    if not is_backend_available():
+        logger.error("❌ Nessun backend email disponibile (configura RESEND_API_KEY o SENDGRID_API_KEY o EMAIL_BACKEND=smtp)")
         return False
     
     try:
         html_body = f'''
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
             <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #667eea; margin: 0;">✨ Helpy</h1>
+                <h1 style="color: #667eea; margin: 0;">✨ Ispiramy</h1>
             </div>
             
             <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                 <h2 style="color: #1a1a1a; margin-top: 0;">Ciao {nome}! 👋</h2>
                 
                 <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                    Grazie per esserti registrato su <strong>Helpy</strong>!
+                    Grazie per esserti registrato su <strong>Ispiramy</strong>!
                 </p>
                 
                 <p style="color: #666; font-size: 16px; line-height: 1.6;">
@@ -53,7 +57,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
             </div>
             
             <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">
-                <p>© 2024 Helpy. Tutti i diritti riservati.</p>
+                <p>© 2024 Ispiramy. Tutti i diritti riservati.</p>
             </div>
         </div>
         '''
@@ -61,14 +65,14 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         message = Mail(
             from_email=Email(from_email),
             to_emails=To(to_email),
-            subject='Conferma la tua email - Helpy',
+            subject='Conferma la tua email - Ispiramy',
             html_content=Content("text/html", html_body)
         )
         
-        sg = SendGridAPIClient(sendgrid_api_key)
-        response = sg.send(message)
+        from app.utils.email_backend import mail_send
+        response = mail_send(sendgrid_api_key, message)
         
-        logger.info(f"✅ Verification email sent to {to_email} via SendGrid API (status: {response.status_code})")
+        logger.info(f"✅ Verification email sent to {to_email} via {active_backend_name()} (status: {response.status_code})")
         return True
     
     except Exception as e:
@@ -78,18 +82,22 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
 def send_profile_verification_request(to_email: str, user_id: int, user_name: str, user_email: str) -> bool:
     """Invia email ai verifiers quando un utente modifica il profilo e soddisfa i requisiti"""
     
+    from app.utils.email_backend import is_backend_available, active_backend_name
     sendgrid_api_key = os.getenv("SENDGRID_API_KEY") or os.getenv("SMTP_PASSWORD")
     from_email = os.getenv("FROM_EMAIL") or os.getenv("EMAIL_FROM")
-    
-    if not sendgrid_api_key or not from_email:
-        logger.error("❌ SendGrid API key or FROM_EMAIL not configured")
+
+    if not from_email:
+        logger.error("❌ FROM_EMAIL not configured")
+        return False
+    if not is_backend_available():
+        logger.error("❌ Nessun backend email disponibile (configura RESEND_API_KEY o SENDGRID_API_KEY o EMAIL_BACKEND=smtp)")
         return False
     
     try:
         html_body = f'''
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
             <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #667eea; margin: 0;">✨ Helpy - Richiesta Verifica</h1>
+                <h1 style="color: #667eea; margin: 0;">✨ Ispiramy - Richiesta Verifica</h1>
             </div>
             
             <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -124,7 +132,7 @@ def send_profile_verification_request(to_email: str, user_id: int, user_name: st
             </div>
             
             <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">
-                <p>© 2024 Helpy. Tutti i diritti riservati.</p>
+                <p>© 2024 Ispiramy. Tutti i diritti riservati.</p>
             </div>
         </div>
         '''
@@ -136,10 +144,10 @@ def send_profile_verification_request(to_email: str, user_id: int, user_name: st
             html_content=Content("text/html", html_body)
         )
         
-        sg = SendGridAPIClient(sendgrid_api_key)
-        response = sg.send(message)
+        from app.utils.email_backend import mail_send
+        response = mail_send(sendgrid_api_key, message)
         
-        logger.info(f"✅ Profile verification request sent to {to_email} for user {user_name} (ID: {user_id}) via SendGrid API (status: {response.status_code})")
+        logger.info(f"✅ Profile verification request sent to {to_email} for user {user_name} (ID: {user_id}) via {active_backend_name()} (status: {response.status_code})")
         return True
     
     except Exception as e:
@@ -150,11 +158,15 @@ def send_profile_verification_request(to_email: str, user_id: int, user_name: st
 def send_email(recipient_email: str, subject: str, html_content: str) -> bool:
     """Invia email generica tramite SendGrid API"""
     
+    from app.utils.email_backend import is_backend_available, active_backend_name
     sendgrid_api_key = os.getenv("SENDGRID_API_KEY") or os.getenv("SMTP_PASSWORD")
     from_email = os.getenv("FROM_EMAIL") or os.getenv("EMAIL_FROM")
-    
-    if not sendgrid_api_key or not from_email:
-        logger.error("❌ SendGrid API key or FROM_EMAIL not configured")
+
+    if not from_email:
+        logger.error("❌ FROM_EMAIL not configured")
+        return False
+    if not is_backend_available():
+        logger.error("❌ Nessun backend email disponibile (configura RESEND_API_KEY o SENDGRID_API_KEY o EMAIL_BACKEND=smtp)")
         return False
     
     try:
@@ -165,10 +177,10 @@ def send_email(recipient_email: str, subject: str, html_content: str) -> bool:
             html_content=Content("text/html", html_content)
         )
         
-        sg = SendGridAPIClient(sendgrid_api_key)
-        response = sg.send(message)
+        from app.utils.email_backend import mail_send
+        response = mail_send(sendgrid_api_key, message)
         
-        logger.info(f"✅ Email sent to {recipient_email} (subject: {subject}) via SendGrid API (status: {response.status_code})")
+        logger.info(f"✅ Email sent to {recipient_email} (subject: {subject}) via {active_backend_name()} (status: {response.status_code})")
         return True
     
     except Exception as e:

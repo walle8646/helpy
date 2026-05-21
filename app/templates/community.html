@@ -1,6 +1,6 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
-{% block title %}Q&A Community - Helpy{% endblock %}
+{% block title %}Q&A Community - Ispiramy{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -982,7 +982,7 @@
         color: #4caf50;
     }
     
-    /* ========== SIDEBAR DESTRA: TOP HELPYERS ========== */
+    /* ========== SIDEBAR DESTRA: TOP ISPIRAMYERS ========== */
     .sidebar-right {
         position: sticky;
         top: 100px;
@@ -990,7 +990,7 @@
         overflow-y: auto;
     }
     
-    .top-helpyer-card {
+    .top-ispiramyer-card {
         display: flex;
         align-items: center;
         gap: 10px;
@@ -1004,13 +1004,13 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
-    .top-helpyer-card:hover {
+    .top-ispiramyer-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
         border-color: #4caf50;
     }
     
-    .top-helpyer-avatar {
+    .top-ispiramyer-avatar {
         width: 42px;
         height: 42px;
         border-radius: 50%;
@@ -1018,7 +1018,7 @@
         border: 2px solid #f0f0f0;
     }
     
-    .top-helpyer-avatar-default {
+    .top-ispiramyer-avatar-default {
         width: 42px;
         height: 42px;
         border-radius: 50%;
@@ -1031,23 +1031,23 @@
         font-weight: 600;
     }
     
-    .top-helpyer-info {
+    .top-ispiramyer-info {
         flex: 1;
     }
     
-    .top-helpyer-name {
+    .top-ispiramyer-name {
         font-weight: 600;
         color: #333;
         font-size: 0.9rem;
         margin-bottom: 3px;
     }
     
-    .top-helpyer-rating {
+    .top-ispiramyer-rating {
         font-size: 0.75rem;
         color: #666;
     }
     
-    .top-helpyer-rating span {
+    .top-ispiramyer-rating span {
         margin-left: 4px;
     }
     
@@ -1647,7 +1647,7 @@
 {% endblock %}
 
 {% block content %}
-<!-- Header Community + Banner Diventa Helpyer (Unico Banner) -->
+<!-- Header Community + Banner Diventa Ispiramyer (Unico Banner) -->
 <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; padding: 0; margin-bottom: 20px;">
     <!-- Community Title -->
     <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.2);">
@@ -1656,12 +1656,12 @@
         </div>
     </div>
     
-    <!-- Diventa Helpyer - Visibile solo se loggato e non verificato -->
+    <!-- Diventa Ispiramyer - Visibile solo se loggato e non verificato -->
     {% if current_user and not current_user.is_verified %}
     <div style="padding: 12px 0;">
         <div class="container" style="max-width: 1400px; display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
             <div>
-                <h3 style="color: white; margin: 0 0 4px 0; font-size: 1.1rem;">✨ Diventa anche tu un Helpyer</h3>
+                <h3 style="color: white; margin: 0 0 4px 0; font-size: 1.1rem;">✨ Diventa anche tu un Ispiramyer</h3>
                 <p style="opacity: 0.9; margin: 0; font-size: 0.9rem;">Aiuta gli altri e guadagna condividendo le tue competenze.</p>
             </div>
             <a href="/profile?edit=true" style="background: white; color: #4caf50; padding: 10px 24px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: inline-block;">
@@ -2052,31 +2052,31 @@
         </div>
         <!-- FINE CONTENUTO PRINCIPALE -->
         
-        <!-- SIDEBAR DESTRA (17%) - Top Helpyers -->
+        <!-- SIDEBAR DESTRA (17%) - Top Ispiramyers -->
         <div class="col-md-3" style="flex: 0 0 17%; max-width: 17%; padding-left: 15px;">
             <div class="sidebar-right">
                 <h3 class="sidebar-section-title" style="margin-bottom: 20px;">
-                    <i class="fas fa-trophy" style="color: #ffa000;"></i> Top Helpyers
+                    <i class="fas fa-trophy" style="color: #ffa000;"></i> Top Ispiramyers
                 </h3>
                 
                 {% if top_consultants %}
                     {% for consultant in top_consultants %}
-                    <a href="/user/{{ consultant.id }}" class="top-helpyer-card">
+                    <a href="/user/{{ consultant.id }}" class="top-ispiramyer-card">
                         {% if consultant.profile_picture %}
                         <img 
                             data-src="{{ consultant.profile_picture }}" 
                             alt="{{ consultant.nome }}"
-                            class="top-helpyer-avatar"
+                            class="top-ispiramyer-avatar"
                         >
                         {% else %}
-                        <div class="top-helpyer-avatar-default">
+                        <div class="top-ispiramyer-avatar-default">
                             {{ consultant.nome[0] if consultant.nome else '👤' }}
                         </div>
                         {% endif %}
                         
-                        <div class="top-helpyer-info">
-                            <div class="top-helpyer-name">{{ consultant.nome }}</div>
-                            <div class="top-helpyer-rating">
+                        <div class="top-ispiramyer-info">
+                            <div class="top-ispiramyer-name">{{ consultant.nome }}</div>
+                            <div class="top-ispiramyer-rating">
                                 <span class="consulenze-badge">⭐ {{ consultant.review_avg }}/5 ({{ consultant.review_count }} recension{{ 'e' if consultant.review_count == 1 else 'i' }})</span>
                             </div>
                         </div>
@@ -2088,12 +2088,12 @@
     </div>
 </div>
 
-<!-- Banner Diventa Helpyer (In fondo) - Visibile solo se loggato e non verificato -->
+<!-- Banner Diventa Ispiramyer (In fondo) - Visibile solo se loggato e non verificato -->
 {% if current_user and not current_user.is_verified %}
 <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; padding: 20px 0; margin-top: 40px;">
     <div class="container" style="max-width: 1400px; display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
         <div>
-            <h3 style="color: white; margin: 0 0 8px 0; font-size: 1.3rem;">✨ Diventa anche tu un Helpyer</h3>
+            <h3 style="color: white; margin: 0 0 8px 0; font-size: 1.3rem;">✨ Diventa anche tu un Ispiramyer</h3>
             <p style="opacity: 0.9; margin: 0; font-size: 1rem;">Aiuta gli altri e guadagna condividendo le tue competenze.</p>
         </div>
         <a href="/profile?edit=true" style="background: white; color: #4caf50; padding: 12px 28px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; font-size: 1rem; display: inline-block;">
@@ -2377,7 +2377,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========== SALVATAGGIO BOZZA IN LOCALE ==========
-const DRAFT_KEY = 'helpy_community_draft';
+const DRAFT_KEY = 'ispiramy_community_draft';
 
 function saveDraft() {
     try {

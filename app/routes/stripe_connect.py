@@ -1,4 +1,4 @@
-"""
+﻿"""
 Stripe Connect — Onboarding consulenti e gestione account connessi
 """
 import os
@@ -49,7 +49,7 @@ async def start_onboarding(request: Request):
                         "card_payments": {"requested": True},
                         "transfers": {"requested": True},
                     },
-                    metadata={"helpy_user_id": str(db_user.id)},
+                    metadata={"ispiramy_user_id": str(db_user.id)},
                 )
                 db_user.stripe_account_id = account.id
                 session.add(db_user)

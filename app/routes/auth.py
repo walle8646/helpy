@@ -523,7 +523,7 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
     # âœ… Usa la funzione esistente (adattala al tuo caso)
     from app.utils.email import send_verification_email  # O il nome corretto
     
-    subject = "ðŸ” Reset Password - Helpy"
+    subject = "ðŸ” Reset Password - Ispiramy"
     
     html_body = f"""
     <!DOCTYPE html>
@@ -545,7 +545,7 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
             <div class="header">
                 <h1>ðŸ” Reset Password</h1>
                 <p style="color: #666; font-size: 16px;">Ciao {nome},</p>
-                <p style="color: #666;">Hai richiesto di reimpostare la tua password su Helpy.</p>
+                <p style="color: #666;">Hai richiesto di reimpostare la tua password su Ispiramy.</p>
             </div>
             
             <p style="text-align: center; font-size: 16px; margin-bottom: 8px; color: #333;">
@@ -563,7 +563,7 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
             </p>
             
             <div class="footer">
-                <p>Â© 2025 Helpy - Get Advice from People Who Can Help</p>
+                <p>Â© 2025 Ispiramy - Get Advice from People Who Can Help</p>
             </div>
         </div>
     </body>
@@ -598,7 +598,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
     try:
         # ========== STEP 1: Carica API Key ==========
         api_key = os.getenv('SENDGRID_API_KEY') or os.getenv('SMTP_PASSWORD')
-        from_email = os.getenv('FROM_EMAIL', 'noreply@helpy.com')
+        from_email = os.getenv('FROM_EMAIL', 'noreply@ispiramy.com')
         
         logger.info("ðŸ“‹ STEP 1: Configurazione caricata")
         logger.info(f"   â”œâ”€ API_KEY: {'âœ… SET' if api_key else 'âŒ NOT SET'}")
@@ -606,8 +606,9 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         logger.info(f"   â”œâ”€ TO_EMAIL: {to_email}")
         logger.info(f"   â””â”€ NOME: {nome}")
         
-        if not api_key:
-            logger.error("âŒ SENDGRID_API_KEY non configurata!")
+        from app.utils.email_backend import is_backend_available
+        if not is_backend_available():
+            logger.error("Nessun backend email disponibile (RESEND_API_KEY / SENDGRID_API_KEY mancanti)")
             return False
         
         # ========== STEP 2: Costruisci messaggio HTML ==========
@@ -628,13 +629,13 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         </head>
         <body>
             <div class="container">
-                <h1>ðŸ¦Š Benvenuto su Helpy, {nome}!</h1>
+                <h1>ðŸ¦Š Benvenuto su Ispiramy, {nome}!</h1>
                 <p>Grazie per esserti registrato. Ecco il tuo codice di verifica:</p>
                 <div class="code">{code}</div>
                 <p>Inserisci questo codice nella pagina di registrazione per completare la verifica del tuo account.</p>
                 <p><strong>Importante:</strong> Questo codice Ã¨ valido per 10 minuti.</p>
                 <div class="footer">
-                    <p>Se non hai richiesto questa email, ignorala.<br>Â© 2025 Helpy - Tutti i diritti riservati</p>
+                    <p>Se non hai richiesto questa email, ignorala.<br>Â© 2025 Ispiramy - Tutti i diritti riservati</p>
                 </div>
             </div>
         </body>
@@ -645,12 +646,12 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         message = Mail(
             from_email=from_email,
             to_emails=to_email,
-            subject='Codice di Verifica Helpy',
+            subject='Codice di Verifica Ispiramy',
             html_content=html_content
         )
         
         logger.info("âœ… STEP 2: Messaggio costruito")
-        logger.info(f"   â”œâ”€ Subject: Codice di Verifica Helpy")
+        logger.info(f"   â”œâ”€ Subject: Codice di Verifica Ispiramy")
         logger.info(f"   â”œâ”€ From: {from_email}")
         logger.info(f"   â”œâ”€ To: {to_email}")
         logger.info(f"   â””â”€ Codice: {code}")
@@ -659,8 +660,8 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         logger.info("ðŸ“¤ STEP 3: Invio via SendGrid API...")
         
         try:
-            sg = SendGridAPIClient(api_key)
-            response = sg.send(message)
+            from app.utils.email_backend import mail_send
+            response = mail_send(api_key, message)
             
             logger.info(f"âœ… STEP 3: Email inviata!")
             logger.info(f"   â”œâ”€ Status Code: {response.status_code}")
@@ -1021,7 +1022,7 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
     # âœ… Usa la funzione esistente (adattala al tuo caso)
     from app.utils.email import send_verification_email  # O il nome corretto
     
-    subject = "ðŸ” Reset Password - Helpy"
+    subject = "ðŸ” Reset Password - Ispiramy"
     
     html_body = f"""
     <!DOCTYPE html>
@@ -1043,7 +1044,7 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
             <div class="header">
                 <h1>ðŸ” Reset Password</h1>
                 <p style="color: #666; font-size: 16px;">Ciao {nome},</p>
-                <p style="color: #666;">Hai richiesto di reimpostare la tua password su Helpy.</p>
+                <p style="color: #666;">Hai richiesto di reimpostare la tua password su Ispiramy.</p>
             </div>
             
             <p style="text-align: center; font-size: 16px; margin-bottom: 8px; color: #333;">
@@ -1061,7 +1062,7 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
             </p>
             
             <div class="footer">
-                <p>Â© 2025 Helpy - Get Advice from People Who Can Help</p>
+                <p>Â© 2025 Ispiramy - Get Advice from People Who Can Help</p>
             </div>
         </div>
     </body>
@@ -1096,7 +1097,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
     try:
         # ========== STEP 1: Carica API Key ==========
         api_key = os.getenv('SENDGRID_API_KEY') or os.getenv('SMTP_PASSWORD')
-        from_email = os.getenv('FROM_EMAIL', 'noreply@helpy.com')
+        from_email = os.getenv('FROM_EMAIL', 'noreply@ispiramy.com')
         
         logger.info("ðŸ“‹ STEP 1: Configurazione caricata")
         logger.info(f"   â”œâ”€ API_KEY: {'âœ… SET' if api_key else 'âŒ NOT SET'}")
@@ -1104,8 +1105,9 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         logger.info(f"   â”œâ”€ TO_EMAIL: {to_email}")
         logger.info(f"   â””â”€ NOME: {nome}")
         
-        if not api_key:
-            logger.error("âŒ SENDGRID_API_KEY non configurata!")
+        from app.utils.email_backend import is_backend_available
+        if not is_backend_available():
+            logger.error("Nessun backend email disponibile (RESEND_API_KEY / SENDGRID_API_KEY mancanti)")
             return False
         
         # ========== STEP 2: Costruisci messaggio HTML ==========
@@ -1126,13 +1128,13 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         </head>
         <body>
             <div class="container">
-                <h1>ðŸ¦Š Benvenuto su Helpy, {nome}!</h1>
+                <h1>ðŸ¦Š Benvenuto su Ispiramy, {nome}!</h1>
                 <p>Grazie per esserti registrato. Ecco il tuo codice di verifica:</p>
                 <div class="code">{code}</div>
                 <p>Inserisci questo codice nella pagina di registrazione per completare la verifica del tuo account.</p>
                 <p><strong>Importante:</strong> Questo codice Ã¨ valido per 10 minuti.</p>
                 <div class="footer">
-                    <p>Se non hai richiesto questa email, ignorala.<br>Â© 2025 Helpy - Tutti i diritti riservati</p>
+                    <p>Se non hai richiesto questa email, ignorala.<br>Â© 2025 Ispiramy - Tutti i diritti riservati</p>
                 </div>
             </div>
         </body>
@@ -1143,12 +1145,12 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         message = Mail(
             from_email=from_email,
             to_emails=to_email,
-            subject='Codice di Verifica Helpy',
+            subject='Codice di Verifica Ispiramy',
             html_content=html_content
         )
         
         logger.info("âœ… STEP 2: Messaggio costruito")
-        logger.info(f"   â”œâ”€ Subject: Codice di Verifica Helpy")
+        logger.info(f"   â”œâ”€ Subject: Codice di Verifica Ispiramy")
         logger.info(f"   â”œâ”€ From: {from_email}")
         logger.info(f"   â”œâ”€ To: {to_email}")
         logger.info(f"   â””â”€ Codice: {code}")
@@ -1157,8 +1159,8 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         logger.info("ðŸ“¤ STEP 3: Invio via SendGrid API...")
         
         try:
-            sg = SendGridAPIClient(api_key)
-            response = sg.send(message)
+            from app.utils.email_backend import mail_send
+            response = mail_send(api_key, message)
             
             logger.info(f"âœ… STEP 3: Email inviata!")
             logger.info(f"   â”œâ”€ Status Code: {response.status_code}")

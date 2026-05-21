@@ -1,4 +1,4 @@
-# 🎬 Setup Agora Cloud Recording - Guida Completa
+﻿# 🎬 Setup Agora Cloud Recording - Guida Completa
 
 ## ✅ CHECKLIST COMPLETAMENTO
 
@@ -57,7 +57,7 @@ sqlite3 dev.db < migration_add_recording.sql
 
 ### PostgreSQL (Produzione):
 ```bash
-psql -U postgres -d helpy_db -f migration_add_recording_postgres.sql
+psql -U postgres -d ispiramy_db -f migration_add_recording_postgres.sql
 ```
 
 ---
@@ -108,7 +108,7 @@ Ritorna:
 {
     "booking_id": 123,
     "recording_status": "completed",
-    "recording_url": "https://helpy-recordings.s3.eu-south-1.amazonaws.com/...",
+    "recording_url": "https://ispiramy-recordings.s3.eu-south-1.amazonaws.com/...",
     "recording_duration": 1800,
     "recording_started_at": "2024-11-05T14:00:00",
     "recording_completed_at": "2024-11-05T14:30:00"
@@ -155,7 +155,7 @@ Ritorna:
 ## 🚀 PROSSIMI PASSI OPZIONALI
 
 1. **Pagina "Le mie registrazioni"** nel profilo utente
-2. **Player video integrato** per vedere i video direttamente in Helpy
+2. **Player video integrato** per vedere i video direttamente in Ispiramy
 3. **Trascrizione automatica** con AWS Transcribe
 4. **Notifica email** quando la registrazione è pronta
 5. **Download diretto** dei video MP4

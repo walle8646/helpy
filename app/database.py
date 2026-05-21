@@ -4,7 +4,7 @@ from app.logger_config import logger
 from contextlib import contextmanager
 
 # Ottieni DATABASE_URL da environment
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./helpy.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ispiramy.db")
 
 # 🔥 FIX per Render: postgres:// → postgresql://
 if DATABASE_URL.startswith("postgres://"):

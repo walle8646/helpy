@@ -1,4 +1,4 @@
-import os
+﻿import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -10,9 +10,14 @@ def generate_verification_code() -> str:
     """Genera codice di verifica a 6 cifre"""
     return ''.join(random.choices(string.digits, k=6))
 
+def _smtp_use_tls() -> bool:
+    """In dev (es. Mailpit) si può disattivare TLS+auth con SMTP_USE_TLS=false."""
+    return os.getenv("SMTP_USE_TLS", "true").lower() not in ("false", "0", "no")
+
+
 def send_verification_email(to_email: str, code: str, nome: str = "User") -> bool:
     """Invia email di verifica tramite SMTP (SendGrid)"""
-    
+
     # ✅ Usa variabili SMTP dal .env (o hardcoded)
     smtp_host = os.getenv("SMTP_HOST")
     smtp_port = int(os.getenv("SMTP_PORT"))
@@ -23,21 +28,21 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
     try:
         # Crea messaggio HTML
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = 'Conferma la tua email - Helpy'
+        msg['Subject'] = 'Conferma la tua email - Ispiramy'
         msg['From'] = from_email
         msg['To'] = to_email
         
         html_body = f'''
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
             <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #4caf50; margin: 0;">✨ Helpy</h1>
+                <h1 style="color: #4caf50; margin: 0;">✨ Ispiramy</h1>
             </div>
             
             <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                 <h2 style="color: #1a1a1a; margin-top: 0;">Ciao {nome}! 👋</h2>
                 
                 <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                    Grazie per esserti registrato su <strong>Helpy</strong>!
+                    Grazie per esserti registrato su <strong>Ispiramy</strong>!
                 </p>
                 
                 <p style="color: #666; font-size: 16px; line-height: 1.6;">
@@ -60,7 +65,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
             </div>
             
             <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">
-                <p>© 2024 Helpy. Tutti i diritti riservati.</p>
+                <p>© 2024 Ispiramy. Tutti i diritti riservati.</p>
             </div>
         </div>
         '''
@@ -69,10 +74,12 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         html_part = MIMEText(html_body, 'html')
         msg.attach(html_part)
         
-        # ✅ Connetti e invia tramite SMTP
+        # ✅ Connetti e invia tramite SMTP (in dev su Mailpit niente TLS/auth)
         with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()  # TLS encryption
-            server.login(smtp_user, smtp_password)
+            if _smtp_use_tls():
+                server.starttls()
+                if smtp_user and smtp_password:
+                    server.login(smtp_user, smtp_password)
             server.send_message(msg)
         
         logger.info(f"✅ Verification email sent to {to_email} via SMTP")
@@ -102,10 +109,12 @@ def send_email_notification(to_email: str, subject: str, html_body: str) -> bool
         html_part = MIMEText(html_body, 'html')
         msg.attach(html_part)
         
-        # ✅ Connetti e invia tramite SMTP
+        # ✅ Connetti e invia tramite SMTP (in dev su Mailpit niente TLS/auth)
         with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()  # TLS encryption
-            server.login(smtp_user, smtp_password)
+            if _smtp_use_tls():
+                server.starttls()
+                if smtp_user and smtp_password:
+                    server.login(smtp_user, smtp_password)
             server.send_message(msg)
         
         logger.info(f"✅ Email notification sent to {to_email} with subject: {subject}")

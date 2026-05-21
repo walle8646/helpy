@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form, UploadFile, File, Query
+﻿from fastapi import APIRouter, Request, Form, UploadFile, File, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.database import get_session
 from app.models import User, Category, CategoryHierarchy, Review
@@ -549,7 +549,7 @@ async def upload_profile_picture(request: Request, file: UploadFile = File(...))
         # ========== MODERAZIONE AI ==========
         import base64
         image_b64 = base64.b64encode(contents).decode("utf-8")
-        moderation = await modera_immagine(image_b64, "Foto profilo", "Immagine del profilo utente sulla piattaforma Helpy")
+        moderation = await modera_immagine(image_b64, "Foto profilo", "Immagine del profilo utente sulla piattaforma Ispiramy")
         
         if not moderation.get("approved", False):
             reason = moderation.get("reason", "Immagine non approvata")
@@ -566,7 +566,7 @@ async def upload_profile_picture(request: Request, file: UploadFile = File(...))
         # Configura AWS S3
         aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        s3_bucket = os.getenv("S3_BUCKET_NAME", "helpy-images")
+        s3_bucket = os.getenv("S3_BUCKET_NAME", "ispiramy-images")
         s3_region = os.getenv("AWS_REGION", "eu-west-1")
         
         logger.info(f"🔍 DEBUG Upload - Access Key: {aws_access_key[:10] if aws_access_key else 'NONE'}...")

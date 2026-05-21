@@ -1,6 +1,6 @@
-# 🚀 Guida al Deploy — Helpy
+﻿# 🚀 Guida al Deploy — Ispiramy
 
-Guida completa per il deploy di Helpy in ambiente locale, Docker e produzione (Render).
+Guida completa per il deploy di Ispiramy in ambiente locale, Docker e produzione (Render).
 
 ---
 
@@ -42,8 +42,8 @@ Guida completa per il deploy di Helpy in ambiente locale, Docker e produzione (R
 ### 1. Clona il repository
 
 ```bash
-git clone https://github.com/your-username/helpy.git
-cd helpy
+git clone https://github.com/your-username/ispiramy.git
+cd ispiramy
 ```
 
 ### 2. Crea ambiente virtuale
@@ -70,7 +70,7 @@ Crea un file `.env` nella root del progetto:
 
 ```env
 # === Database (SQLite per sviluppo) ===
-DATABASE_URL=sqlite:///./helpy.db
+DATABASE_URL=sqlite:///./ispiramy.db
 
 # === Sicurezza ===
 JWT_SECRET=your-secret-key-change-in-production
@@ -175,7 +175,7 @@ services:
     ports:
       - "10000:10000"
     environment:
-      - DATABASE_URL=postgresql://helpy:helpy@db:5432/helpy
+      - DATABASE_URL=postgresql://ispiramy:ispiramy@db:5432/ispiramy
       # ... altre variabili d'ambiente
     depends_on:
       - db
@@ -183,9 +183,9 @@ services:
   db:
     image: postgres:15
     environment:
-      - POSTGRES_USER=helpy
-      - POSTGRES_PASSWORD=helpy
-      - POSTGRES_DB=helpy
+      - POSTGRES_USER=ispiramy
+      - POSTGRES_PASSWORD=ispiramy
+      - POSTGRES_DB=ispiramy
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -202,13 +202,13 @@ volumes:
 docker-compose exec web bash
 
 # Esegui una migrazione SQL
-docker-compose exec db psql -U helpy -d helpy -f /path/to/migration.sql
+docker-compose exec db psql -U ispiramy -d ispiramy -f /path/to/migration.sql
 
 # Backup database
-docker-compose exec db pg_dump -U helpy helpy > backup.sql
+docker-compose exec db pg_dump -U ispiramy ispiramy > backup.sql
 
 # Restore database
-docker-compose exec db psql -U helpy helpy < backup.sql
+docker-compose exec db psql -U ispiramy ispiramy < backup.sql
 ```
 
 ---
@@ -222,7 +222,7 @@ Il progetto include un `render.yaml` (Blueprint) per il deploy automatico:
 ```yaml
 services:
   - type: web
-    name: helpy
+    name: ispiramy
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -230,15 +230,15 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: helpy-db
+          name: ispiramy-db
           property: connectionString
       # ... altre variabili
 
 databases:
-  - name: helpy-db
+  - name: ispiramy-db
     plan: free
-    databaseName: helpy
-    user: helpy
+    databaseName: ispiramy
+    user: ispiramy
 ```
 
 ### 2. Deploy Manuale
@@ -264,7 +264,7 @@ databases:
 
 Vai su **Web Service** → **Environment** → **Environment Variables**:
 
-⚠️ **IMPORTANTE**: Render genera automaticamente `DATABASE_URL` con prefisso `postgres://`. Il codice di Helpy lo converte automaticamente in `postgresql://`.
+⚠️ **IMPORTANTE**: Render genera automaticamente `DATABASE_URL` con prefisso `postgres://`. Il codice di Ispiramy lo converte automaticamente in `postgresql://`.
 
 ### 5. Database PostgreSQL su Render
 
@@ -293,7 +293,7 @@ Oppure tramite la **Shell** di Render (disponibile nella dashboard del servizio)
 
 | Variabile | Obbligatoria | Default | Descrizione |
 |---|---|---|---|
-| `DATABASE_URL` | ✅ | `sqlite:///./helpy.db` | Stringa di connessione database |
+| `DATABASE_URL` | ✅ | `sqlite:///./ispiramy.db` | Stringa di connessione database |
 | `JWT_SECRET` | ✅ | — | Secret per generazione JWT |
 | `SESSION_SECRET` | ✅ | — | Secret per sessioni Starlette |
 | `PORT` | ❌ | `10000` | Porta del server |
@@ -416,7 +416,7 @@ psql $DATABASE_URL -f sql_update/insert_dummy_users_postgres.sql  # solo per tes
 Per applicare tutte le migrazioni in un colpo solo su SQLite:
 
 ```bash
-sqlite3 helpy.db < sql_update/apply_full_update_sqlite.sql
+sqlite3 ispiramy.db < sql_update/apply_full_update_sqlite.sql
 ```
 
 ---

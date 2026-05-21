@@ -1,4 +1,4 @@
-# Configurazione AWS S3 per Immagini Profilo
+﻿# Configurazione AWS S3 per Immagini Profilo
 
 ## Panoramica
 Il sistema salva le immagini del profilo su **AWS S3** (cloud storage) con fallback a salvataggio locale se S3 non è configurato.
@@ -19,7 +19,7 @@ Aggiungi al file `.env`:
 AWS_ACCESS_KEY_ID=your_aws_access_key_here
 AWS_SECRET_ACCESS_KEY=your_aws_secret_key_here
 AWS_REGION=eu-west-1  # O la tua regione preferita
-S3_BUCKET_NAME=helpy-images  # Nome del bucket S3
+S3_BUCKET_NAME=ispiramy-images  # Nome del bucket S3
 ```
 
 ## Setup AWS S3
@@ -27,7 +27,7 @@ S3_BUCKET_NAME=helpy-images  # Nome del bucket S3
 ### 1. Creare un Bucket S3
 ```bash
 # Via AWS Console o AWS CLI
-aws s3 mb s3://helpy-images --region eu-west-1
+aws s3 mb s3://ispiramy-images --region eu-west-1
 ```
 
 ### 2. Impostare Policy del Bucket (per URL pubblici)
@@ -41,7 +41,7 @@ Se vuoi URL pubblici (consigliato):
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::helpy-images/*"
+      "Resource": "arn:aws:s3:::ispiramy-images/*"
     }
   ]
 }
@@ -49,7 +49,7 @@ Se vuoi URL pubblici (consigliato):
 
 ### 3. Creare Credentials AWS (IAM User)
 1. Vai su AWS Console → IAM → Users
-2. Crea nuovo user "helpy-app"
+2. Crea nuovo user "ispiramy-app"
 3. Aggiungi permessi: `AmazonS3FullAccess` (o custom policy più restrittiva)
 4. Copia `Access Key ID` e `Secret Access Key` nel `.env`
 
@@ -83,7 +83,7 @@ curl -X POST http://localhost:8080/api/upload-profile-picture \
 ```json
 {
   "success": true,
-  "url": "https://helpy-images.s3.eu-west-1.amazonaws.com/profile-pictures/11_20251121_150530.jpg",
+  "url": "https://ispiramy-images.s3.eu-west-1.amazonaws.com/profile-pictures/11_20251121_150530.jpg",
   "message": "Immagine caricata con successo!"
 }
 ```
@@ -97,7 +97,7 @@ curl -X POST http://localhost:8080/api/upload-profile-picture \
 
 ## Storage Path Structure
 ```
-s3://helpy-images/
+s3://ispiramy-images/
 ├── profile-pictures/
 │   ├── 11_20251121_150530.jpg
 │   ├── 18_20251121_150545.jpg
@@ -108,7 +108,7 @@ s3://helpy-images/
 Il campo `User.profile_picture` salva:
 - **Se S3 è configurato**: URL pubblico o signed URL
   ```
-  https://helpy-images.s3.eu-west-1.amazonaws.com/profile-pictures/11_20251121_150530.jpg
+  https://ispiramy-images.s3.eu-west-1.amazonaws.com/profile-pictures/11_20251121_150530.jpg
   ```
 - **Se S3 non è configurato**: URL locale
   ```
@@ -194,10 +194,10 @@ with get_session() as session:
             with open(local_path, 'rb') as f:
                 # Upload a S3
                 s3_key = f"profile-pictures/{user.id}_{local_path.name}"
-                s3.put_object(Bucket='helpy-images', Key=s3_key, Body=f.read())
+                s3.put_object(Bucket='ispiramy-images', Key=s3_key, Body=f.read())
                 
                 # Aggiorna database
-                user.profile_picture = f"https://helpy-images.s3.eu-west-1.amazonaws.com/{s3_key}"
+                user.profile_picture = f"https://ispiramy-images.s3.eu-west-1.amazonaws.com/{s3_key}"
                 session.add(user)
     
     session.commit()

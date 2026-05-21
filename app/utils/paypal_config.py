@@ -1,4 +1,4 @@
-"""
+﻿"""
 PayPal configuration and utility functions.
 Uses PayPal REST API directly via requests (no SDK needed).
 """
@@ -85,7 +85,7 @@ def create_order(amount: float, currency: str, return_url: str, cancel_url: str,
                 "experience_context": {
                     "return_url": return_url,
                     "cancel_url": cancel_url,
-                    "brand_name": "Helpy",
+                    "brand_name": "Ispiramy",
                     "landing_page": "LOGIN",
                     "user_action": "PAY_NOW",
                 }
@@ -168,9 +168,9 @@ def create_payout(recipient_email: str, amount: float, currency: str = "EUR", no
 
     body = {
         "sender_batch_header": {
-            "sender_batch_id": f"helpy_{sender_item_id}_{int(datetime.utcnow().timestamp())}",
-            "email_subject": "Pagamento ricevuto da Helpy",
-            "email_message": note or "Hai ricevuto un pagamento per una consulenza su Helpy.",
+            "sender_batch_id": f"ispiramy_{sender_item_id}_{int(datetime.utcnow().timestamp())}",
+            "email_subject": "Pagamento ricevuto da Ispiramy",
+            "email_message": note or "Hai ricevuto un pagamento per una consulenza su Ispiramy.",
         },
         "items": [{
             "recipient_type": "EMAIL",

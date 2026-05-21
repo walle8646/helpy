@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="csrf-token" content="{{ request.state.csrf_token }}">
-    <title>{% block title %}Helpy - Get Advice from People Who Can Help{% endblock %}</title>
+    <title>{% block title %}Ispiramy - Get Advice from People Who Can Help{% endblock %}</title>
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -36,7 +36,7 @@
             overflow: visible;
         }
         
-        /* Left: Solo Logo + Helpy */
+        /* Left: Solo Logo + Ispiramy */
         .navbar-left {
             display: flex;
             align-items: center;
@@ -841,11 +841,11 @@
 
     <!-- 🎯 HEADER GLOBALE -->
     <nav class="navbar">
-        <!-- Left: Logo + Helpy + Hamburger -->
+        <!-- Left: Logo + Ispiramy + Hamburger -->
         <div class="navbar-left">
             <a href="/" class="navbar-logo-link">
-                <img src="https://i.imgur.com/4M34hi2.png" alt="Helpy Logo" class="navbar-logo">
-                <span class="navbar-title">Helpy</span>
+                <img src="https://i.imgur.com/4M34hi2.png" alt="Ispiramy Logo" class="navbar-logo">
+                <span class="navbar-title">Ispiramy</span>
             </a>
             <!-- Hamburger Menu Button (mobile only) -->
             <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMobileMenu()" aria-label="Menu" style="position:relative;">
@@ -864,7 +864,7 @@
                     type="text" 
                     id="globalSearch" 
                     class="search-input" 
-                    placeholder="Cerca un Helpy o una consulenza..."
+                    placeholder="Cerca un Ispiramy o una consulenza..."
                     autocomplete="off"
                 >
                 <div class="search-dropdown" id="searchDropdown">
@@ -1002,7 +1002,7 @@
         <div class="footer-content">
             <!-- Sezione About -->
             <div class="footer-section">
-                <h3>🦊 Helpy</h3>
+                <h3>🦊 Ispiramy</h3>
                 <p style="color: rgba(255,255,255,0.7); line-height: 1.6;">
                     La piattaforma che connette persone in cerca di aiuto con esperti che hanno già affrontato le stesse sfide.
                 </p>
@@ -1051,7 +1051,7 @@
         </div>
         
         <div class="footer-bottom">
-            © {{ current_year or 2025 }} Helpy. Tutti i diritti riservati. Made with ❤️ in Italy
+            © {{ current_year or 2025 }} Ispiramy. Tutti i diritti riservati. Made with ❤️ in Italy
         </div>
     </footer>
 

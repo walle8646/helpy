@@ -1,4 +1,4 @@
-# Sistema di Verifica Profili
+﻿# Sistema di Verifica Profili
 
 ## Overview
 Quando un utente modifica il proprio profilo e soddisfa tutti i criteri di qualità, viene inviata automaticamente una email agli utenti con ruolo **Verifier** (user_type_id=2) e **Admin** (user_type_id=3) per richiedere la verifica del profilo.
@@ -125,7 +125,7 @@ SMTP_HOST=smtp.sendgrid.net
 SMTP_PORT=587
 SMTP_USER=apikey
 SMTP_PASSWORD=your_sendgrid_api_key
-EMAIL_FROM=noreply@helpy.com
+EMAIL_FROM=noreply@ispiramy.com
 ```
 
 ## Note Tecniche

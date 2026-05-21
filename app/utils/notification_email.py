@@ -1,4 +1,4 @@
-"""
+﻿"""
 Utility per l'invio di email notifiche usando SendGrid.
 
 Gestisce l'invio di email basate su template HTML configurabili.
@@ -34,11 +34,12 @@ def send_notification_email(
     try:
         # Verifica che SendGrid sia configurato
         # Usa SMTP_PASSWORD che contiene la chiave API SendGrid
+        from app.utils.email_backend import is_backend_available
         sendgrid_api_key = os.getenv('SMTP_PASSWORD')
-        from_email = os.getenv('FROM_EMAIL', 'noreply@helpy.com')
-        
-        if not sendgrid_api_key:
-            logger.warning("SendGrid API key (SMTP_PASSWORD) non configurata, skip invio email")
+        from_email = os.getenv('FROM_EMAIL', 'noreply@ispiramy.com')
+
+        if not is_backend_available():
+            logger.warning("Nessun backend email disponibile (RESEND_API_KEY / SENDGRID_API_KEY / EMAIL_BACKEND=smtp mancanti), skip invio email")
             return False
         
         # Genera l'HTML del template
@@ -50,15 +51,15 @@ def send_notification_email(
         
         # Crea il messaggio
         message = Mail(
-            from_email=Email(from_email, "Helpy"),
+            from_email=Email(from_email, "Ispiramy"),
             to_emails=To(to_email, to_name),
             subject=subject,
             html_content=Content("text/html", html_content)
         )
         
-        # Invia tramite SendGrid
-        sg = SendGridAPIClient(sendgrid_api_key)
-        response = sg.send(message)
+        # Invia tramite backend configurato (SendGrid o SMTP locale in dev)
+        from app.utils.email_backend import mail_send
+        response = mail_send(sendgrid_api_key, message)
         
         if response.status_code in [200, 201, 202]:
             logger.info(f"✅ Email notifica inviata a {to_email}: {subject}")
@@ -125,7 +126,7 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
             </p>
         </div>
         <div class="footer">
-            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
         </div>
     </div>
 </body>
@@ -170,7 +171,7 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
             </p>
         </div>
         <div class="footer">
-            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
         </div>
     </div>
 </body>
@@ -221,7 +222,7 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
             </p>
         </div>
         <div class="footer">
-            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
         </div>
     </div>
 </body>
@@ -257,7 +258,7 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
                 <p><strong>📅 Quando:</strong> {contact_date}</p>
             </div>
             
-            <p>Riceverai i suoi messaggi nella sezione chat di Helpy.</p>
+            <p>Riceverai i suoi messaggi nella sezione chat di Ispiramy.</p>
             
             <a href="{action_url}" class="button">💬 Apri Chat</a>
             
@@ -266,7 +267,7 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
             </p>
         </div>
         <div class="footer">
-            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
         </div>
     </div>
 </body>
@@ -319,7 +320,7 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
             </p>
         </div>
         <div class="footer">
-            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
         </div>
     </div>
 </body>
@@ -359,11 +360,11 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
             <a href="{review_url}" class="button">⭐ Lascia la tua Recensione</a>
             
             <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                Grazie per contribuire alla community di Helpy!
+                Grazie per contribuire alla community di Ispiramy!
             </p>
         </div>
         <div class="footer">
-            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
         </div>
     </div>
 </body>
@@ -407,7 +408,7 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
             </p>
         </div>
         <div class="footer">
-            <p>Questa è un'email automatica da Helpy. Non rispondere a questo messaggio.</p>
+            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
         </div>
     </div>
 </body>

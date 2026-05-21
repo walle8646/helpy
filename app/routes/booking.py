@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, Form, File, BackgroundTasks
+﻿from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, Form, File, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select, func
 from datetime import datetime, timedelta, time
@@ -1835,7 +1835,7 @@ async def upload_chat_attachment(
         if not s3_client:
             raise HTTPException(status_code=500, detail="Servizio upload non disponibile")
         
-        s3_bucket = os.getenv("S3_BUCKET_NAME", "helpy-images")
+        s3_bucket = os.getenv("S3_BUCKET_NAME", "ispiramy-images")
         s3_region = os.getenv("AWS_REGION", "eu-west-1")
         
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")

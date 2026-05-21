@@ -1,4 +1,4 @@
-"""
+﻿"""
 Servizio di analisi video contestazioni tramite Google Gemini.
 Scarica il video MP4 da S3, lo invia a Gemini per l'analisi e restituisce il verdetto.
 """
@@ -13,7 +13,7 @@ from app.logger_config import logger
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-ANALYSIS_PROMPT = """Sei un analista imparziale per una piattaforma di consulenze online chiamata Helpy.
+ANALYSIS_PROMPT = """Sei un analista imparziale per una piattaforma di consulenze online chiamata Ispiramy.
 Ti viene fornito il video di una consulenza in videochiamata e le seguenti informazioni:
 
 **Descrizione della consulenza richiesta dal cliente:**

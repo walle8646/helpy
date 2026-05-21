@@ -1,12 +1,12 @@
-# Helpy — Video Brief per AI Video Generation
+﻿# Ispiramy — Video Brief per AI Video Generation
 
 ## Obiettivo del Video
-Creare un video promozionale/esplicativo di **60-90 secondi** che mostri cos'è Helpy, come funziona e perché usarlo. Il tono è **moderno e accessibile**, rivolto a un pubblico italiano.
+Creare un video promozionale/esplicativo di **60-90 secondi** che mostri cos'è Ispiramy, come funziona e perché usarlo. Il tono è **moderno e accessibile**, rivolto a un pubblico italiano.
 
 ---
 
-## Cos'è Helpy
-Helpy è una **piattaforma italiana che mette in contatto chi ha bisogno di aiuto con chi ha l'esperienza giusta per darlo**. Non servono titoli o albi professionali: su Helpy chiunque abbia competenza ed esperienza in un campo può offrire consulenze a pagamento in videochiamata. Un ex-commerciante può aiutare chi vuole aprire un negozio, un programmatore esperto può guidare chi sta imparando, una persona che ha affrontato un percorso burocratico può spiegarlo a chi ci si trova per la prima volta. L'esperienza vissuta conta quanto un titolo di studio. Tutto avviene online: ricerca, prenotazione, pagamento, videochiamata e recensione.
+## Cos'è Ispiramy
+Ispiramy è una **piattaforma italiana che mette in contatto chi ha bisogno di aiuto con chi ha l'esperienza giusta per darlo**. Non servono titoli o albi professionali: su Ispiramy chiunque abbia competenza ed esperienza in un campo può offrire consulenze a pagamento in videochiamata. Un ex-commerciante può aiutare chi vuole aprire un negozio, un programmatore esperto può guidare chi sta imparando, una persona che ha affrontato un percorso burocratico può spiegarlo a chi ci si trova per la prima volta. L'esperienza vissuta conta quanto un titolo di studio. Tutto avviene online: ricerca, prenotazione, pagamento, videochiamata e recensione.
 
 ---
 
@@ -19,10 +19,10 @@ Helpy è una **piattaforma italiana che mette in contatto chi ha bisogno di aiut
 - Senso di frustrazione
 - Colori freddi, grigi
 
-### Scena 2 — La Soluzione: Helpy (0:10 - 0:20)
-**Messaggio**: "Helpy ti connette con persone che hanno l'esperienza che ti serve, in pochi click"
+### Scena 2 — La Soluzione: Ispiramy (0:10 - 0:20)
+**Messaggio**: "Ispiramy ti connette con persone che hanno l'esperienza che ti serve, in pochi click"
 - Transizione energica verso colori verdi (brand color: #2d6a4f)
-- Logo Helpy appare
+- Logo Ispiramy appare
 - Concetto chiave: **non solo professionisti, ma persone con esperienza reale**
 - Mostrare la homepage con le categorie disponibili:
   - 💼 Lavoro e Carriera
@@ -81,8 +81,8 @@ Helpy è una **piattaforma italiana che mette in contatto chi ha bisogno di aiut
 - Trasmettere fiducia e trasparenza
 
 ### Scena 8 — Call to Action Finale (1:15 - 1:25)
-**Messaggio**: "Helpy — L'esperienza giusta, a portata di click"
-- Logo Helpy grande, centrato
+**Messaggio**: "Ispiramy — L'esperienza giusta, a portata di click"
+- Logo Ispiramy grande, centrato
 - Sottotitolo: "Registrati gratis. Trova chi può aiutarti davvero."
 - URL del sito
 - Colori brand: verde scuro (#1a4d2e → #2d6a4f), sfondo pulito e moderno

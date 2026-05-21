@@ -1,4 +1,4 @@
-"""
+﻿"""
 Servizio AI per generazione automatica di aree di interesse, tag e moderazione immagini.
 Utilizza OpenAI GPT per analizzare profili utente e contenuti della community.
 """
@@ -187,7 +187,7 @@ async def modera_immagine(image_base64: str, titolo: str, descrizione: str) -> d
                 {
                     "role": "system",
                     "content": (
-                        "Sei un moderatore di contenuti per una piattaforma italiana di consulenze professionali chiamata Helpy. "
+                        "Sei un moderatore di contenuti per una piattaforma italiana di consulenze professionali chiamata Ispiramy. "
                         "Analizza l'immagine e verifica che rispetti TUTTE queste regole:\n\n"
                         "1. NON deve contenere contenuti sessuali, nudità o materiale esplicito\n"
                         "2. NON deve contenere propaganda politica, simboli di partiti o messaggi politici\n"
@@ -323,7 +323,7 @@ async def valida_richiesta(titolo: str, descrizione: str) -> dict:
                 {
                     "role": "system",
                     "content": (
-                        "Sei un moderatore di contenuti per Helpy, una piattaforma italiana di consulenze professionali. "
+                        "Sei un moderatore di contenuti per Ispiramy, una piattaforma italiana di consulenze professionali. "
                         "Gli utenti pubblicano richieste nella community per cercare consulenti o aiuto su vari argomenti.\n\n"
                         "Devi verificare che la richiesta rispetti TUTTE queste regole:\n"
                         "1. Deve essere una richiesta GENUINA di consulenza, aiuto o informazioni su un argomento\n"
@@ -436,7 +436,7 @@ async def controlla_duplicato(titolo: str, descrizione: str, domande_precedenti:
                 {
                     "role": "system",
                     "content": (
-                        "Sei un assistente per Helpy, una piattaforma italiana di consulenze professionali. "
+                        "Sei un assistente per Ispiramy, una piattaforma italiana di consulenze professionali. "
                         "Devi verificare se una NUOVA richiesta è un duplicato o molto simile a richieste già fatte dallo stesso utente.\n\n"
                         "Una richiesta è considerata DUPLICATA se:\n"
                         "1. Tratta lo STESSO argomento specifico di una richiesta precedente\n"
@@ -530,7 +530,7 @@ async def valida_descrizione_consulenza(descrizione: str) -> dict:
                 {
                     "role": "system",
                     "content": (
-                        "Sei un moderatore per Helpy, una piattaforma italiana di consulenze professionali. "
+                        "Sei un moderatore per Ispiramy, una piattaforma italiana di consulenze professionali. "
                         "Un cliente sta prenotando una consulenza e ha scritto una descrizione di ciò che vuole discutere.\n\n"
                         "Devi verificare che la descrizione:\n"
                         "1. Esprima un argomento o una necessità comprensibile\n"
@@ -632,7 +632,7 @@ async def valida_profilo(descrizione: str, professione: str = None, aree_interes
                 {
                     "role": "system",
                     "content": (
-                        "Sei un moderatore per Helpy, una piattaforma italiana di consulenze professionali. "
+                        "Sei un moderatore per Ispiramy, una piattaforma italiana di consulenze professionali. "
                         "I consulenti compilano il proprio profilo con una descrizione per attrarre clienti.\n\n"
                         "Devi verificare che la descrizione del profilo sia GENUINA e PROFESSIONALE:\n"
                         "1. Deve descrivere competenze, esperienze o servizi che il consulente offre\n"

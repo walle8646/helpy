@@ -1,4 +1,4 @@
-/* ========== RESET E BASE ========== */
+﻿/* ========== RESET E BASE ========== */
 * {
     margin: 0;
     padding: 0;
@@ -54,7 +54,7 @@ body {
     align-items: start;
 }
 
-/* ========== LEFT: Come Funziona Helpy ========== */
+/* ========== LEFT: Come Funziona Ispiramy ========== */
 .how-works-column {
     display: flex;
     flex-direction: column;
