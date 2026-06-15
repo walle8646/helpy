@@ -1,11 +1,15 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="csrf-token" content="{{ request.state.csrf_token }}">
     <title>{% block title %}Ispiramy - Get Advice from People Who Can Help{% endblock %}</title>
-    
+
+    <!-- Favicon -->
+    <link rel="icon" href="/static/logo-final.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/logo-final.svg">
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -13,8 +17,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- ✅ CSS Globale -->
-    <link rel="stylesheet" href="/static/style.css?v=2025011501">
-    <link rel="stylesheet" href="/static/mobile.css?v=2025011501">
+    <link rel="stylesheet" href="/static/style.css?v=2026052101">
+    <link rel="stylesheet" href="/static/mobile.css?v=2026052101">
     
     <!-- CSS specifici per pagina -->
     {% block extra_css %}{% endblock %}
@@ -26,7 +30,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 8px 48px;
-            background: linear-gradient(135deg, #e8f5e9 0%, #81c784 50%, #4caf50 100%);
+            background: linear-gradient(135deg, #e8f5e9 0%, #66bb6a 50%, #43a047 100%);
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             position: fixed;
             top: 0;
@@ -57,7 +61,7 @@
         .navbar-title {
             font-size: 28px;
             font-weight: 700;
-            background: linear-gradient(135deg, #2e7d32 0%, #558b2f 100%);
+            background: linear-gradient(135deg, #2e7d32 0%, #2e7d32 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -145,12 +149,12 @@
         .search-option:hover,
         .search-option.active {
             background: #f5f5f5;
-            color: #4caf50;
+            color: #43a047;
         }
         
         .search-option i {
             font-size: 16px;
-            color: #4caf50;
+            color: #43a047;
         }
         
         /* Right: Link semplici in riga */
@@ -172,7 +176,7 @@
         }
         
         .navbar-link:hover {
-            color: #4caf50;
+            color: #43a047;
         }
         
         /* === USER PROFILE DROPDOWN === */
@@ -188,7 +192,7 @@
             height: 32px;
             border-radius: 50%;
             object-fit: cover;
-            border: 2px solid #4caf50;
+            border: 2px solid #43a047;
             transition: all 0.3s ease;
             cursor: pointer;
         }
@@ -237,7 +241,7 @@
 
         .user-menu-item:hover {
             background: #f9f9f9;
-            color: #4caf50;
+            color: #43a047;
             padding-left: 18px;
         }
 
@@ -264,7 +268,7 @@
         
         /* Bottone registrazione con gradient */
         .register-btn {
-            background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+            background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
             color: white;
             padding: 10px 24px;
             border-radius: 25px;
@@ -433,7 +437,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+            background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
             color: white;
         }
         
@@ -495,7 +499,7 @@
         }
         
         .notification-icon.booking {
-            background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+            background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
             color: white;
         }
         
@@ -590,7 +594,7 @@
         
         .dropdown-category-item:hover {
             background: linear-gradient(90deg, #f8f9ff 0%, #ffffff 100%);
-            color: #4caf50;
+            color: #43a047;
         }
         
         .dropdown-category-icon {
@@ -626,7 +630,7 @@
             justify-content: center;
             gap: 8px;
             padding: 12px 20px;
-            color: #4caf50;
+            color: #43a047;
             text-decoration: none;
             font-weight: 600;
             font-size: 14px;
@@ -800,7 +804,7 @@
         .footer-section h3 {
             margin: 0 0 16px;
             font-size: 20px;
-            color: #4caf50;
+            color: #43a047;
         }
         
         .footer-section ul {
@@ -820,7 +824,7 @@
         }
         
         .footer-section a:hover {
-            color: #4caf50;
+            color: #43a047;
         }
         
         .footer-bottom {
@@ -844,7 +848,7 @@
         <!-- Left: Logo + Ispiramy + Hamburger -->
         <div class="navbar-left">
             <a href="/" class="navbar-logo-link">
-                <img src="https://i.imgur.com/4M34hi2.png" alt="Ispiramy Logo" class="navbar-logo">
+                <img src="/static/logo-final.svg" alt="Ispiramy Logo" class="navbar-logo">
                 <span class="navbar-title">Ispiramy</span>
             </a>
             <!-- Hamburger Menu Button (mobile only) -->

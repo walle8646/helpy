@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Ispiramy">
+  <defs>
+    <linearGradient id="ispiramy" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#66bb6a"/>
+      <stop offset="1" stop-color="#2e7d32"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(0,8)">
+    <!-- 3/4 cerchio con apertura stretta in alto -->
+    <path d="M 129.58 46.56 A 70 70 0 1 1 70.42 46.56"
+          fill="none" stroke="url(#ispiramy)" stroke-width="15" stroke-linecap="round"/>
+    <!-- persona dietro (consulente) -->
+    <g fill="#1b5e20">
+      <circle cx="113" cy="116" r="11"/>
+      <path d="M 92 156 Q 92 130 113 130 Q 134 130 134 156 Z"/>
+    </g>
+    <!-- persona davanti (utente) -->
+    <g fill="#66bb6a">
+      <circle cx="87" cy="116" r="11"/>
+      <path d="M 66 156 Q 66 130 87 130 Q 108 130 108 156 Z"/>
+    </g>
+    <!-- i grande in cima -->
+    <circle cx="100" cy="26" r="17" fill="url(#ispiramy)"/>
+    <rect x="89" y="50" width="22" height="46" rx="11" fill="url(#ispiramy)"/>
+  </g>
+</svg>

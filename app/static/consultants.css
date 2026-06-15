@@ -1,9 +1,12 @@
-/* Search Hero */
+/* Search Hero — sticky sotto navbar */
 .search-hero {
-    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+    background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
     padding: 30px 20px;
     color: white;
     text-align: center;
+    position: sticky;
+    top: 80px; /* sotto navbar fissa (80px) */
+    z-index: 100;
 }
 
 .search-container h1 {
@@ -34,7 +37,7 @@
 .search-btn {
     padding: 18px 40px;
     background: white;
-    color: #4caf50;
+    color: #43a047;
     border: none;
     border-radius: 50px;
     font-size: 1.1em;
@@ -70,7 +73,7 @@
     flex-wrap: wrap;
     gap: 12px;
     padding: 16px 20px;
-    background: #e8f5e8;
+    background: #e8f5e9;
     border-radius: 8px;
     border-left: 4px solid #2e7d32;
 }
@@ -120,11 +123,13 @@
     background: #1b5e20;
 }
 
-/* Sidebar Filtri */
+/* Sidebar Filtri — sticky sotto navbar + hero */
 .filters-sidebar {
     position: sticky;
-    top: 20px;
+    top: 330px; /* navbar 80px + altezza search-hero ~250px */
     align-self: flex-start;
+    max-height: calc(100vh - 350px);
+    overflow-y: auto;
 }
 
 .filters-sidebar h3 {
@@ -186,7 +191,7 @@
 }
 
 .category-filters a.active {
-    background: #e8f5e8;
+    background: #e8f5e9;
     color: #2e7d32;
     font-weight: 600;
 }
@@ -256,7 +261,7 @@
 
 /* Card Consulente - Stile simile a MentorCruise */
 .consultant-card {
-    background: linear-gradient(180deg, #e8f5e8 0%, #d4e8d4 100%) !important;
+    background: linear-gradient(180deg, #e8f5e9 0%, #d4e8d4 100%) !important;
     border-radius: 16px !important;
     overflow: hidden !important;
     box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important;
@@ -305,7 +310,7 @@
 }
 
 .consultant-avatar-default {
-    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%) !important;
+    background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%) !important;
     color: white !important;
     display: flex !important;
     align-items: center !important;
@@ -459,7 +464,7 @@ h3.consultant-name {
 /* Pulsante prenota */
 .btn-consult {
     padding: 12px 24px !important;
-    background: #4caf50 !important;
+    background: #43a047 !important;
     color: white !important;
     border: none !important;
     border-radius: 8px !important;
@@ -489,7 +494,7 @@ h3.consultant-name {
     padding: 12px 18px !important;
     background: white !important;
     color: #2e7d32 !important;
-    border: 2px solid #4caf50 !important;
+    border: 2px solid #43a047 !important;
     border-radius: 8px !important;
     font-size: 0.9em !important;
     font-weight: 600 !important;
@@ -552,7 +557,7 @@ h3.consultant-name {
     left: 14px;
     top: 50%;
     transform: translateY(-50%);
-    color: #4caf50;
+    color: #43a047;
     font-weight: 700;
     font-size: 1.1em;
     pointer-events: none;
@@ -573,7 +578,7 @@ h3.consultant-name {
 
 .price-input:focus {
     outline: none;
-    border-color: #4caf50;
+    border-color: #43a047;
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
@@ -585,7 +590,7 @@ h3.consultant-name {
 .btn-apply-price {
     width: 100%;
     padding: 13px 16px;
-    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+    background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -659,9 +664,9 @@ h3.consultant-name {
 }
 
 .price-tag:hover {
-    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+    background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
     color: white;
-    border-color: #4caf50;
+    border-color: #43a047;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(76, 175, 80, 0.25);
 }
@@ -696,7 +701,7 @@ h3.consultant-name {
 
 .search-tag:hover {
     background: white;
-    color: #4caf50;
+    color: #43a047;
     transform: translateY(-2px);
 }
 
@@ -832,6 +837,8 @@ h3.consultant-name {
     
     .search-hero {
         padding: 20px 16px;
+        /* Su mobile l'hero NON è sticky — occuperebbe troppo spazio */
+        position: static;
     }
     
     .search-container h1 {

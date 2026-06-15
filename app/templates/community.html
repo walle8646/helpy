@@ -1,11 +1,11 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Q&A Community - Ispiramy{% endblock %}
 
 {% block extra_css %}
 <style>
     .community-header {
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         color: white;
         padding: 0;
         margin-bottom: 16px;
@@ -26,9 +26,24 @@
     }
     
     .search-bar-community {
-        position: relative;
+        position: sticky;
+        top: 80px; /* sotto navbar fissa */
+        z-index: 90;
         max-width: 100%;
         width: 100%;
+        background: #fff;
+        padding: 12px 0;
+        margin-bottom: 0 !important;
+    }
+
+    /* Su mobile evitiamo lo sticky per non rubare spazio */
+    @media (max-width: 768px) {
+        .search-bar-community {
+            position: relative;
+            top: auto;
+            background: transparent;
+            padding: 0;
+        }
     }
     
     .search-bar-community input {
@@ -47,7 +62,7 @@
         right: 4px;
         top: 50%;
         transform: translateY(-50%);
-        background: #4caf50;
+        background: #43a047;
         color: white;
         border: none;
         border-radius: 25px;
@@ -104,7 +119,7 @@
         right: 0;
         width: 100%;
         padding: 16px 24px;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         color: white;
         border: none;
         border-radius: 0;
@@ -152,7 +167,7 @@
     .stat-number {
         font-size: 1.6rem;
         font-weight: bold;
-        color: #4caf50;
+        color: #43a047;
     }
     
     .stat-label {
@@ -246,7 +261,7 @@
     }
     
     .sort-pill.active {
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         color: white;
         border-color: transparent;
         box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
@@ -294,7 +309,7 @@
     
     .status-closed {
         background: #e8f5e9;
-        color: #388e3c;
+        color: #43a047;
     }
     
     .question-title {
@@ -318,7 +333,7 @@
         display: block;
     }
     .desc-toggle {
-        color: #4caf50;
+        color: #43a047;
         font-size: 0.85rem;
         font-weight: 600;
         cursor: pointer;
@@ -371,13 +386,13 @@
         padding: 20px;
         background: linear-gradient(135deg, #f8f9ff 0%, #fff5f8 100%);
         border-radius: 12px;
-        border: 2px solid #4caf50;
+        border: 2px solid #43a047;
         box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
     }
     
     .suggested-title {
         font-weight: 600;
-        color: #4caf50;
+        color: #43a047;
         margin-bottom: 16px;
         display: flex;
         align-items: center;
@@ -406,7 +421,7 @@
     .consultant-mini:hover {
         transform: translateX(5px);
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-        border-color: #4caf50;
+        border-color: #43a047;
     }
     
     .consultant-mini img {
@@ -414,7 +429,7 @@
         height: 56px;
         border-radius: 50%;
         object-fit: cover;
-        border: 2px solid #4caf50;
+        border: 2px solid #43a047;
     }
     
     .consultant-mini-info {
@@ -453,7 +468,7 @@
     
     .consultant-mini-price {
         font-weight: 700;
-        color: #4caf50;
+        color: #43a047;
         font-size: 1.25rem;
         padding: 8px 12px;
         background: #f0f4ff;
@@ -501,7 +516,7 @@
     }
     
     .category-item.active {
-        background: #4caf50;
+        background: #43a047;
         color: white;
     }
     
@@ -512,7 +527,7 @@
     .ask-button {
         width: 100%;
         padding: 14px;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         color: white;
         border: none;
         border-radius: 12px;
@@ -601,7 +616,7 @@
     .form-textarea:focus,
     .form-select:focus {
         outline: none;
-        border-color: #4caf50;
+        border-color: #43a047;
     }
     
     .form-textarea {
@@ -612,7 +627,7 @@
     .submit-button {
         width: 100%;
         padding: 16px;
-        background: #4caf50;
+        background: #43a047;
         color: white;
         border: none;
         border-radius: 8px;
@@ -644,7 +659,7 @@
     }
     
     .sidebar-left::-webkit-scrollbar-thumb {
-        background: #4caf50;
+        background: #43a047;
         border-radius: 10px;
     }
     
@@ -655,7 +670,7 @@
     .ask-button-main {
         width: 100%;
         padding: 13px 20px;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         color: white;
         border: none;
         border-radius: 12px;
@@ -698,7 +713,7 @@
     
     .sidebar-stat-item i {
         font-size: 1.5rem;
-        color: #4caf50;
+        color: #43a047;
     }
     
     .sidebar-stat-number {
@@ -728,7 +743,7 @@
     }
     
     .sidebar-section-title i {
-        color: #4caf50;
+        color: #43a047;
         margin-right: 8px;
     }
     
@@ -753,11 +768,11 @@
     
     .category-item-vertical:hover {
         background: #f8f9ff;
-        color: #4caf50;
+        color: #43a047;
     }
     
     .category-item-vertical.active {
-        background: #e8f5e8;
+        background: #e8f5e9;
         color: #2e7d32;
         font-weight: 600;
     }
@@ -791,7 +806,7 @@
     }
     
     .category-toggle-btn:hover {
-        color: #4caf50;
+        color: #43a047;
     }
     
     /* Sottocategorie nel sidebar community */
@@ -821,14 +836,14 @@
     }
     
     .category-list-vertical .category-list-vertical .category-item-vertical.active {
-        background: #e8f5e8;
+        background: #e8f5e9;
         color: #2e7d32;
         font-weight: 500;
     }
     
     /* Active Filters Container */
     .active-filters-container {
-        background: #e8f5e8;
+        background: #e8f5e9;
         border: 1px solid #2e7d32;
         border-radius: 8px;
         padding: 12px 16px;
@@ -883,13 +898,13 @@
         padding: 24px;
         background: linear-gradient(135deg, #f8f9ff 0%, #fff5f8 100%);
         border-radius: 16px;
-        border: 2px solid #4caf50;
+        border: 2px solid #43a047;
         box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
     }
     
     .suggested-title-new {
         font-weight: 600;
-        color: #4caf50;
+        color: #43a047;
         margin-bottom: 20px;
         display: flex;
         align-items: center;
@@ -938,7 +953,7 @@
         width: 70px;
         height: 70px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -979,7 +994,7 @@
     .consultant-price-mini {
         font-size: 1.1rem;
         font-weight: 700;
-        color: #4caf50;
+        color: #43a047;
     }
     
     /* ========== SIDEBAR DESTRA: TOP ISPIRAMYERS ========== */
@@ -1007,7 +1022,7 @@
     .top-ispiramyer-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-        border-color: #4caf50;
+        border-color: #43a047;
     }
     
     .top-ispiramyer-avatar {
@@ -1022,7 +1037,7 @@
         width: 42px;
         height: 42px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1061,7 +1076,7 @@
     
     .consulenze-badge {
         display: inline-block;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         color: white;
         padding: 3px 8px;
         border-radius: 12px;
@@ -1076,7 +1091,7 @@
         padding: 16px;
         border-radius: 12px;
         margin-top: 18px;
-        border: 2px solid #4caf50;
+        border: 2px solid #43a047;
     }
     
     /* Bottone Messaggia Verificato */
@@ -1158,12 +1173,12 @@
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
-        color: #4caf50;
+        color: #43a047;
     }
     
     .btn-like.liked {
         color: white;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
     }
     
@@ -1216,9 +1231,9 @@
         gap: 6px;
         padding: 8px 14px;
         border-radius: 25px;
-        border: 2px solid #4caf50;
+        border: 2px solid #43a047;
         background: white;
-        color: #4caf50;
+        color: #43a047;
         font-weight: 600;
         font-size: 14px;
         cursor: pointer;
@@ -1227,14 +1242,14 @@
     }
 
     .btn-follow-question:hover {
-        background: #4caf50;
+        background: #43a047;
         color: white;
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
     }
 
     .btn-follow-question.followed {
-        background: #4caf50;
+        background: #43a047;
         color: white;
     }
 
@@ -1265,11 +1280,11 @@
         background: #fafafa;
     }
     .image-upload-area:hover {
-        border-color: #4caf50;
+        border-color: #43a047;
         background: #f0faf0;
     }
     .image-upload-area.dragover {
-        border-color: #4caf50;
+        border-color: #43a047;
         background: #e8f5e9;
     }
     .image-upload-icon {
@@ -1282,7 +1297,7 @@
         font-size: 0.9rem;
     }
     .image-upload-text strong {
-        color: #4caf50;
+        color: #43a047;
     }
     .image-previews {
         display: flex;
@@ -1648,7 +1663,7 @@
 
 {% block content %}
 <!-- Header Community + Banner Diventa Ispiramyer (Unico Banner) -->
-<div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; padding: 0; margin-bottom: 20px;">
+<div style="background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%); color: white; padding: 0; margin-bottom: 20px;">
     <!-- Community Title -->
     <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.2);">
         <div class="container">
@@ -1664,7 +1679,7 @@
                 <h3 style="color: white; margin: 0 0 4px 0; font-size: 1.1rem;">✨ Diventa anche tu un Ispiramyer</h3>
                 <p style="opacity: 0.9; margin: 0; font-size: 0.9rem;">Aiuta gli altri e guadagna condividendo le tue competenze.</p>
             </div>
-            <a href="/profile?edit=true" style="background: white; color: #4caf50; padding: 10px 24px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: inline-block;">
+            <a href="/profile?edit=true" style="background: white; color: #43a047; padding: 10px 24px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: inline-block;">
                 Vai al tuo Profilo →
             </a>
         </div>
@@ -1777,11 +1792,11 @@
             
             {% if selected_category %}
             <h2 style="margin-bottom: 16px; font-size: 1.75rem; color: #333;">
-                <i class="fas fa-filter" style="color: #4caf50;"></i> {{ categories|selectattr('id', 'equalto', selected_category)|map(attribute='name')|first }}
+                <i class="fas fa-filter" style="color: #43a047;"></i> {{ categories|selectattr('id', 'equalto', selected_category)|map(attribute='name')|first }}
             </h2>
             {% elif search_query %}
             <h2 style="margin-bottom: 16px; font-size: 1.75rem; color: #333;">
-                <i class="fas fa-search" style="color: #4caf50;"></i> Risultati per "{{ search_query }}"
+                <i class="fas fa-search" style="color: #43a047;"></i> Risultati per "{{ search_query }}"
             </h2>
             {% endif %}
 
@@ -1877,7 +1892,7 @@
                     {% endif %}
                     
                     <!-- Follow Counter - Cliccabile per consulenti -->
-                    <div class="follow-counter" id="follow-counter-{{ item.question.id }}" style="display: none; color: #4caf50; font-size: 0.85rem; margin: 8px 0; font-weight: 500; cursor: pointer;" onclick="{% if user and user.is_verified %}openFollowersModal({{ item.question.id }}){% endif %}">
+                    <div class="follow-counter" id="follow-counter-{{ item.question.id }}" style="display: none; color: #43a047; font-size: 0.85rem; margin: 8px 0; font-weight: 500; cursor: pointer;" onclick="{% if user and user.is_verified %}openFollowersModal({{ item.question.id }}){% endif %}">
                         <i class="fas fa-heart"></i> <span class="follow-count">0</span> persone sono interessate a questa domanda
                     </div>
                     
@@ -1931,7 +1946,7 @@
                                       align-items: center; 
                                       gap: 8px; 
                                       padding: 8px 16px; 
-                                      background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); 
+                                      background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%); 
                                       color: white; 
                                       border: none;
                                       cursor: pointer;
@@ -1939,7 +1954,7 @@
                                       font-size: 0.9rem; 
                                       font-weight: 500;
                                       transition: all 0.2s;">
-                                <i class="fas fa-check-circle" style="color: #4ade80;"></i>
+                                <i class="fas fa-check-circle" style="color: #66bb6a;"></i>
                                 💬 Messaggia
                             </button>
                             
@@ -2035,7 +2050,7 @@
                     {% for p in range(1, total_pages + 1) %}
                     <a 
                         href="?page={{ p }}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
-                        style="padding: 8px 16px; margin: 0 4px; background: {% if p == current_page %}#4caf50; color: white{% else %}#f5f5f5{% endif %}; border-radius: 8px; text-decoration: none;"
+                        style="padding: 8px 16px; margin: 0 4px; background: {% if p == current_page %}#43a047; color: white{% else %}#f5f5f5{% endif %}; border-radius: 8px; text-decoration: none;"
                     >
                         {{ p }}
                     </a>
@@ -2090,13 +2105,13 @@
 
 <!-- Banner Diventa Ispiramyer (In fondo) - Visibile solo se loggato e non verificato -->
 {% if current_user and not current_user.is_verified %}
-<div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; padding: 20px 0; margin-top: 40px;">
+<div style="background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%); color: white; padding: 20px 0; margin-top: 40px;">
     <div class="container" style="max-width: 1400px; display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
         <div>
             <h3 style="color: white; margin: 0 0 8px 0; font-size: 1.3rem;">✨ Diventa anche tu un Ispiramyer</h3>
             <p style="opacity: 0.9; margin: 0; font-size: 1rem;">Aiuta gli altri e guadagna condividendo le tue competenze.</p>
         </div>
-        <a href="/profile?edit=true" style="background: white; color: #4caf50; padding: 12px 28px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; font-size: 1rem; display: inline-block;">
+        <a href="/profile?edit=true" style="background: white; color: #43a047; padding: 12px 28px; text-align: center; border-radius: 8px; border: none; text-decoration: none; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; font-size: 1rem; display: inline-block;">
             Vai al tuo Profilo →
         </a>
     </div>
@@ -2274,7 +2289,7 @@
             </div>
             
             <div style="display:flex;gap:8px;margin-top:16px;">
-                <button type="submit" id="editQuestionSaveBtn" style="flex:1;padding:10px 20px;background:#4caf50;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                <button type="submit" id="editQuestionSaveBtn" style="flex:1;padding:10px 20px;background:#43a047;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
                     <i class="fas fa-save"></i> Salva modifiche
                 </button>
                 <button type="button" onclick="closeEditQuestionModal()" style="padding:10px 20px;background:#eee;color:#333;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;">
@@ -2297,7 +2312,7 @@
                 Desideri pubblicare questa domanda in <strong>modalità anonima</strong>?
             </p>
             
-            <div style="background: #f8f9fa; border-left: 4px solid #4caf50; padding: 12px; margin: 16px 0; border-radius: 4px;">
+            <div style="background: #f8f9fa; border-left: 4px solid #43a047; padding: 12px; margin: 16px 0; border-radius: 4px;">
                 <p style="margin: 0; font-size: 0.9rem; color: #555;">
                     ✓ Il tuo nome <strong>non sarà visibile</strong> agli altri utenti<br>
                     ✓ Apparirai come <strong>"Utente #{{ user.id }}"</strong><br>
@@ -2455,7 +2470,7 @@ async function restoreDraft() {
                         `<option value="${sub.id}">${sub.icon} ${sub.name}</option>`
                     ).join('') +
                     '<option value="altro">\ud83d\udccc Altro</option>';
-                subcategoryHint.innerHTML = 'Scegliere una sottocategoria aiuta nella ricerca, ma se non la trovi <a href="#" onclick="document.getElementById(\'subcategorySelect\').value=\'altro\'; return false;" style="color:#4caf50; text-decoration:underline;">clicca qui</a>';
+                subcategoryHint.innerHTML = 'Scegliere una sottocategoria aiuta nella ricerca, ma se non la trovi <a href="#" onclick="document.getElementById(\'subcategorySelect\').value=\'altro\'; return false;" style="color:#43a047; text-decoration:underline;">clicca qui</a>';
                 if (draft.category_id) {
                     subcategorySelect.value = draft.category_id;
                 }
@@ -2668,7 +2683,7 @@ document.getElementById('primaryCategorySelect')?.addEventListener('change', asy
                     `<option value="${sub.id}">${sub.icon} ${sub.name}</option>`
                 ).join('') +
                 '<option value="altro">📌 Altro</option>';
-            subcategoryHint.innerHTML = 'Scegliere una sottocategoria aiuta nella ricerca, ma se non la trovi <a href="#" onclick="document.getElementById(\'subcategorySelect\').value=\'altro\'; return false;" style="color:#4caf50; text-decoration:underline;">clicca qui</a>';
+            subcategoryHint.innerHTML = 'Scegliere una sottocategoria aiuta nella ricerca, ma se non la trovi <a href="#" onclick="document.getElementById(\'subcategorySelect\').value=\'altro\'; return false;" style="color:#43a047; text-decoration:underline;">clicca qui</a>';
         } else {
             subcategorySelect.innerHTML = '<option value="">Nessuna sottocategoria disponibile</option>';
             subcategoryHint.innerHTML = 'Nessuna sottocategoria disponibile per questa categoria';
@@ -3336,7 +3351,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     .follower-item:hover {
         background: #f9f9f9;
-        border-color: #4caf50;
+        border-color: #43a047;
     }
 
     .follower-avatar {
@@ -3366,7 +3381,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     .follower-name a:hover {
-        color: #4caf50;
+        color: #43a047;
         text-decoration: underline;
     }
 
@@ -3381,7 +3396,7 @@ document.addEventListener('DOMContentLoaded', function() {
         align-items: center;
         gap: 6px;
         padding: 8px 12px;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         color: white;
         border: none;
         border-radius: 6px;

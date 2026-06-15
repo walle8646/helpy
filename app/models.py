@@ -231,7 +231,7 @@ class Booking(SQLModel, table=True):
     booking_date: datetime = Field(index=True)
     start_time: str  # Formato "HH:MM"
     end_time: str    # Formato "HH:MM"
-    duration_minutes: int  # 30, 60, 90, 120
+    duration_minutes: int  # 60, 90, 120 (minimo 1 ora)
     
     status: str = Field(default="pending")  # pending, confirmed, completed, cancelled, no_show
     price: Optional[Decimal] = None

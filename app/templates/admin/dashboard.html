@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Admin Dashboard - Ispiramy{% endblock %}
 
@@ -20,7 +20,7 @@
         color: #1a1a2e;
         margin: 0;
     }
-    .admin-header h1 i { color: #2d6a4f; }
+    .admin-header h1 i { color: #2e7d32; }
     .admin-nav {
         display: flex;
         gap: 8px;
@@ -36,7 +36,7 @@
         transition: all 0.2s;
     }
     .admin-nav a:hover, .admin-nav a.active {
-        background: #2d6a4f;
+        background: #2e7d32;
         color: #fff;
     }
 
@@ -52,9 +52,9 @@
         border-radius: 14px;
         padding: 24px;
         box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-        border-left: 4px solid #2d6a4f;
+        border-left: 4px solid #2e7d32;
     }
-    .stat-card.green { border-left-color: #4caf50; }
+    .stat-card.green { border-left-color: #43a047; }
     .stat-card.orange { border-left-color: #ff9800; }
     .stat-card.red { border-left-color: #e74c3c; }
     .stat-card.purple { border-left-color: #9c27b0; }
@@ -79,7 +79,7 @@
     }
     .stat-card-detail span {
         font-weight: 600;
-        color: #4caf50;
+        color: #43a047;
     }
 
     /* Section */
@@ -98,7 +98,7 @@
         align-items: center;
         gap: 8px;
     }
-    .admin-section h2 i { color: #2d6a4f; }
+    .admin-section h2 i { color: #2e7d32; }
 
     /* Mini table */
     .admin-table {
@@ -195,7 +195,7 @@
                 <span>+{{ stats.bookings.last_30d }}</span> ultimi 30gg
             </div>
             <div class="sub-stats" style="margin-top: 8px;">
-                <span class="sub-stat"><i class="fas fa-circle" style="color: #4caf50;"></i> {{ stats.bookings.completed }} completate</span>
+                <span class="sub-stat"><i class="fas fa-circle" style="color: #43a047;"></i> {{ stats.bookings.completed }} completate</span>
                 <span class="sub-stat"><i class="fas fa-circle" style="color: #ff9800;"></i> {{ stats.bookings.confirmed }} confermate</span>
                 <span class="sub-stat"><i class="fas fa-circle" style="color: #2196f3;"></i> {{ stats.bookings.pending }} in attesa</span>
                 <span class="sub-stat"><i class="fas fa-circle" style="color: #e74c3c;"></i> {{ stats.bookings.cancelled }} cancellate</span>
@@ -256,7 +256,7 @@
                     {% for u in recent_users %}
                     <tr>
                         <td>{{ u.nome or '' }} {{ u.cognome or '' }}</td>
-                        <td style="color: #2d6a4f;">{{ u.email }}</td>
+                        <td style="color: #2e7d32;">{{ u.email }}</td>
                         <td>{{ u.created_at.strftime('%d/%m/%Y') if u.created_at else '-' }}</td>
                     </tr>
                     {% endfor %}
@@ -302,7 +302,7 @@
             </table>
             {% if recent_disputes %}
             <div style="text-align: right; margin-top: 12px;">
-                <a href="/admin/disputes" style="color: #2d6a4f; font-weight: 500; text-decoration: none;">
+                <a href="/admin/disputes" style="color: #2e7d32; font-weight: 500; text-decoration: none;">
                     Vedi tutte <i class="fas fa-arrow-right"></i>
                 </a>
             </div>

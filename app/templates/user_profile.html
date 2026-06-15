@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}{{ user.nome }} {{ user.cognome or '' }} - Ispiramy{% endblock %}
 
@@ -13,7 +13,7 @@
 
 /* Full hero (initial view) */
 .pub-hero {
-    background: linear-gradient(135deg, #1a4d2e 0%, #2d6a4f 50%, #1a4d2e 100%);
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #1b5e20 100%);
     padding: 56px 0 0 0;
     color: white;
     margin: 0 -24px 0 -40px;
@@ -55,7 +55,7 @@
 
 .pub-hero-text .pub-role {
     font-size: 1.05em;
-    color: #a8d5ba;
+    color: #a5d6a7;
     font-weight: 500;
     margin: 0;
 }
@@ -110,7 +110,7 @@
     margin-top: 14px;
     padding: 8px 18px;
     background: white;
-    color: #2d6a4f;
+    color: #2e7d32;
     border: none;
     border-radius: 8px;
     font-weight: 600;
@@ -145,7 +145,7 @@
     font-size: 1.05em;
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    color: #2d6a4f;
+    color: #2e7d32;
     margin: 40px 0 14px 0;
     display: flex;
     align-items: center;
@@ -156,7 +156,7 @@
     content: '';
     width: 20px;
     height: 2px;
-    background: #2d6a4f;
+    background: #2e7d32;
     border-radius: 2px;
 }
 
@@ -184,7 +184,7 @@
     padding: 6px 16px;
     border-radius: 20px;
     background: #f0faf3;
-    color: #2d6a4f;
+    color: #2e7d32;
     font-size: .9em;
     font-weight: 500;
     border: 1px solid #d1e7dd;
@@ -202,8 +202,8 @@
     gap: 12px;
     padding: 16px 20px;
     border-radius: 12px;
-    background: linear-gradient(135deg, {{ category.color if category else '#4CAF50' }}10, {{ category.color if category else '#4CAF50' }}08);
-    border: 1px solid {{ category.color if category else '#4CAF50' }}25;
+    background: linear-gradient(135deg, {{ category.color if category else '#43a047' }}10, {{ category.color if category else '#43a047' }}08);
+    border: 1px solid {{ category.color if category else '#43a047' }}25;
     margin-top: 6px;
 }
 
@@ -214,7 +214,7 @@
 .pub-category-inline .pub-cat-info h4 {
     margin: 0;
     font-size: 1em;
-    color: {{ category.color if category else '#4CAF50' }};
+    color: {{ category.color if category else '#43a047' }};
     font-weight: 600;
 }
 
@@ -329,7 +329,7 @@
     margin-top: 16px;
     padding: 14px 20px;
     background: white;
-    color: #2d6a4f;
+    color: #2e7d32;
     border: none;
     border-radius: 12px;
     font-weight: 600;
@@ -359,7 +359,7 @@
     box-sizing: border-box;
     margin-top: 10px;
     padding: 14px 20px;
-    background: #1a4d2e;
+    background: #1b5e20;
     color: white;
     border: none;
     border-radius: 12px;
@@ -517,11 +517,11 @@
 }
 
 .last-seen-badge.is-online {
-    color: #059669;
+    color: #43a047;
 }
 
 .last-seen-badge.is-online .last-seen-dot {
-    background: #10b981;
+    background: #43a047;
     box-shadow: 0 0 0 3px rgba(16,185,129,.25);
     animation: pulse-dot 2s infinite;
 }
@@ -555,7 +555,7 @@
     padding: 5px 14px;
     border-radius: 20px;
     background: #f0f8f0;
-    color: #2d6a4f;
+    color: #2e7d32;
     font-size: .82em;
     font-weight: 500;
     border: 1px solid #d4edda;

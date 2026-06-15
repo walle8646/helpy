@@ -64,7 +64,7 @@ def calculate_available_slots(
     Args:
         availability_blocks: Blocchi di disponibilità del consulente
         existing_bookings: Prenotazioni già esistenti
-        duration_minutes: Durata desiderata (30, 60, 90, 120)
+        duration_minutes: Durata desiderata (60, 90, 120)
         date_str: Data in formato "YYYY-MM-DD"
     
     Returns:
@@ -261,11 +261,11 @@ async def get_available_slots(
     Args:
         consultant_id: ID del consulente
         date: Data in formato YYYY-MM-DD
-        duration: Durata in minuti (30, 60, 90, 120)
+        duration: Durata in minuti (60, 90, 120)
     """
     # Validazione durata
-    if duration not in [30, 60, 90, 120]:
-        raise HTTPException(status_code=400, detail="Durata non valida. Valori ammessi: 30, 60, 90, 120")
+    if duration not in [60, 90, 120]:
+        raise HTTPException(status_code=400, detail="Durata non valida. Valori ammessi: 60, 90, 120 minuti")
     
     with Session(engine) as session:
         # Verifica che il consulente esista
@@ -406,8 +406,8 @@ async def create_booking(
     if not community_question_id and (not description or not description.strip()):
         raise HTTPException(status_code=400, detail="Descrizione della consulenza obbligatoria")
     
-    if duration_minutes not in [30, 60, 90, 120]:
-        raise HTTPException(status_code=400, detail="Durata non valida")
+    if duration_minutes not in [60, 90, 120]:
+        raise HTTPException(status_code=400, detail="Durata non valida (minimo 60 minuti)")
     
     # Non puoi prenotare con te stesso
     if current_user.id == consultant_id:

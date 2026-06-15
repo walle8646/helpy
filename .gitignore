@@ -20,3 +20,6 @@ db_query.py
 .claude/
 scripts/sync_env_local.ps1
 scripts/rename_helpy_to_ispiramy.ps1
+scripts/clone_prod_to_local.ps1
+scripts/recolor_to_emerald.ps1
+prod_dump.sql

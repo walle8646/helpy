@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Contestazione #{{ dispute.id }} - Admin Ispiramy{% endblock %}
 
@@ -34,7 +34,7 @@
         background: #f5f5f5;
         transition: all 0.2s;
     }
-    .admin-nav a:hover { background: #2d6a4f; color: #fff; }
+    .admin-nav a:hover { background: #2e7d32; color: #fff; }
 
     .badge {
         display: inline-block;
@@ -61,7 +61,7 @@
         font-size: 1rem;
         margin: 0 0 16px 0;
     }
-    .info-card h3 i { color: #2d6a4f; margin-right: 6px; }
+    .info-card h3 i { color: #2e7d32; margin-right: 6px; }
 
     .info-grid {
         display: grid;
@@ -82,7 +82,7 @@
         font-weight: 500;
     }
     .info-item .value a {
-        color: #2d6a4f;
+        color: #2e7d32;
         text-decoration: none;
     }
     .info-item .value a:hover { text-decoration: underline; }
@@ -151,11 +151,11 @@
         color: #fff;
     }
     .status-btn.btn-resolved {
-        border-color: #4caf50;
-        color: #4caf50;
+        border-color: #43a047;
+        color: #43a047;
     }
     .status-btn.btn-resolved:hover, .status-btn.btn-resolved.active {
-        background: #4caf50;
+        background: #43a047;
         color: #fff;
     }
     .status-btn.btn-rejected {
@@ -179,7 +179,7 @@
         font-size: 1rem;
         margin: 0 0 16px 0;
     }
-    .messages-section h3 i { color: #2d6a4f; margin-right: 6px; }
+    .messages-section h3 i { color: #2e7d32; margin-right: 6px; }
 
     .messages-thread {
         display: flex;
@@ -200,7 +200,7 @@
     }
     .msg-bubble.admin {
         align-self: flex-end;
-        background: linear-gradient(135deg, #2d6a4f, #1a4d2e);
+        background: linear-gradient(135deg, #2e7d32, #1b5e20);
         color: #fff;
         border-bottom-right-radius: 4px;
     }
@@ -251,12 +251,12 @@
     }
     .reply-form textarea:focus {
         outline: none;
-        border-color: #2d6a4f;
+        border-color: #2e7d32;
     }
     .reply-form button {
         align-self: flex-end;
         padding: 12px 24px;
-        background: linear-gradient(135deg, #2d6a4f, #1a4d2e);
+        background: linear-gradient(135deg, #2e7d32, #1b5e20);
         color: #fff;
         border: none;
         border-radius: 10px;
@@ -284,7 +284,7 @@
         align-items: center;
         gap: 6px;
         padding: 8px 16px;
-        background: linear-gradient(135deg, #2d6a4f, #1a4d2e);
+        background: linear-gradient(135deg, #2e7d32, #1b5e20);
         color: #fff;
         border: none;
         border-radius: 8px;
@@ -309,13 +309,13 @@
         font-size: 1rem;
         margin: 0 0 16px 0;
     }
-    .ai-section h3 i { color: #2d6a4f; margin-right: 6px; }
+    .ai-section h3 i { color: #2e7d32; margin-right: 6px; }
     .ai-btn {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         padding: 12px 24px;
-        background: linear-gradient(135deg, #2d6a4f, #1a4d2e);
+        background: linear-gradient(135deg, #2e7d32, #1b5e20);
         color: #fff;
         border: none;
         border-radius: 10px;
@@ -353,7 +353,7 @@
         margin-bottom: 12px;
     }
     .ai-verdict-badge.justified { background: #fee2e2; color: #991b1b; }
-    .ai-verdict-badge.unjustified { background: #d1fae5; color: #065f46; }
+    .ai-verdict-badge.unjustified { background: #d1fae5; color: #1b5e20; }
     .ai-verdict-badge.uncertain { background: #fef3c7; color: #92400e; }
     .ai-confidence {
         display: flex;
@@ -495,7 +495,7 @@
             <div class="ai-confidence">
                 <strong style="font-size: 0.85rem; min-width: 80px;">Confidenza: {{ dispute.ai_confidence }}%</strong>
                 <div class="ai-confidence-bar">
-                    <div class="ai-confidence-fill" style="width: {{ dispute.ai_confidence }}%; background: {% if dispute.ai_confidence >= 75 %}#22c55e{% elif dispute.ai_confidence >= 50 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+                    <div class="ai-confidence-fill" style="width: {{ dispute.ai_confidence }}%; background: {% if dispute.ai_confidence >= 75 %}#43a047{% elif dispute.ai_confidence >= 50 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
                 </div>
             </div>
             <div class="ai-comment">{{ dispute.ai_comment }}</div>
@@ -534,14 +534,14 @@
     <!-- Pannello rimborso parziale -->
     <div id="refundPanel" style="display:none; background:#fff; border-radius:14px; padding:24px; box-shadow:0 2px 12px rgba(0,0,0,0.06); margin-bottom:20px;">
         <h3 style="color:#1a1a2e; font-size:1rem; margin:0 0 16px 0;">
-            <i class="fas fa-hand-holding-usd" style="color:#2d6a4f; margin-right:6px;"></i> Rimborso al cliente
+            <i class="fas fa-hand-holding-usd" style="color:#2e7d32; margin-right:6px;"></i> Rimborso al cliente
         </h3>
         <p style="color:#666; font-size:0.9rem; margin-bottom:16px;">
             Specifica la percentuale di rimborso. Il restante verrà trasferito al consulente (meno la commissione piattaforma).
         </p>
         <div style="display:flex; align-items:center; gap:16px; margin-bottom:12px;">
             <input type="range" id="refundSlider" min="0" max="100" value="100" step="5" 
-                   style="flex:1; accent-color:#2d6a4f;" oninput="updateRefundPreview()">
+                   style="flex:1; accent-color:#2e7d32;" oninput="updateRefundPreview()">
             <div style="display:flex; align-items:center; gap:4px;">
                 <input type="number" id="refundPctInput" min="0" max="100" value="100" 
                        style="width:60px; padding:6px 8px; border:1px solid #ddd; border-radius:8px; text-align:center; font-weight:600; font-size:1rem;"
@@ -558,13 +558,13 @@
                 </div>
                 <div>
                     <div style="font-size:0.8rem; color:#888; text-transform:uppercase; letter-spacing:0.3px;">Pagamento al consulente</div>
-                    <div id="consultantAmountDisplay" style="font-size:1.2rem; font-weight:700; color:#2d6a4f;">€0.00</div>
+                    <div id="consultantAmountDisplay" style="font-size:1.2rem; font-weight:700; color:#2e7d32;">€0.00</div>
                     <div id="consultantFeeNote" style="font-size:0.75rem; color:#999; display:none;">al netto della commissione piattaforma</div>
                 </div>
             </div>
         </div>
         <div style="display:flex; gap:10px;">
-            <button onclick="confirmResolve()" style="flex:1; padding:10px 20px; background:#4caf50; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">
+            <button onclick="confirmResolve()" style="flex:1; padding:10px 20px; background:#43a047; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">
                 <i class="fas fa-check"></i> Conferma risoluzione
             </button>
             <button onclick="hideRefundPanel()" style="padding:10px 20px; background:#f5f5f5; color:#555; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">
@@ -765,7 +765,7 @@
                     'unjustified': '✅ Contestazione Non Giustificata',
                     'uncertain': '❓ Risultato Incerto'
                 };
-                const barColor = data.confidence >= 75 ? '#22c55e' : data.confidence >= 50 ? '#f59e0b' : '#ef4444';
+                const barColor = data.confidence >= 75 ? '#43a047' : data.confidence >= 50 ? '#f59e0b' : '#ef4444';
                 const now = new Date();
                 const ts = `${now.toLocaleDateString('it-IT')} alle ${now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'})}`;
                 

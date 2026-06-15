@@ -55,7 +55,7 @@ async def show_create_consultation_form(
             "client": client,
             "existing_offer": existing_offer,
             "default_price": user.prezzo_consulenza or 50,
-            "duration_options": [30, 60, 90, 120]
+            "duration_options": [60, 90, 120]
         })
 
 
@@ -86,8 +86,8 @@ async def create_consultation_offer(
         if price < 15:
             raise HTTPException(status_code=400, detail="Il prezzo della consulenza deve essere almeno 15€")
         
-        if duration_minutes not in [30, 60, 90, 120]:
-            raise HTTPException(status_code=400, detail="Durata non valida. Scegli tra 30, 60, 90 o 120 minuti")
+        if duration_minutes not in [60, 90, 120]:
+            raise HTTPException(status_code=400, detail="Durata non valida. Scegli tra 60, 90 o 120 minuti")
         
         # Get client user
         client = session.get(User, client_user_id)

@@ -66,8 +66,8 @@ async def create_booking_paypal(request: Request):
     if not community_question_id and (not description or not description.strip()):
         raise HTTPException(status_code=400, detail="Descrizione della consulenza obbligatoria")
     
-    if duration_minutes not in [30, 60, 90, 120]:
-        raise HTTPException(status_code=400, detail="Durata non valida")
+    if duration_minutes not in [60, 90, 120]:
+        raise HTTPException(status_code=400, detail="Durata non valida (minimo 60 minuti)")
     
     if current_user.id == consultant_id:
         raise HTTPException(status_code=400, detail="Non puoi prenotare con te stesso")

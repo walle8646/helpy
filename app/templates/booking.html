@@ -16,7 +16,7 @@
     }
     
     .consultant-header {
-        background: linear-gradient(135deg, #1a4d2e 0%, #2d6a4f 50%, #1a4d2e 100%);
+        background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #1b5e20 100%);
         color: white;
         padding: 24px 32px;
         border-radius: 16px;
@@ -90,7 +90,7 @@
     
     .consultant-info .consultant-role {
         margin: 5px 0 0 0;
-        color: #a8d5ba;
+        color: #a5d6a7;
         font-size: 0.95rem;
         font-weight: 500;
     }
@@ -167,7 +167,7 @@
     .booking-section h3 {
         margin-top: 0;
         color: #333;
-        border-bottom: 2px solid #4caf50;
+        border-bottom: 2px solid #43a047;
         padding-bottom: 0.5rem;
     }
     
@@ -189,13 +189,13 @@
     }
     
     .duration-option:hover {
-        border-color: #4caf50;
+        border-color: #43a047;
         background: #f5f7ff;
     }
     
     .duration-option.selected {
-        border-color: #4caf50;
-        background: #4caf50;
+        border-color: #43a047;
+        background: #43a047;
         color: white;
     }
     
@@ -244,19 +244,19 @@
     
     .calendar-day:hover:not(.disabled):not(.other-month) {
         background: #f5f7ff;
-        border-color: #4caf50;
+        border-color: #43a047;
         transform: scale(1.05);
     }
     
     .calendar-day.in-selected-week {
         background: #e8ecff;
-        border-color: #4caf50;
+        border-color: #43a047;
     }
     
     .calendar-day.week-start {
-        background: #4caf50;
+        background: #43a047;
         color: white;
-        border-color: #4caf50;
+        border-color: #43a047;
         font-weight: bold;
     }
     
@@ -278,7 +278,7 @@
         transform: translateX(-50%);
         width: 8px;
         height: 8px;
-        background: #10b981; /* Verde */
+        background: #43a047; /* Verde */
         border-radius: 50%;
         opacity: 0;
         transition: opacity 0.3s;
@@ -314,13 +314,13 @@
     }
     
     .slot-item:hover {
-        border-color: #4caf50;
+        border-color: #43a047;
         background: #f5f7ff;
     }
     
     .slot-item.selected {
-        border-color: #4caf50;
-        background: #4caf50;
+        border-color: #43a047;
+        background: #43a047;
         color: white;
     }
     
@@ -359,10 +359,10 @@
     .day-header {
         text-align: center;
         font-weight: bold;
-        color: #4caf50;
+        color: #43a047;
         margin-bottom: 0.5rem;
         padding-bottom: 0.5rem;
-        border-bottom: 2px solid #4caf50;
+        border-bottom: 2px solid #43a047;
     }
     
     .day-date {
@@ -387,15 +387,15 @@
     }
     
     .day-slot:hover {
-        background: #4caf50;
+        background: #43a047;
         color: white;
-        border-color: #4caf50;
+        border-color: #43a047;
     }
     
     .day-slot.selected {
-        background: #4caf50;
+        background: #43a047;
         color: white;
-        border-color: #4caf50;
+        border-color: #43a047;
     }
     
     .no-availability {
@@ -435,13 +435,13 @@
         border-bottom: none;
         font-weight: bold;
         font-size: 1.2rem;
-        color: #4caf50;
+        color: #43a047;
     }
     
     .btn-book {
         width: 100%;
         padding: 1.25rem;
-        background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
         color: white;
         border: none;
         border-radius: 8px;
@@ -471,7 +471,7 @@
     }
     
     .calendar-nav button {
-        background: #4caf50;
+        background: #43a047;
         color: white;
         border: none;
         padding: 0.5rem 1rem;
@@ -589,13 +589,8 @@
         <div class="booking-section">
             <h3><i class="fas fa-clock"></i> Durata Consulenza</h3>
             <div class="duration-selector">
-                <label class="duration-option selected" data-duration="30">
-                    <input type="radio" name="duration" value="30" checked>
-                    <div class="duration-time">30'</div>
-                    <div class="duration-label">mezz'ora</div>
-                </label>
-                <label class="duration-option" data-duration="60">
-                    <input type="radio" name="duration" value="60">
+                <label class="duration-option selected" data-duration="60">
+                    <input type="radio" name="duration" value="60" checked>
                     <div class="duration-time">60'</div>
                     <div class="duration-label">un'ora</div>
                 </label>
@@ -708,9 +703,9 @@
                 background: #fff;
             }
             .question-select-card.selected {
-                border-color: #4caf50;
+                border-color: #43a047;
                 background: #f0faf0;
-                box-shadow: 0 0 0 1px #4caf50;
+                box-shadow: 0 0 0 1px #43a047;
             }
             #questionCardsList::-webkit-scrollbar { width: 6px; }
             #questionCardsList::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
@@ -762,7 +757,7 @@
         <!-- Scelta registrazione -->
         <div class="recording-choice" style="margin-top: 18px; padding: 16px; background: #f8f9fa; border-radius: 10px; border: 1px solid #e0e0e0;">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                <i class="fas fa-video" style="color: #2d6a4f; font-size: 1.1em;"></i>
+                <i class="fas fa-video" style="color: #2e7d32; font-size: 1.1em;"></i>
                 <strong style="font-size: 0.95rem; color: #1a202c;">Registrazione della consulenza</strong>
             </div>
             <p style="font-size: 0.85rem; color: #555; margin: 0 0 12px 0; line-height: 1.5;">
@@ -770,9 +765,9 @@
                 Senza registrazione perdi questa possibilità.
             </p>
             <div class="recording-options" style="display: flex; gap: 10px;">
-                <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #2d6a4f; background: #e8f5e9; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #1a202c; transition: all 0.2s;" id="recordYesLabel">
-                    <input type="radio" name="recordingChoice" value="yes" checked style="accent-color: #2d6a4f;" onchange="updateRecordingChoice()">
-                    <i class="fas fa-check-circle" style="color: #2d6a4f;"></i> Sì, registra
+                <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #2e7d32; background: #e8f5e9; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #1a202c; transition: all 0.2s;" id="recordYesLabel">
+                    <input type="radio" name="recordingChoice" value="yes" checked style="accent-color: #2e7d32;" onchange="updateRecordingChoice()">
+                    <i class="fas fa-check-circle" style="color: #2e7d32;"></i> Sì, registra
                 </label>
                 <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; border: 2px solid #e0e0e0; background: #fff; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #666; transition: all 0.2s;" id="recordNoLabel">
                     <input type="radio" name="recordingChoice" value="no" style="accent-color: #e74c3c;" onchange="updateRecordingChoice()">
@@ -787,7 +782,7 @@
         <!-- Scelta metodo di pagamento -->
         <div style="background: #f8f9fa; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; border: 1px solid #e0e0e0;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <i class="fas fa-credit-card" style="color: #2d6a4f;"></i>
+                <i class="fas fa-credit-card" style="color: #2e7d32;"></i>
                 <strong style="font-size: 0.95rem; color: #1a202c;">Metodo di pagamento</strong>
             </div>
             <div class="payment-method-options" style="display: flex; gap: 10px;">
@@ -854,7 +849,7 @@
     
     let currentDate = new Date();
     let selectedWeekStart = null;
-    let selectedDuration = 30;
+    let selectedDuration = 60;
     let selectedSlot = null;
     let selectedDate = null;
     let availabilityCache = {}; // Cache per disponibilità
@@ -1185,7 +1180,7 @@
                 <p style="margin: 0.5rem 0;"><strong>Orario:</strong> ${slot.start_time} - ${slot.end_time}</p>
                 <p style="margin: 0.5rem 0;"><strong>Durata:</strong> ${selectedDuration} minuti</p>
                 <hr style="margin: 1rem 0;">
-                <p style="margin: 0.5rem 0; font-size: 1.2rem;"><strong>Totale:</strong> <span style="color: #4caf50;">€ ${((pricePerHour / 60) * selectedDuration).toFixed(2)}</span></p>
+                <p style="margin: 0.5rem 0; font-size: 1.2rem;"><strong>Totale:</strong> <span style="color: #43a047;">€ ${((pricePerHour / 60) * selectedDuration).toFixed(2)}</span></p>
             </div>
         `;
         
@@ -1223,7 +1218,7 @@
         const warning = document.getElementById('recordingWarning');
         
         if (choice === 'yes') {
-            yesLabel.style.borderColor = '#2d6a4f';
+            yesLabel.style.borderColor = '#2e7d32';
             yesLabel.style.background = '#e8f5e9';
             yesLabel.style.color = '#1a202c';
             noLabel.style.borderColor = '#e0e0e0';
