@@ -22,4 +22,6 @@ scripts/sync_env_local.ps1
 scripts/rename_helpy_to_ispiramy.ps1
 scripts/clone_prod_to_local.ps1
 scripts/recolor_to_emerald.ps1
+scripts/test_agora_recording.py
+scripts/test_staging_auth.py
 prod_dump.sql

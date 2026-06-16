@@ -1,12 +1,13 @@
 ﻿import os
 import secrets
+import base64
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response, PlainTextResponse
 from app.database import create_db_and_tables
 from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, stripe_connect, notifications, review, dispute, admin, paypal_payment, google_auth
 from app.logger_config import logger
@@ -70,8 +71,40 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Basic Auth per proteggere lo staging.
+# Attivo SOLO se STAGING_PASSWORD è impostata (quindi: ON su staging, OFF su prod e locale).
+STAGING_PASSWORD = os.getenv("STAGING_PASSWORD", "")
+STAGING_USER = os.getenv("STAGING_USER", "ispiramy")
+# Path esenti (webhook esterni non possono fare Basic Auth)
+STAGING_AUTH_EXEMPT = ("/webhook/", "/api/stripe/webhook", "/api/stripe/connect-webhook")
+
+
+class StagingAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if STAGING_PASSWORD:
+            path = request.url.path
+            if not any(path.startswith(p) for p in STAGING_AUTH_EXEMPT):
+                auth = request.headers.get("Authorization", "")
+                authorized = False
+                if auth.startswith("Basic "):
+                    try:
+                        decoded = base64.b64decode(auth[6:]).decode("utf-8")
+                        user, _, pwd = decoded.partition(":")
+                        if secrets.compare_digest(user, STAGING_USER) and secrets.compare_digest(pwd, STAGING_PASSWORD):
+                            authorized = True
+                    except Exception:
+                        authorized = False
+                if not authorized:
+                    return PlainTextResponse(
+                        "Area riservata (staging Ispiramy)",
+                        status_code=401,
+                        headers={"WWW-Authenticate": 'Basic realm="Ispiramy Staging"'},
+                    )
+        return await call_next(request)
+
+
 # Middleware (Starlette esegue in ordine inverso: ultimo aggiunto = più esterno)
-# Ordine di esecuzione: CategoriesMiddleware → CSRFMiddleware → SessionMiddleware → App
+# Ordine di esecuzione: StagingAuth → CategoriesMiddleware → CSRFMiddleware → SessionMiddleware → App
 
 # 1. CategoriesMiddleware — più interno, serve le categorie ai template
 app.add_middleware(CategoriesMiddleware)
@@ -79,12 +112,15 @@ app.add_middleware(CategoriesMiddleware)
 # 2. CSRF middleware — valida token su POST/PUT/DELETE
 app.add_middleware(CSRFMiddleware)
 
-# 3. Session middleware — più esterno, gestisce le sessioni
+# 3. Session middleware — gestisce le sessioni
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "ispiramy-super-secret-key-change-in-production-2024"),
     max_age=86400
 )
+
+# 4. Staging Basic Auth — più esterno: blocca tutto prima di ogni altra logica
+app.add_middleware(StagingAuthMiddleware)
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
