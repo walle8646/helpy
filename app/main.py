@@ -9,7 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response, PlainTextResponse
 from app.database import create_db_and_tables
-from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, stripe_connect, notifications, review, dispute, admin, paypal_payment, google_auth
+from app.routes import home, auth, consultants, user_profile, messages, community, public_profile, availability, booking, consultation, stripe_webhook, stripe_connect, notifications, review, dispute, admin, paypal_payment, google_auth, pages
 from app.logger_config import logger
 from app.scheduler import start_scheduler, shutdown_scheduler
 from app.utils.template_helpers import get_all_categories
@@ -128,6 +128,10 @@ templates = Jinja2Templates(directory="app/templates")
 templates.env.filters['display_name'] = get_display_name
 templates.env.filters['default_avatar'] = get_default_avatar
 
+# Anno corrente globale (per footer copyright sempre aggiornato)
+from datetime import datetime as _dt
+templates.env.globals['current_year'] = _dt.now().year
+
 # Filtro per parsing JSON (usato per le immagini community)
 import json as _json
 def _parse_json(value):
@@ -171,6 +175,7 @@ app.include_router(dispute.router, tags=["disputes"])
 app.include_router(admin.router, tags=["admin"])
 app.include_router(paypal_payment.router, tags=["paypal"])
 app.include_router(google_auth.router, tags=["google_auth"])
+app.include_router(pages.router, tags=["pages"])
 
 
 # Test S3 credentials

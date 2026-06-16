@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .static-page { max-width: 820px; margin: 48px auto; padding: 0 24px; line-height: 1.7; color: #333; }
+    .static-page h1 { color: #2e7d32; margin-bottom: 6px; font-size: 2em; }
+    .static-page h2 { color: #43a047; margin-top: 32px; font-size: 1.25em; }
+    .static-page p, .static-page li { color: #444; }
+    .static-page .updated { color: #888; font-size: .9em; margin-bottom: 28px; }
+    .static-page a { color: #43a047; }
+    .static-page ul { padding-left: 22px; }
+    .static-page .draft-note {
+        background: #fff8e1; border-left: 4px solid #ffb300; padding: 12px 16px;
+        border-radius: 6px; margin: 20px 0; color: #795548; font-size: .92em;
+    }
+    .static-page .contact-box {
+        background: #e8f5e9; border-radius: 10px; padding: 20px 24px; margin: 24px 0;
+    }
+</style>
+<div class="static-page">
+{% block page_content %}{% endblock %}
+</div>
+{% endblock %}

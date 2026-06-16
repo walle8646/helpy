@@ -1,0 +1,62 @@
+{% extends "static_page_base.html" %}
+{% block title %}Termini di Servizio - Ispiramy{% endblock %}
+{% block page_content %}
+<h1>Termini di Servizio</h1>
+<p class="updated">Ultimo aggiornamento: {{ current_year or 2026 }}</p>
+
+<div class="draft-note">
+    ⚠️ <strong>Bozza da completare.</strong> Questo testo è un segnaposto. Prima della pubblicazione
+    ufficiale va rivisto da un consulente legale.
+</div>
+
+<p>
+    Utilizzando Ispiramy accetti i presenti Termini di Servizio. Ti invitiamo a leggerli con attenzione.
+</p>
+
+<h2>1. Il servizio</h2>
+<p>
+    Ispiramy è una piattaforma che mette in contatto utenti ("clienti") con professionisti
+    ("consulenti") per consulenze in videochiamata. Ispiramy agisce come intermediario e non è
+    parte del rapporto di consulenza tra cliente e consulente.
+</p>
+
+<h2>2. Account</h2>
+<p>
+    Per usare il servizio devi registrarti fornendo dati veritieri. Sei responsabile della
+    riservatezza delle tue credenziali e delle attività svolte con il tuo account.
+</p>
+
+<h2>3. Prenotazioni e pagamenti</h2>
+<ul>
+    <li>Le consulenze si prenotano e si pagano tramite la piattaforma (Stripe/PayPal).</li>
+    <li>Ispiramy trattiene una commissione sul valore della consulenza.</li>
+    <li>Il pagamento viene trasferito al consulente dopo lo svolgimento della consulenza.</li>
+</ul>
+
+<h2>4. Obblighi dei consulenti</h2>
+<p>
+    I consulenti si impegnano a fornire consulenze professionali e a rispettare gli appuntamenti
+    presi. Le informazioni di profilo devono essere accurate.
+</p>
+
+<h2>5. Contestazioni e rimborsi</h2>
+<p>
+    In caso di problemi è possibile aprire una contestazione. Ispiramy valuterà il caso, anche
+    tramite la registrazione della consulenza, e deciderà su eventuali rimborsi.
+</p>
+
+<h2>6. Condotta</h2>
+<p>
+    Non è consentito utilizzare la piattaforma per attività illecite, offensive o ingannevoli.
+    Ispiramy può sospendere gli account che violano questi termini.
+</p>
+
+<h2>7. Limitazione di responsabilità</h2>
+<p>
+    Ispiramy non è responsabile della qualità o dell'esito delle consulenze fornite dai consulenti,
+    che agiscono in autonomia.
+</p>
+
+<h2>8. Contatti</h2>
+<p>Per domande sui presenti termini: <a href="mailto:info@ispiramy.com">info@ispiramy.com</a>.</p>
+{% endblock %}
