@@ -1694,45 +1694,41 @@
             // Publish local tracks
             await client.publish([localTracks.audio, localTracks.video]);
             console.log('✅ Published local tracks');
-            
-            // 🎬 Notify backend that we're ready to start recording
+
+            // ✅ La call è pronta: nascondi subito l'overlay di inizializzazione.
+            // Le operazioni successive (recording, chat, polling) NON devono bloccare
+            // la visualizzazione della call — altrimenti se una è lenta/bloccata
+            // (es. recording/start-now che attende Agora) l'utente resta su
+            // "Inizializzazione chiamata...".
+            loadingOverlay.style.display = 'none';
+
+            // Start call timer
+            startCallTimer();
+
+            // ✅ Avvia polling per sincronizzare screen share con l'altro utente
+            startScreenSharePolling();
+
+            // ✅ Carica messaggi precedenti e avvia polling chat
+            loadChatMessages().then(setupAttachmentDownloads).catch(e => console.error('Chat load error:', e));
+            startChatPolling();
+
+            // 🎬 Recording avviato in background (non blocca la UX della call)
             if (recordingRequested) {
-                console.log('🎬 [init] Ready to start recording - notifying backend...');
-                try {
-                    const recordingStartResponse = await fetch(`/api/booking/${bookingId}/recording/start-now`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    const recordingData = await recordingStartResponse.json();
-                    if (recordingStartResponse.ok) {
-                        console.log('✅ [init] Recording started by backend:', recordingData.filename);
-                    } else {
-                        console.warn('⚠️ [init] Recording start failed:', recordingData.message);
-                    }
-                } catch (e) {
-                    console.error('❌ [init] Error notifying recording start:', e);
-                }
+                console.log('🎬 [init] Ready to start recording - notifying backend (background)...');
+                fetch(`/api/booking/${bookingId}/recording/start-now`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                    .then(({ ok, d }) => {
+                        if (ok) console.log('✅ [init] Recording started by backend:', d.filename);
+                        else console.warn('⚠️ [init] Recording start failed:', d.message);
+                    })
+                    .catch(e => console.error('❌ [init] Error notifying recording start:', e));
             } else {
                 console.log('ℹ️ [init] Recording non richiesto - skip recording/start-now');
             }
-            
-            // Start call timer
-            startCallTimer();
-            
-            // ✅ Avvia polling per sincronizzare screen share con l'altro utente
-            startScreenSharePolling();
-            
-            // ✅ Carica messaggi precedenti e avvia polling chat
-            await loadChatMessages();
-            startChatPolling();
-            setupAttachmentDownloads();
-            
-            // ⚠️ Recording è ora auto-avviato dal backend quando entrambi gli utenti si uniscono
-            // Non è più necessario chiamare startRecording() dal frontend
-            // await startRecording();
-            
-            loadingOverlay.style.display = 'none';
-            
+
         } catch (error) {
             console.error('Error initializing call:', error);
             alert('Errore durante l\'inizializzazione della chiamata: ' + error.message);
