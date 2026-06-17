@@ -11,6 +11,7 @@ APScheduler funziona così:
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.jobstores.base import JobLookupError
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -596,9 +597,21 @@ def start_scheduler():
     if not scheduler.running:
         scheduler.start()
         logger.info("🚀 APScheduler avviato con successo")
-    
+
+    # Job periodico: ferma i recording orfani (la cui call è finita ma lo stop
+    # dal browser non è arrivato) per finalizzare l'MP4 su S3.
+    scheduler.add_job(
+        stop_orphan_recordings,
+        trigger=IntervalTrigger(minutes=5),
+        id="stop_orphan_recordings",
+        replace_existing=True,
+        misfire_grace_time=300,
+    )
+
     # Recovery: processa booking rimasti bloccati durante il downtime
     recover_stuck_bookings()
+    # Recovery: ferma eventuali recording orfani rimasti dal downtime
+    stop_orphan_recordings()
 
 
 def recover_stuck_bookings():
@@ -670,6 +683,70 @@ def recover_stuck_bookings():
     
     except Exception as e:
         logger.error(f"❌ Errore recovery booking bloccati: {e}")
+
+
+def stop_orphan_recordings():
+    """
+    Fallback affidabile per fermare i recording rimasti in stato 'recording'
+    la cui call è ormai terminata. Lo stop dal browser (sendBeacon) è inaffidabile:
+    se non arriva, il recording resta attivo e Agora non finalizza mai l'MP4
+    (restano solo i segmenti .ts/.m3u8 su S3). Questo job, eseguito periodicamente
+    e all'avvio, chiama lo stop su Agora per finalizzare l'MP4.
+    """
+    try:
+        now = datetime.now(ITALY_TZ)
+        from datetime import time as dt_time
+        from app.utils.agora_recording import stop_recording, get_recording_url
+
+        with Session(engine) as session:
+            stuck = session.exec(
+                select(Booking).where(Booking.recording_status == "recording")
+            ).all()
+            if not stuck:
+                return
+
+            for booking in stuck:
+                try:
+                    if not booking.booking_date or not booking.end_time:
+                        continue
+
+                    end_time = booking.end_time
+                    if isinstance(end_time, str):
+                        parts = end_time.split(":")
+                        end_time = dt_time(int(parts[0]), int(parts[1]))
+                    end_dt = datetime.combine(booking.booking_date, end_time).replace(tzinfo=ITALY_TZ)
+
+                    # Ferma solo se la call è terminata da almeno 10 minuti
+                    # (evita di fermare recording ancora legittimamente in corso).
+                    if now < end_dt + timedelta(minutes=10):
+                        continue
+                    if not booking.recording_resource_id or not booking.recording_sid:
+                        continue
+
+                    logger.info(f"🛑 Recording orfano booking {booking.id}: fermo per finalizzare MP4")
+                    result = stop_recording(
+                        booking.recording_resource_id,
+                        booking.recording_sid,
+                        f"booking_{booking.id}",
+                        0,
+                    )
+                    if result:
+                        booking.recording_url = get_recording_url(result["file_name"])
+                        booking.recording_duration = result.get("mix_duration", 0)
+                        booking.recording_status = "completed"
+                        logger.info(f"✅ Recording orfano booking {booking.id} fermato e finalizzato")
+                    else:
+                        booking.recording_status = "failed"
+                        logger.warning(f"⚠️ Stop recording orfano booking {booking.id} senza file")
+
+                    booking.recording_completed_at = datetime.utcnow()
+                    booking.updated_at = datetime.utcnow()
+                    session.add(booking)
+                    session.commit()
+                except Exception as e:
+                    logger.error(f"❌ Errore stop recording orfano booking {booking.id}: {e}")
+    except Exception as e:
+        logger.error(f"❌ Errore stop_orphan_recordings: {e}")
 
 
 def shutdown_scheduler():
