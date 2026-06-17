@@ -188,6 +188,22 @@
         align-items: center;
         gap: 15px;
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+        position: relative;
+    }
+
+    /* Logo brand a sinistra della barra comandi (i bottoni restano centrati) */
+    .call-logo {
+        position: absolute;
+        left: 24px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        align-items: center;
+        pointer-events: none;
+    }
+    .call-logo img {
+        height: 42px;
+        width: auto;
     }
     
     .control-btn {
@@ -1118,7 +1134,12 @@
             padding: 12px 8px;
             gap: 8px;
         }
-        
+
+        /* Su mobile nascondi il logo per non sovrapporlo ai comandi */
+        .call-logo {
+            display: none;
+        }
+
         .control-btn {
             width: 48px;
             height: 48px;
@@ -1191,6 +1212,10 @@
     
     <!-- Controls Bar -->
     <div class="controls-bar">
+        <div class="call-logo">
+            <img src="/static/logo-final.svg" alt="Ispiramy">
+        </div>
+
         <button class="control-btn mic active" id="micBtn" title="Microfono">
             <i class="fas fa-microphone"></i>
         </button>

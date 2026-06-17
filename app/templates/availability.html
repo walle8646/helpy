@@ -851,12 +851,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('prevMonth').addEventListener('click', () => {
         currentDate.setMonth(currentDate.getMonth() - 1);
-        renderCalendar();
+        renderCalendar();         // mostra subito la griglia del nuovo mese
+        loadAllAvailability();    // ✅ carica i pallini verdi del nuovo mese (poi ri-renderizza)
     });
-    
+
     document.getElementById('nextMonth').addEventListener('click', () => {
         currentDate.setMonth(currentDate.getMonth() + 1);
         renderCalendar();
+        loadAllAvailability();    // ✅ carica i pallini verdi del nuovo mese
     });
 });
 
