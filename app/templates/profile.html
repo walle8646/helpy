@@ -187,6 +187,41 @@
     font-style: italic;
 }
 
+/* Richieste di consulenza (offerte) */
+.co-group-label {
+    font-weight: 600;
+    font-size: .85em;
+    color: #6b7280;
+    margin: 16px 0 8px;
+}
+.co-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-left: 4px solid #43a047;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.co-card-title { font-size: .98em; color: #1f2937; margin-bottom: 4px; }
+.co-card-meta { font-size: .9em; color: #43a047; font-weight: 600; }
+.co-card-msg {
+    font-size: .88em; color: #6b7280; font-style: italic;
+    margin-top: 6px; line-height: 1.4;
+}
+.co-card-side {
+    display: flex; flex-direction: column; align-items: flex-end;
+    gap: 6px; flex-shrink: 0;
+}
+.co-status {
+    font-size: .78em; font-weight: 700; padding: 3px 10px;
+    border-radius: 12px; white-space: nowrap;
+}
+.co-expires { font-size: .75em; color: #9ca3af; white-space: nowrap; }
+
 /* Stats row inline */
 .pub-stats-row {
     display: flex;
@@ -692,6 +727,12 @@
 
                 <!-- Prossimi Appuntamenti -->
                 <div id="upcomingAppointmentsSection" style="margin-bottom: 24px;"></div>
+
+                <!-- Richieste di consulenza (offerte inviate/ricevute via chat) -->
+                <section class="pub-narrative" id="consultationOffersSection" style="display:none; margin-bottom: 32px;">
+                    <div class="pub-section-label">💼 Richieste di consulenza</div>
+                    <div id="consultationOffersContainer"></div>
+                </section>
 
                 <!-- Descrizione profilo (visibile) -->
                 {% if user.descrizione %}
@@ -2710,6 +2751,73 @@
     loadLikedQuestions();
     loadUserQuestions();
     loadFavoriteConsultants();
+    loadConsultationOffers();
+
+    // ========== RICHIESTE DI CONSULENZA (offerte via chat) ==========
+    function escapeHtmlCO(s) {
+        const d = document.createElement('div');
+        d.textContent = s == null ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    async function loadConsultationOffers() {
+        try {
+            const response = await fetch('/api/consultation-offers/mine');
+            if (!response.ok) return;
+            const data = await response.json();
+            const sent = data.sent || [];
+            const received = data.received || [];
+            if (sent.length === 0 && received.length === 0) return; // niente da mostrare
+
+            const section = document.getElementById('consultationOffersSection');
+            const container = document.getElementById('consultationOffersContainer');
+
+            let html = '';
+            if (received.length > 0) {
+                html += `<div class="co-group-label">📥 Ricevute</div>`;
+                html += received.map(createOfferCard).join('');
+            }
+            if (sent.length > 0) {
+                html += `<div class="co-group-label">📤 Inviate</div>`;
+                html += sent.map(createOfferCard).join('');
+            }
+            container.innerHTML = html;
+            section.style.display = 'block';
+        } catch (e) {
+            console.error('Error loading consultation offers:', e);
+        }
+    }
+
+    function createOfferCard(o) {
+        const statusMap = {
+            'pending':   { label: 'In attesa',   color: '#92400e', bg: '#fef3c7' },
+            'accepted':  { label: 'Accettata',   color: '#1b5e20', bg: '#e8f5e9' },
+            'completed': { label: 'Completata',  color: '#1b5e20', bg: '#e8f5e9' },
+            'rejected':  { label: 'Rifiutata',   color: '#b91c1c', bg: '#fee2e2' },
+            'expired':   { label: 'Scaduta',     color: '#374151', bg: '#f3f4f6' }
+        };
+        const st = statusMap[o.status] || { label: o.status || '-', color: '#374151', bg: '#f3f4f6' };
+        const dirLabel = o.direction === 'sent' ? 'A' : 'Da';
+        let expiresHtml = '';
+        if (o.status === 'pending' && o.expires_at) {
+            const exp = new Date(o.expires_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+            expiresHtml = `<span class="co-expires">Scade il ${exp}</span>`;
+        }
+        const msgHtml = o.message ? `<div class="co-card-msg">"${escapeHtmlCO(o.message)}"</div>` : '';
+        return `
+            <div class="co-card">
+                <div class="co-card-main">
+                    <div class="co-card-title">${dirLabel} <strong>${escapeHtmlCO(o.other_user_name)}</strong></div>
+                    <div class="co-card-meta">€${o.price} · ${o.duration_minutes} min</div>
+                    ${msgHtml}
+                </div>
+                <div class="co-card-side">
+                    <span class="co-status" style="color:${st.color};background:${st.bg};">${st.label}</span>
+                    ${expiresHtml}
+                </div>
+            </div>
+        `;
+    }
 
     // ========== FAVORITE CONSULTANTS ==========
     async function loadFavoriteConsultants() {

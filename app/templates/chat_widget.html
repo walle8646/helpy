@@ -996,34 +996,41 @@
         return formatted;
     }
     
-    // Format timestamp
-    function formatTime(isoString) {
-        if (!isoString) return '';
-        const date = new Date(isoString);
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        return `${hours}:${minutes}`;
+    // I timestamp dal backend sono UTC senza suffisso 'Z': li trattiamo come UTC.
+    function parseUTC(isoString) {
+        if (!isoString) return null;
+        let s = isoString;
+        if (!/[Zz]|[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
+        return new Date(s);
     }
-    
-    // Format date for separator (WhatsApp style)
-    function formatDateSeparator(isoString) {
-        if (!isoString) return '';
-        const date = new Date(isoString);
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        
-        if (date.toDateString() === today.toDateString()) return 'Oggi';
-        if (date.toDateString() === yesterday.toDateString()) return 'Ieri';
-        
-        return date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    }
-    
-    // Get date key for grouping (YYYY-MM-DD)
+
+    // Restituisce la chiave giorno YYYY-MM-DD nel fuso Europe/Rome
     function getDateKey(isoString) {
-        if (!isoString) return '';
-        const d = new Date(isoString);
-        return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+        const d = parseUTC(isoString);
+        if (!d) return '';
+        return d.toLocaleDateString('en-CA', { timeZone: 'Europe/Rome' }); // formato YYYY-MM-DD
+    }
+
+    // Format timestamp (ora italiana Europe/Rome)
+    function formatTime(isoString) {
+        const date = parseUTC(isoString);
+        if (!date) return '';
+        return date.toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Format date for separator (WhatsApp style) — in fuso Europe/Rome
+    function formatDateSeparator(isoString) {
+        const date = parseUTC(isoString);
+        if (!date) return '';
+        const dateKey = getDateKey(isoString);
+        const todayKey = getDateKey(new Date().toISOString());
+        const yesterday = new Date(Date.now() - 86400000);
+        const yesterdayKey = getDateKey(yesterday.toISOString());
+
+        if (dateKey === todayKey) return 'Oggi';
+        if (dateKey === yesterdayKey) return 'Ieri';
+
+        return date.toLocaleDateString('it-IT', { timeZone: 'Europe/Rome', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
     
     // Create date separator DOM element

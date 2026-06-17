@@ -406,7 +406,9 @@
                     }
 
                     html += messages.map(msg => {
-                        const time = new Date(msg.created_at).toLocaleString('it-IT', {
+                        const _ca = /[Zz]|[+-]\d{2}:?\d{2}$/.test(msg.created_at) ? msg.created_at : msg.created_at + 'Z';
+                        const time = new Date(_ca).toLocaleString('it-IT', {
+                            timeZone: 'Europe/Rome',
                             hour: '2-digit',
                             minute: '2-digit'
                         });

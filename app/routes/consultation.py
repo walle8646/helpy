@@ -277,6 +277,49 @@ def _is_paypal_available():
         return False
 
 
+@router.get("/api/consultation-offers/mine")
+async def get_my_consultation_offers(user: User = Depends(get_current_user)):
+    """Offerte di consulenza inviate (come consulente) e ricevute (come cliente) dall'utente loggato."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+
+    with Session(engine) as session:
+        sent = session.exec(
+            select(ConsultationOffer)
+            .where(ConsultationOffer.consultant_user_id == user.id)
+            .order_by(ConsultationOffer.created_at.desc())
+        ).all()
+        received = session.exec(
+            select(ConsultationOffer)
+            .where(ConsultationOffer.client_user_id == user.id)
+            .order_by(ConsultationOffer.created_at.desc())
+        ).all()
+
+        def serialize(offer, other_user_id, direction):
+            other = session.get(User, other_user_id)
+            other_name = "Utente"
+            if other:
+                other_name = (f"{other.nome or ''} {other.cognome or ''}").strip() or f"Utente #{other.id}"
+            return {
+                "id": offer.id,
+                "direction": direction,
+                "other_user_id": other_user_id,
+                "other_user_name": other_name,
+                "price": offer.price,
+                "duration_minutes": offer.duration_minutes,
+                "status": offer.status,
+                "message": offer.message,
+                "booking_id": offer.booking_id,
+                "expires_at": offer.expires_at.isoformat() if offer.expires_at else None,
+                "created_at": offer.created_at.isoformat() if offer.created_at else None,
+            }
+
+        return JSONResponse({
+            "sent": [serialize(o, o.client_user_id, "sent") for o in sent],
+            "received": [serialize(o, o.consultant_user_id, "received") for o in received],
+        })
+
+
 @router.get("/api/consultation-offers/{offer_id}")
 async def get_consultation_offer(
     offer_id: int,
