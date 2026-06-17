@@ -1,5 +1,5 @@
 ﻿from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, Form, File, BackgroundTasks
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select, func
 from datetime import datetime, timedelta, time
 from typing import Optional, List, Dict, Union
@@ -968,7 +968,15 @@ async def call_page(booking_id: int, request: Request):
         
         if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
             raise HTTPException(status_code=403, detail="Non autorizzato")
-        
+
+        # Se è già stata lasciata una recensione, la consulenza è conclusa:
+        # non è più possibile rientrare nella call (nemmeno entro la fascia oraria).
+        existing_review = session.exec(
+            select(Review).where(Review.booking_id == booking_id)
+        ).first()
+        if existing_review:
+            return RedirectResponse(url="/profile?call_closed=review", status_code=303)
+
         # Recupera nomi reali per i label video
         client_user = session.get(User, booking.client_user_id)
         consultant_user = session.get(User, booking.consultant_user_id)
@@ -1623,13 +1631,29 @@ async def call_status(
         end_datetime_naive = datetime.combine(booking.booking_date, end_time_obj)
         end_datetime = end_datetime_naive.replace(tzinfo=ITALY_TZ)
         call_deadline = end_datetime + timedelta(minutes=5)
-        
+
+        # Se è stata lasciata una recensione, la call è chiusa: non rientrabile.
+        existing_review = session.exec(
+            select(Review).where(Review.booking_id == booking_id)
+        ).first()
+        if existing_review:
+            return {
+                "booking_id": booking_id,
+                "is_active": False,
+                "is_expired": True,
+                "closed_by_review": True,
+                "remaining_seconds": 0,
+                "end_time": booking.end_time,
+                "booking_date": booking.booking_date.isoformat(),
+                "client_joined": booking.client_joined_at is not None,
+            }
+
         # Controlla se la call è scaduta
         is_expired = now_italy >= call_deadline
-        
+
         # Secondi rimanenti
         remaining_seconds = int((call_deadline - now_italy).total_seconds())
-        
+
         print(f"📞 Call status check - booking {booking_id}: now={now_italy}, deadline={call_deadline}, expired={is_expired}, remaining={remaining_seconds}s")
         
         return {

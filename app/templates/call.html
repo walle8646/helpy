@@ -199,11 +199,18 @@
         transform: translateY(-50%);
         display: flex;
         align-items: center;
+        gap: 10px;
         pointer-events: none;
     }
     .call-logo img {
-        height: 42px;
+        height: 56px;
         width: auto;
+    }
+    .call-logo .call-logo-text {
+        color: #fff;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: .3px;
     }
     
     .control-btn {
@@ -1214,6 +1221,7 @@
     <div class="controls-bar">
         <div class="call-logo">
             <img src="/static/logo-final.svg" alt="Ispiramy">
+            <span class="call-logo-text">Ispiramy</span>
         </div>
 
         <button class="control-btn mic active" id="micBtn" title="Microfono">
