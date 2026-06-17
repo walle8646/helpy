@@ -1235,6 +1235,10 @@
         <button class="control-btn screen-share" id="screenShareBtn" title="Condividi schermo">
             <i class="fas fa-desktop"></i>
         </button>
+
+        <button class="control-btn bg-effect" id="bgEffectBtn" title="Sfondo (nessuno → sfocato → logo)" style="background:#4a5568;">
+            <i class="fas fa-image"></i>
+        </button>
         
         <!-- Timer moved to controls bar -->
         <div class="call-timer-inline" id="callTimerInline">
@@ -1388,6 +1392,7 @@
 
 <!-- Agora RTC SDK -->
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
+<script src="https://download.agora.io/sdk/release/agora-extension-virtual-background.js"></script>
 
 <script>
     const bookingId = {{ booking.id }};
@@ -1406,6 +1411,89 @@
     };
     let screenTrack = null;
     let isScreenSharing = false;
+
+    // ===== Virtual Background (sfondo sfocato / logo Ispiramy) =====
+    let vbExtension = null;
+    let vbProcessor = null;
+    let currentBackground = 'none'; // none | blur | img
+    const VB_IMAGE_URL = 'https://ispiramy-images.s3.eu-north-1.amazonaws.com/call-background.png';
+
+    function initVirtualBackground() {
+        try {
+            if (typeof VirtualBackgroundExtension === 'undefined') {
+                console.warn('⚠️ Virtual Background extension non caricata');
+                return;
+            }
+            vbExtension = new VirtualBackgroundExtension();
+            AgoraRTC.registerExtensions([vbExtension]);
+            console.log('✅ Virtual Background extension registrata');
+        } catch (e) {
+            console.warn('⚠️ Init Virtual Background fallito:', e);
+            vbExtension = null;
+        }
+    }
+
+    async function setupVirtualBackgroundProcessor() {
+        if (!vbExtension || !localTracks.video) return;
+        try {
+            vbProcessor = vbExtension.createProcessor();
+            await vbProcessor.init();
+            localTracks.video.pipe(vbProcessor).pipe(localTracks.video.processorDestination);
+            console.log('✅ Virtual Background processor pronto');
+        } catch (e) {
+            console.warn('⚠️ Setup Virtual Background processor fallito:', e);
+            vbProcessor = null;
+            const btn = document.getElementById('bgEffectBtn');
+            if (btn) btn.style.display = 'none'; // nascondi il bottone se non supportato
+        }
+    }
+
+    async function applyBackground(type) {
+        if (!vbProcessor) return;
+        try {
+            if (type === 'none') {
+                await vbProcessor.disable();
+            } else if (type === 'blur') {
+                vbProcessor.setOptions({ type: 'blur', blurDegree: 2 });
+                await vbProcessor.enable();
+            } else if (type === 'img') {
+                await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = async () => {
+                        try {
+                            vbProcessor.setOptions({ type: 'img', source: img });
+                            await vbProcessor.enable();
+                            resolve();
+                        } catch (err) { reject(err); }
+                    };
+                    img.onerror = reject;
+                    img.src = VB_IMAGE_URL;
+                });
+            }
+            currentBackground = type;
+            updateBgButton();
+        } catch (e) {
+            console.error('Errore applyBackground:', e);
+        }
+    }
+
+    function updateBgButton() {
+        const btn = document.getElementById('bgEffectBtn');
+        if (!btn) return;
+        // Evidenzia il bottone quando un effetto è attivo
+        btn.style.background = currentBackground === 'none' ? '#4a5568' : '#43a047';
+        const titles = { none: 'Sfondo: nessuno', blur: 'Sfondo: sfocato', img: 'Sfondo: logo Ispiramy' };
+        btn.title = titles[currentBackground] + ' (clic per cambiare)';
+    }
+
+    function cycleBackground() {
+        const next = currentBackground === 'none' ? 'blur'
+                   : currentBackground === 'blur' ? 'img'
+                   : 'none';
+        applyBackground(next);
+    }
+
     let remoteUsers = {};
     let callStartTime = null;
     let timerInterval = null;
@@ -1427,6 +1515,8 @@
     const cameraBtn = document.getElementById('cameraBtn');
     const screenShareBtn = document.getElementById('screenShareBtn');
     const endCallBtn = document.getElementById('endCallBtn');
+    const bgEffectBtn = document.getElementById('bgEffectBtn');
+    if (bgEffectBtn) bgEffectBtn.addEventListener('click', cycleBackground);
     const callTimer = document.getElementById('callTimer');
     const timerDisplay = document.getElementById('timerDisplay');
     const timerDisplayInline = document.getElementById('timerDisplayInline');
@@ -1688,6 +1778,9 @@
                 remoteLabel.textContent = remoteUserName;
             }
             
+            // Registra l'estensione Virtual Background (sfondo sfocato / logo)
+            initVirtualBackground();
+
             // Create Agora client
             client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
             
@@ -1714,7 +1807,10 @@
             // Create local tracks
             localTracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
             localTracks.video = await AgoraRTC.createCameraVideoTrack();
-            
+
+            // Collega il processor Virtual Background al video track
+            await setupVirtualBackgroundProcessor();
+
             // Play local video
             localTracks.video.play('localPlayer');
             
