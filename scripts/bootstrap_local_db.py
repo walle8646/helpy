@@ -157,6 +157,9 @@ NOTIFICATION_TYPES = [
     ("review_request", "Richiesta recensione",
      "Email per votare la consulenza", False, True,
      "Lascia una recensione su Ispiramy", "review_request.html"),
+    ("review_received", "Recensione ricevuta",
+     "Notifica al consulente quando riceve una recensione", True, True,
+     "Hai ricevuto una recensione su Ispiramy", "review_received.html"),
 ]
 
 

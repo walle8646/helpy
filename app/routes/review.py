@@ -16,6 +16,7 @@ from app.models import Review, Booking, User
 from app.routes.auth import get_current_user
 from app.logger_config import logger
 from app.utils.notification_service import send_notification
+from app.utils_user import get_display_name
 
 router = APIRouter()
 
@@ -63,8 +64,39 @@ async def submit_review(booking_id: int, review_data: ReviewRequest, request: Re
         )
         session.add(review)
         session.commit()
+        session.refresh(review)
 
         logger.info(f"⭐ Review creata per booking {booking_id} da user {current_user.id}")
+
+        # 🔔 Notifica al consulente: ha ricevuto una recensione (in-app + email)
+        try:
+            consultant = session.get(User, booking.consultant_user_id)
+            reviewer = session.get(User, current_user.id)
+            reviewer_name = get_display_name(reviewer) if reviewer else "Un cliente"
+            consultant_name = (f"{consultant.nome or ''} {consultant.cognome or ''}").strip() if consultant else ""
+            avg_rating = round(
+                (review.rating_helpful + review.rating_prepared + review.rating_communication) / 3, 1
+            )
+            date_str = booking.booking_date.strftime("%d/%m/%Y") if booking.booking_date else ""
+            send_notification(
+                user_id=booking.consultant_user_id,
+                type_key="review_received",
+                title="Hai ricevuto una recensione ⭐",
+                message=f"{reviewer_name} ti ha lasciato una recensione ({avg_rating}/5) per la consulenza del {date_str}.",
+                template_data={
+                    "consultant_name": consultant_name or "Consulente",
+                    "reviewer_name": reviewer_name,
+                    "rating": str(avg_rating),
+                    "date": date_str,
+                    "comment": review.comment or "",
+                    "action_url": f"{os.getenv('BASE_URL', '')}/user/{booking.consultant_user_id}",
+                },
+                related_booking_id=booking_id,
+                action_url=f"/user/{booking.consultant_user_id}",
+            )
+        except Exception as e:
+            logger.error(f"Errore invio notifica recensione al consulente: {e}")
+
         return JSONResponse({"success": True, "message": "Recensione inviata con successo!"})
 
 

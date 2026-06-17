@@ -73,362 +73,163 @@ def send_notification_email(
         return False
 
 
+# URL pubblico del logo per le email (PNG su S3 — gli email client non rendono bene gli SVG)
+EMAIL_LOGO_URL = "https://ispiramy-images.s3.eu-north-1.amazonaws.com/logo-email.png"
+
+
+def _branded_email(emoji: str, title: str, accent: str, accent_dark: str,
+                   body_html: str, button_label: str = None, button_url: str = None) -> str:
+    """Wrapper email brandizzato: header verde con logo + contenuto + footer.
+    Usa stili inline (i client email spesso rimuovono i blocchi <style>)."""
+    button = ""
+    if button_label and button_url:
+        button = (
+            f'<div style="text-align:center;">'
+            f'<a href="{button_url}" style="display:inline-block;background:{accent};color:#ffffff;'
+            f'padding:14px 36px;text-decoration:none;border-radius:8px;margin:8px 0 4px;'
+            f'font-weight:600;font-size:16px;">{button_label}</a></div>'
+        )
+    return f"""<!DOCTYPE html>
+<html lang="it">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#eef1f4;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#374151;">
+  <div style="max-width:600px;margin:0 auto;padding:24px 16px;">
+    <div style="background:linear-gradient(135deg,{accent} 0%,{accent_dark} 100%);border-radius:16px 16px 0 0;padding:30px 24px;text-align:center;">
+      <img src="{EMAIL_LOGO_URL}" alt="Ispiramy" width="46" height="46" style="display:block;margin:0 auto 6px;border:0;">
+      <div style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:.3px;">Ispiramy</div>
+      <div style="color:rgba(255,255,255,.96);font-size:17px;font-weight:600;margin-top:14px;">{emoji} {title}</div>
+    </div>
+    <div style="background:#ffffff;border-radius:0 0 16px 16px;padding:30px 28px;box-shadow:0 2px 12px rgba(0,0,0,.05);">
+      {body_html}
+      {button}
+    </div>
+    <div style="text-align:center;color:#9ca3af;font-size:12px;margin-top:22px;line-height:1.6;">
+      <p style="margin:0;">Questa è un'email automatica da <strong style="color:{accent};">Ispiramy</strong>. Non rispondere a questo messaggio.</p>
+      <p style="margin:6px 0 0;">© Ispiramy — La piattaforma che connette chi cerca aiuto con chi può darlo.</p>
+    </div>
+  </div>
+</body>
+</html>"""
+
+
+def _details_box(rows_html: str, accent: str) -> str:
+    """Box dettagli con bordo accentato (stile inline)."""
+    return (
+        f'<div style="background:#f9fafb;border:1px solid #eceef1;border-left:4px solid {accent};'
+        f'border-radius:8px;padding:16px 20px;margin:20px 0;">{rows_html}</div>'
+    )
+
+
 def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[str]:
     """
-    Genera l'HTML dell'email sostituendo le variabili nel template.
-    
+    Genera l'HTML dell'email (brandizzato) sostituendo le variabili nel template.
+
     Args:
         template_name: Nome del template (es: 'booking_confirmed.html')
         data: Dizionario con le variabili da sostituire
-    
+
     Returns:
         str: HTML generato, None se errore
     """
     try:
-        # I template email sono semplici HTML con placeholder {variable}
-        templates = {
-            'booking_confirmed.html': """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-        .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
-        .button {{ display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-        .footer {{ text-align: center; color: #999; font-size: 12px; margin-top: 30px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📅 Nuova Prenotazione!</h1>
-        </div>
-        <div class="content">
-            <p>Ciao <strong>{consultant_name}</strong>,</p>
-            <p>Hai ricevuto una nuova prenotazione da <strong>{client_name}</strong>!</p>
-            
-            <div class="details">
-                <p><strong>📅 Data:</strong> {date}</p>
-                <p><strong>🕐 Orario:</strong> {time}</p>
-                <p><strong>⏱️ Durata:</strong> {duration} minuti</p>
-            </div>
-            
-            <p>Puoi visualizzare i dettagli della prenotazione e prepararti per la consulenza.</p>
-            
-            <a href="{action_url}" class="button">Visualizza Prenotazione</a>
-            
-            <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                Ti consigliamo di prepararti in anticipo e di essere puntuale per offrire la migliore esperienza al tuo cliente.
-            </p>
-        </div>
-        <div class="footer">
-            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
-        </div>
-    </div>
-</body>
-</html>
-""",
-            'reminder_1h.html': """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-        .content {{ background: #fff9e6; padding: 30px; border-radius: 0 0 10px 10px; }}
-        .button {{ display: inline-block; background: #f39c12; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f39c12; }}
-        .footer {{ text-align: center; color: #999; font-size: 12px; margin-top: 30px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔔 Promemoria Consulenza</h1>
-        </div>
-        <div class="content">
-            <p>Ciao <strong>{user_name}</strong>,</p>
-            <p>La tua consulenza con <strong>{other_user_name}</strong> inizia tra <strong>1 ora</strong>!</p>
-            
-            <div class="details">
-                <p><strong>📅 Data:</strong> {date}</p>
-                <p><strong>🕐 Orario inizio:</strong> {time}</p>
-                <p><strong>⏱️ Durata:</strong> {duration} minuti</p>
-            </div>
-            
-            <p>Preparati per la sessione e assicurati di avere una buona connessione internet.</p>
-            
-            <a href="{action_url}" class="button">Vai alla Prenotazione</a>
-            
-            <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                💡 <strong>Suggerimento:</strong> Testa audio e video prima dell'inizio per evitare problemi tecnici.
-            </p>
-        </div>
-        <div class="footer">
-            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
-        </div>
-    </div>
-</body>
-</html>
-""",
-            'reminder_10min.html': """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-        .content {{ background: #ffebee; padding: 30px; border-radius: 0 0 10px 10px; }}
-        .button {{ display: inline-block; background: #e74c3c; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-size: 18px; font-weight: bold; }}
-        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e74c3c; }}
-        .urgent {{ background: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107; margin: 20px 0; }}
-        .footer {{ text-align: center; color: #999; font-size: 12px; margin-top: 30px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>⏰ Consulenza in Partenza!</h1>
-        </div>
-        <div class="content">
-            <p>Ciao <strong>{user_name}</strong>,</p>
-            <p style="font-size: 18px; font-weight: bold; color: #e74c3c;">La tua consulenza inizia tra 10 MINUTI!</p>
-            
-            <div class="details">
-                <p><strong>👥 Con:</strong> {other_user_name}</p>
-                <p><strong>🕐 Orario:</strong> {time}</p>
-                <p><strong>⏱️ Durata:</strong> {duration} minuti</p>
-            </div>
-            
-            <div class="urgent">
-                <p style="margin: 0; font-weight: bold;">⚠️ Preparati a confermare la tua presenza!</p>
-                <p style="margin: 5px 0 0 0; font-size: 14px;">Tra pochi minuti potrai accedere alla stanza virtuale.</p>
-            </div>
-            
-            <a href="{action_url}" class="button">🚀 Entra nella Stanza</a>
-            
-            <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                ✅ Controlla che audio e video funzionino correttamente<br>
-                ✅ Trova un luogo tranquillo e senza distrazioni<br>
-                ✅ Tieni a portata di mano eventuali documenti necessari
-            </p>
-        </div>
-        <div class="footer">
-            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
-        </div>
-    </div>
-</body>
-</html>
-""",
-            'community_contact.html': """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-        .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
-        .button {{ display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }}
-        .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>💬 Nuovo Messaggio dalla Community</h1>
-        </div>
-        <div class="content">
-            <p>Ciao <strong>{author_name}</strong>,</p>
-            <p style="font-size: 16px;">Qualcuno è interessato alla tua domanda e vuole contattarti!</p>
-            
-            <div class="details">
-                <p><strong>👤 Chi:</strong> {contact_name}</p>
-                <p><strong>📝 La tua domanda:</strong> {question_title}</p>
-                <p><strong>📅 Quando:</strong> {contact_date}</p>
-            </div>
-            
-            <p>Riceverai i suoi messaggi nella sezione chat di Ispiramy.</p>
-            
-            <a href="{action_url}" class="button">💬 Apri Chat</a>
-            
-            <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                Rispondi velocemente per aumentare le tue possibilità di ricevere una consulenza! 🚀
-            </p>
-        </div>
-        <div class="footer">
-            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
-        </div>
-    </div>
-</body>
-</html>
-""",
-            'booking_refused.html': """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-        .content {{ background: #ffebee; padding: 30px; border-radius: 0 0 10px 10px; }}
-        .button {{ display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e74c3c; }}
-        .refund-info {{ background: #e8f5e9; padding: 15px; border-radius: 5px; border-left: 4px solid #4caf50; margin: 20px 0; }}
-        .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>⚠️ Consulenza Rifiutata</h1>
-        </div>
-        <div class="content">
-            <p>Caro/a <strong>{client_name}</strong>,</p>
-            <p>Purtroppo <strong>{consultant_name}</strong> ha rifiutato la consulenza che avevi prenotato.</p>
-            
-            <div class="details">
-                <p><strong>📅 Data:</strong> {date}</p>
-                <p><strong>🕐 Orario:</strong> {time}</p>
-                <p><strong>👤 Consulente:</strong> {consultant_name}</p>
-            </div>
-            
-            {reason_section}
-            
-            <div class="refund-info">
-                <p><strong>💰 Rimborso:</strong></p>
-                <p>Se hai pagato la consulenza, riceverai il rimborso entro 5-10 giorni lavorativi sul metodo di pagamento utilizzato.</p>
-            </div>
-            
-            <p style="margin-top: 20px;">Non demordere! Puoi cercare altri consulenti disponibili nel nostro catalogo.</p>
-            
-            <a href="{action_url}" class="button">🔍 Cerca altri Consulenti</a>
-            
-            <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                Se hai domande o necessiti di assistenza, contattaci pure!
-            </p>
-        </div>
-        <div class="footer">
-            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
-        </div>
-    </div>
-</body>
-</html>
-""",
-            'review_request.html': """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #f5a623 0%, #f7c948 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-        .content {{ background: #fffcf0; padding: 30px; border-radius: 0 0 10px 10px; }}
-        .button {{ display: inline-block; background: #f5a623; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-size: 16px; font-weight: bold; }}
-        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f5a623; }}
-        .footer {{ text-align: center; color: #999; font-size: 12px; margin-top: 30px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>⭐ Lascia una Recensione</h1>
-        </div>
-        <div class="content">
-            <p>Ciao <strong>{user_name}</strong>,</p>
-            <p>Come è andata la tua consulenza con <strong>{consultant_name}</strong>?</p>
-            
-            <div class="details">
-                <p><strong>📅 Data:</strong> {date}</p>
-                <p><strong>🕐 Orario:</strong> {time}</p>
-            </div>
-            
-            <p>La tua opinione è preziosa e aiuta altri utenti a scegliere il consulente giusto. Ci vogliono solo 30 secondi!</p>
-            
-            <a href="{review_url}" class="button">⭐ Lascia la tua Recensione</a>
-            
-            <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                Grazie per contribuire alla community di Ispiramy!
-            </p>
-        </div>
-        <div class="footer">
-            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
-        </div>
-    </div>
-</body>
-</html>
-""",
-            'review_reminder.html': """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
-        .content {{ background: #fff9e6; padding: 30px; border-radius: 0 0 10px 10px; }}
-        .button {{ display: inline-block; background: #e67e22; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-size: 16px; font-weight: bold; }}
-        .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e67e22; }}
-        .footer {{ text-align: center; color: #999; font-size: 12px; margin-top: 30px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔔 Non dimenticare la Recensione!</h1>
-        </div>
-        <div class="content">
-            <p>Ciao <strong>{user_name}</strong>,</p>
-            <p>Non hai ancora lasciato una recensione per la tua consulenza con <strong>{consultant_name}</strong>.</p>
-            
-            <div class="details">
-                <p><strong>📅 Data:</strong> {date}</p>
-                <p><strong>🕐 Orario:</strong> {time}</p>
-            </div>
-            
-            <p>Ci vogliono solo 30 secondi e aiuterai altri utenti a trovare il consulente perfetto!</p>
-            
-            <a href="{review_url}" class="button">⭐ Lascia la tua Recensione</a>
-            
-            <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                Se hai già lasciato una recensione, ignora questo messaggio.
-            </p>
-        </div>
-        <div class="footer">
-            <p>Questa è un'email automatica da Ispiramy. Non rispondere a questo messaggio.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-        }
-        
-        template_html = templates.get(template_name)
-        
-        if not template_html:
-            logger.error(f"Template {template_name} non trovato")
-            return None
-        
-        # Sostituisci le variabili nel template
-        html_content = template_html
-        for key, value in data.items():
-            html_content = html_content.replace(f"{{{key}}}", str(value))
-        
-        return html_content
-        
+        # Palette accenti per tipo di email (su base verde bosco del brand)
+        GREEN, GREEN_D = "#43a047", "#2e7d32"
+        AMBER, AMBER_D = "#f39c12", "#e67e22"
+        RED, RED_D = "#e74c3c", "#c0392b"
+        GOLD, GOLD_D = "#f5a623", "#e8900c"
+
+        def row(label, value):
+            return f'<p style="margin:6px 0;color:#374151;"><strong>{label}</strong> {value}</p>'
+
+        # Ogni template: emoji, titolo, accento, corpo, etichetta+url bottone
+        if template_name == 'booking_confirmed.html':
+            body = (
+                "<p>Ciao <strong>{consultant_name}</strong>,</p>"
+                "<p>Hai ricevuto una nuova prenotazione da <strong>{client_name}</strong>!</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}") + row("⏱️ Durata:", "{duration} minuti"), GREEN)
+                + "<p>Preparati in anticipo e sii puntuale per offrire la migliore esperienza al tuo cliente.</p>"
+            )
+            return _fill(_branded_email("📅", "Nuova Prenotazione", GREEN, GREEN_D, body, "Visualizza Prenotazione", "{action_url}"), data)
+
+        if template_name == 'reminder_1h.html':
+            body = (
+                "<p>Ciao <strong>{user_name}</strong>,</p>"
+                "<p>La tua consulenza con <strong>{other_user_name}</strong> inizia tra <strong>1 ora</strong>!</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario inizio:", "{time}") + row("⏱️ Durata:", "{duration} minuti"), AMBER)
+                + "<p>💡 <strong>Suggerimento:</strong> testa audio e video prima dell'inizio per evitare problemi tecnici.</p>"
+            )
+            return _fill(_branded_email("⏰", "Promemoria Consulenza", AMBER, AMBER_D, body, "Vai alla Prenotazione", "{action_url}"), data)
+
+        if template_name == 'reminder_10min.html':
+            body = (
+                "<p>Ciao <strong>{user_name}</strong>,</p>"
+                "<p style='font-size:18px;font-weight:bold;color:#c0392b;'>La tua consulenza inizia tra 10 MINUTI!</p>"
+                + _details_box(row("👥 Con:", "{other_user_name}") + row("🕐 Orario:", "{time}") + row("⏱️ Durata:", "{duration} minuti"), RED)
+                + "<p>✅ Controlla audio e video · ✅ Trova un luogo tranquillo · ✅ Tieni a portata i documenti utili.</p>"
+            )
+            return _fill(_branded_email("🚀", "Consulenza in Partenza", RED, RED_D, body, "Entra nella Stanza", "{action_url}"), data)
+
+        if template_name == 'community_contact.html':
+            body = (
+                "<p>Ciao <strong>{author_name}</strong>,</p>"
+                "<p>Qualcuno è interessato alla tua domanda e vuole contattarti!</p>"
+                + _details_box(row("👤 Chi:", "{contact_name}") + row("📝 La tua domanda:", "{question_title}") + row("📅 Quando:", "{contact_date}"), GREEN)
+                + "<p>Riceverai i suoi messaggi nella sezione chat di Ispiramy. Rispondi velocemente per aumentare le possibilità di ricevere una consulenza! 🚀</p>"
+            )
+            return _fill(_branded_email("💬", "Nuovo Messaggio dalla Community", GREEN, GREEN_D, body, "Apri Chat", "{action_url}"), data)
+
+        if template_name == 'booking_refused.html':
+            body = (
+                "<p>Caro/a <strong>{client_name}</strong>,</p>"
+                "<p>Purtroppo <strong>{consultant_name}</strong> ha rifiutato la consulenza che avevi prenotato.</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}") + row("👤 Consulente:", "{consultant_name}"), RED)
+                + "{reason_section}"
+                + '<div style="background:#e8f5e9;border-left:4px solid #43a047;border-radius:6px;padding:14px 18px;margin:20px 0;">'
+                  "<p style='margin:0;'><strong>💰 Rimborso:</strong> se hai pagato, riceverai il rimborso entro 5-10 giorni lavorativi sul metodo di pagamento utilizzato.</p></div>"
+                + "<p>Non demordere! Puoi cercare altri consulenti disponibili nel nostro catalogo.</p>"
+            )
+            return _fill(_branded_email("⚠️", "Consulenza Rifiutata", RED, RED_D, body, "Cerca altri Consulenti", "{action_url}"), data)
+
+        if template_name == 'review_request.html':
+            body = (
+                "<p>Ciao <strong>{user_name}</strong>,</p>"
+                "<p>Com'è andata la tua consulenza con <strong>{consultant_name}</strong>?</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}"), GOLD)
+                + "<p>La tua opinione è preziosa e aiuta altri utenti a scegliere il consulente giusto. Ci vogliono solo 30 secondi!</p>"
+            )
+            return _fill(_branded_email("⭐", "Lascia una Recensione", GOLD, GOLD_D, body, "Lascia la tua Recensione", "{review_url}"), data)
+
+        if template_name == 'review_reminder.html':
+            body = (
+                "<p>Ciao <strong>{user_name}</strong>,</p>"
+                "<p>Non hai ancora lasciato una recensione per la consulenza con <strong>{consultant_name}</strong>.</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}"), AMBER)
+                + "<p>Ci vogliono solo 30 secondi e aiuterai altri utenti a trovare il consulente perfetto! Se l'hai già fatto, ignora questo messaggio.</p>"
+            )
+            return _fill(_branded_email("🔔", "Non dimenticare la Recensione", AMBER, AMBER_D, body, "Lascia la tua Recensione", "{review_url}"), data)
+
+        if template_name == 'review_received.html':
+            body = (
+                "<p>Ciao <strong>{consultant_name}</strong>,</p>"
+                "<p><strong>{reviewer_name}</strong> ti ha lasciato una recensione per la tua consulenza!</p>"
+                + _details_box(row("⭐ Valutazione:", "{rating}/5") + row("📅 Consulenza del:", "{date}"), GOLD)
+                + '<div style="background:#fffbeb;border-left:4px solid #f5a623;border-radius:6px;padding:14px 18px;margin:20px 0;font-style:italic;color:#6b7280;">“{comment}”</div>'
+                + "<p>Le recensioni aumentano la tua visibilità e la fiducia dei futuri clienti. Continua così! 🎉</p>"
+            )
+            return _fill(_branded_email("⭐", "Hai ricevuto una recensione", GOLD, GOLD_D, body, "Vedi il tuo profilo", "{action_url}"), data)
+
+        logger.error(f"Template {template_name} non trovato")
+        return None
     except Exception as e:
         logger.error(f"Errore generazione HTML template {template_name}: {e}")
         return None
+
+
+def _fill(html: str, data: Dict[str, str]) -> str:
+    """Sostituisce i placeholder {key} con i valori. Rimuove i placeholder non forniti."""
+    import re
+    for key, value in data.items():
+        html = html.replace(f"{{{key}}}", str(value) if value is not None else "")
+    # reason_section opzionale: se non fornito, rimuovilo
+    html = html.replace("{reason_section}", "")
+    return html
