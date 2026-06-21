@@ -536,35 +536,24 @@ async def api_ask_question(
                     
                     # Invia email
                     try:
+                        from app.utils.notification_email import _branded_email
+                        _base = os.getenv("BASE_URL", os.getenv("APP_URL", ""))
+                        _q_box = (
+                            '<div style="background:#f9fafb;border-left:4px solid #43a047;border-radius:8px;padding:16px 20px;margin:20px 0;">'
+                            f'<h3 style="margin:0 0 8px;color:#1f2937;">{new_question.title}</h3>'
+                            f'<p style="margin:0;color:#6b7280;">{new_question.description[:200]}...</p>'
+                            f'<p style="margin:10px 0 0;"><strong>Utente:</strong> {current_user.nome} {current_user.cognome}</p></div>'
+                        )
+                        _body = (
+                            f"<p>Ciao <strong>{consultant.nome}</strong>,</p>"
+                            "<p>C'è una nuova richiesta di consulenza nella tua categoria di expertise!</p>"
+                            + _q_box +
+                            "<p>Accedi al tuo profilo per vedere tutte le nuove richieste della tua categoria.</p>"
+                        )
                         send_email(
                             recipient_email=consultant.email,
-                            subject=f"🔔 Nuova richiesta di consulenza nella tua categoria: {new_question.title}",
-                            html_content=f"""
-                            <html>
-                                <body style="font-family: Arial, sans-serif;">
-                                    <div style="max-width: 600px; margin: 0 auto;">
-                                        <h2>Nuova Richiesta di Consulenza</h2>
-                                        <p>Ciao {consultant.nome},</p>
-                                        <p>C'è una nuova richiesta di consulenza nella tua categoria di expertise!</p>
-                                        
-                                        <div style="background: #f0f0f0; padding: 16px; border-radius: 8px; margin: 20px 0;">
-                                            <h3 style="margin-top: 0;">{new_question.title}</h3>
-                                            <p>{new_question.description[:200]}...</p>
-                                            <p><strong>Utente:</strong> {current_user.nome} {current_user.cognome}</p>
-                                        </div>
-                                        
-                                        <p>
-                                            <a href="{os.getenv('APP_URL', 'http://localhost:8000')}/profile" 
-                                               style="background: #4caf50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                                                Visualizza Richieste
-                                            </a>
-                                        </p>
-                                        
-                                        <p>Accedi al tuo profilo per vedere tutte le nuove richieste della tua categoria.</p>
-                                    </div>
-                                </body>
-                            </html>
-                            """
+                            subject=f"Nuova richiesta nella tua categoria: {new_question.title}",
+                            html_content=_branded_email("🔔", "Nuova richiesta di consulenza", "#43a047", "#2e7d32", _body, "Visualizza Richieste", f"{_base}/profile"),
                         )
                         logger.info(f"📧 Email sent to consultant {consultant.email}")
                     except Exception as e:

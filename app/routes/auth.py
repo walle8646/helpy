@@ -519,65 +519,36 @@ async def reset_password(
 # ========== FUNZIONE EMAIL RESET PASSWORD ==========
 
 def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
-    """Invia email con codice reset password"""
-    # âœ… Usa la funzione esistente (adattala al tuo caso)
-    from app.utils.email import send_verification_email  # O il nome corretto
-    
-    subject = "ðŸ” Reset Password - Ispiramy"
-    
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }}
-            .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }}
-            .header {{ text-align: center; margin-bottom: 32px; }}
-            .header h1 {{ color: #667eea; margin: 0; }}
-            .code {{ font-size: 42px; font-weight: bold; color: #667eea; text-align: center; letter-spacing: 8px; margin: 32px 0; padding: 20px; background: #f0f4ff; border-radius: 8px; }}
-            .footer {{ text-align: center; margin-top: 32px; font-size: 14px; color: #888; }}
-            .warning {{ background: #fff3cd; border-left: 4px solid #ffc107; padding: 16px; margin: 20px 0; border-radius: 4px; color: #856404; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>ðŸ” Reset Password</h1>
-                <p style="color: #666; font-size: 16px;">Ciao {nome},</p>
-                <p style="color: #666;">Hai richiesto di reimpostare la tua password su Ispiramy.</p>
-            </div>
-            
-            <p style="text-align: center; font-size: 16px; margin-bottom: 8px; color: #333;">
-                Il tuo codice di verifica Ã¨:
-            </p>
-            
-            <div class="code">{reset_code}</div>
-            
-            <div class="warning">
-                <strong>âš ï¸ Importante:</strong> Questo codice Ã¨ valido per <strong>10 minuti</strong>.
-            </div>
-            
-            <p style="text-align: center; margin-top: 32px; color: #666;">
-                Se non hai richiesto questo reset, ignora questa email.
-            </p>
-            
-            <div class="footer">
-                <p>Â© 2025 Ispiramy - Get Advice from People Who Can Help</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
+    """Invia email brandizzata con codice reset password."""
+    from app.utils.notification_email import _branded_email
+    from app.utils.email_backend import mail_send
+    from sendgrid.helpers.mail import Mail
+    api_key = os.getenv('SENDGRID_API_KEY') or os.getenv('SMTP_PASSWORD')
+    from_email = os.getenv('FROM_EMAIL', 'noreply@ispiramy.com')
+    code_box = (
+        '<div style="font-size:34px;font-weight:800;letter-spacing:8px;color:#2e7d32;'
+        'background:#e8f5e9;border-radius:10px;padding:22px;text-align:center;margin:24px 0;">'
+        f'{reset_code}</div>'
+    )
+    body = (
+        f"<p>Ciao <strong>{nome}</strong>,</p>"
+        "<p>Hai richiesto di reimpostare la tua password su Ispiramy. Ecco il codice di verifica:</p>"
+        + code_box +
+        '<div style="background:#fff8e1;border-left:4px solid #ffb300;padding:14px 18px;'
+        'border-radius:6px;color:#795548;margin:20px 0;">⚠️ Il codice è valido '
+        '<strong>10 minuti</strong>. Se non hai richiesto il reset, ignora questa email.</div>'
+    )
+    html_content = _branded_email("🔑", "Reset Password", "#43a047", "#2e7d32", body)
     try:
-        # âœ… Usa la funzione esistente (adatta i parametri)
-        send_verification_email(email, nome, reset_code)
-        logger.info(f"âœ… Reset password email sent to {email}")
+        message = Mail(from_email=from_email, to_emails=email,
+                       subject="Reset Password - Ispiramy", html_content=html_content)
+        mail_send(api_key, message)
+        logger.info(f"Reset password email sent to {email}")
         return True
     except Exception as e:
-        logger.error(f"âŒ Failed to send reset email to {email}: {e}")
+        logger.error(f"Failed to send reset email to {email}: {e}")
         return False
+
 
 def send_verification_email(to_email: str, code: str, nome: str = "User") -> bool:
     """
@@ -614,33 +585,20 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         # ========== STEP 2: Costruisci messaggio HTML ==========
         logger.info("ðŸ“ STEP 2: Costruzione messaggio...")
         
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }}
-                h1 {{ color: #667eea; margin-bottom: 20px; }}
-                .code {{ font-size: 32px; font-weight: bold; color: #667eea; background: #f0f4ff; padding: 20px; border-radius: 8px; text-align: center; margin: 30px 0; letter-spacing: 4px; }}
-                p {{ color: #555; line-height: 1.6; }}
-                .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #888; font-size: 0.9rem; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>ðŸ¦Š Benvenuto su Ispiramy, {nome}!</h1>
-                <p>Grazie per esserti registrato. Ecco il tuo codice di verifica:</p>
-                <div class="code">{code}</div>
-                <p>Inserisci questo codice nella pagina di registrazione per completare la verifica del tuo account.</p>
-                <p><strong>Importante:</strong> Questo codice Ã¨ valido per 10 minuti.</p>
-                <div class="footer">
-                    <p>Se non hai richiesto questa email, ignorala.<br>Â© 2025 Ispiramy - Tutti i diritti riservati</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        from app.utils.notification_email import _branded_email
+        _code_box = (
+            '<div style="font-size:34px;font-weight:800;letter-spacing:8px;color:#2e7d32;'
+            'background:#e8f5e9;border-radius:10px;padding:22px;text-align:center;margin:24px 0;">'
+            f'{code}</div>'
+        )
+        _body = (
+            f"<p>Ciao <strong>{nome}</strong>,</p>"
+            "<p>Grazie per esserti registrato su Ispiramy! Ecco il tuo codice di verifica:</p>"
+            + _code_box +
+            "<p>Inseriscilo nella pagina di registrazione per completare la verifica. "
+            "Il codice è valido <strong>10 minuti</strong>.</p>"
+        )
+        html_content = _branded_email("✨", "Conferma la tua email", "#43a047", "#2e7d32", _body)
         
         # ========== STEP 3: Crea messaggio SendGrid ==========
         message = Mail(

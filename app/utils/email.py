@@ -24,44 +24,20 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
         return False
     
     try:
-        html_body = f'''
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #667eea; margin: 0;">✨ Ispiramy</h1>
-            </div>
-            
-            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <h2 style="color: #1a1a1a; margin-top: 0;">Ciao {nome}! 👋</h2>
-                
-                <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                    Grazie per esserti registrato su <strong>Ispiramy</strong>!
-                </p>
-                
-                <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                    Per completare la registrazione, inserisci questo codice di verifica:
-                </p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <div style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px;">
-                        {code}
-                    </div>
-                </div>
-                
-                <p style="color: #999; font-size: 14px; line-height: 1.6; margin-top: 30px;">
-                    Questo codice è valido per <strong>15 minuti</strong>.
-                </p>
-                
-                <p style="color: #999; font-size: 14px; line-height: 1.6;">
-                    Se non hai richiesto questa registrazione, ignora questa email.
-                </p>
-            </div>
-            
-            <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">
-                <p>© 2024 Ispiramy. Tutti i diritti riservati.</p>
-            </div>
-        </div>
-        '''
-        
+        from app.utils.notification_email import _branded_email
+        _code_box = (
+            '<div style="font-size:34px;font-weight:800;letter-spacing:8px;color:#2e7d32;'
+            'background:#e8f5e9;border-radius:10px;padding:22px;text-align:center;margin:24px 0;">'
+            f'{code}</div>'
+        )
+        _body = (
+            f"<p>Ciao <strong>{nome}</strong>! 👋</p>"
+            "<p>Grazie per esserti registrato su Ispiramy! Per completare la registrazione, inserisci questo codice di verifica:</p>"
+            + _code_box +
+            "<p>Il codice è valido <strong>15 minuti</strong>. Se non hai richiesto questa registrazione, ignora questa email.</p>"
+        )
+        html_body = _branded_email("✨", "Conferma la tua email", "#43a047", "#2e7d32", _body)
+
         message = Mail(
             from_email=Email(from_email),
             to_emails=To(to_email),
@@ -94,49 +70,23 @@ def send_profile_verification_request(to_email: str, user_id: int, user_name: st
         return False
     
     try:
-        html_body = f'''
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #667eea; margin: 0;">✨ Ispiramy - Richiesta Verifica</h1>
-            </div>
-            
-            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <h2 style="color: #1a1a1a; margin-top: 0;">Nuovo Profilo da Verificare 🔍</h2>
-                
-                <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                    L'utente <strong>{user_name}</strong> ha aggiornato il proprio profilo e ha completato tutti i requisiti per la verifica:
-                </p>
-                
-                <ul style="color: #666; font-size: 16px; line-height: 1.8;">
-                    <li>✅ Professione specificata</li>
-                    <li>✅ Categoria selezionata</li>
-                    <li>✅ Aree di interesse definite</li>
-                    <li>✅ Descrizione completa (minimo 200 caratteri)</li>
-                </ul>
-                
-                <div style="background: #f8f9fa; padding: 15px; border-left: 4px solid #667eea; margin: 20px 0;">
-                    <p style="margin: 0; color: #666;"><strong>Email utente:</strong> {user_email}</p>
-                    <p style="margin: 10px 0 0 0; color: #666;"><strong>ID utente:</strong> {user_id}</p>
-                </div>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="http://localhost:8000/user/{user_id}" 
-                       style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
-                        Visualizza Profilo
-                    </a>
-                </div>
-                
-                <p style="color: #999; font-size: 14px; line-height: 1.6; margin-top: 30px;">
-                    Accedi al pannello di amministrazione per verificare il profilo e assegnare il badge verificato.
-                </p>
-            </div>
-            
-            <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">
-                <p>© 2024 Ispiramy. Tutti i diritti riservati.</p>
-            </div>
-        </div>
-        '''
-        
+        from app.utils.notification_email import _branded_email
+        _base = os.getenv("BASE_URL", "")
+        _body = (
+            f"<p>L'utente <strong>{user_name}</strong> ha aggiornato il profilo e ha completato tutti i requisiti per la verifica:</p>"
+            '<ul style="line-height:1.8;color:#374151;">'
+            "<li>✅ Professione specificata</li>"
+            "<li>✅ Categoria selezionata</li>"
+            "<li>✅ Aree di interesse definite</li>"
+            "<li>✅ Descrizione completa (minimo 200 caratteri)</li>"
+            "</ul>"
+            '<div style="background:#f9fafb;border-left:4px solid #43a047;border-radius:6px;padding:14px 18px;margin:20px 0;">'
+            f"<p style='margin:0;'><strong>Email utente:</strong> {user_email}</p>"
+            f"<p style='margin:8px 0 0;'><strong>ID utente:</strong> {user_id}</p></div>"
+            "<p>Accedi al pannello per verificare il profilo e assegnare il badge verificato.</p>"
+        )
+        html_body = _branded_email("🔍", "Nuovo profilo da verificare", "#43a047", "#2e7d32", _body, "Visualizza Profilo", f"{_base}/user/{user_id}")
+
         message = Mail(
             from_email=Email(from_email),
             to_emails=To(to_email),
