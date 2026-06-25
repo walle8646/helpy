@@ -103,12 +103,59 @@
     }
 
     .hero-subtitle {
-        font-size: 14px;
+        font-size: 17px;
         font-weight: 400;
         line-height: 1.6;
-        margin-bottom: 20px;
-        opacity: 0.95;
+        margin-bottom: 24px;
+        color: #1b3a24;
+        max-width: 460px;
     }
+
+    /* Search + CTA nell'hero */
+    .hero-search {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        max-width: 480px;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+    }
+    .hero-search-input {
+        flex: 1;
+        min-width: 200px;
+        padding: 14px 18px;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    .hero-search-btn {
+        padding: 14px 24px;
+        background: #1b5e20;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all .2s ease;
+    }
+    .hero-search-btn:hover {
+        background: #134218;
+        transform: translateY(-2px);
+    }
+    /* Trust bar */
+    .hero-trust {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1b3a24;
+    }
+    .hero-trust span { white-space: nowrap; }
 
     .hero-cta-btn {
         display: inline-block;
@@ -302,6 +349,16 @@
         border-color: #43a047;
     }
 
+    /* Card azione principale (Trova Consulenti) — visivamente dominante */
+    .cta-card-primary {
+        background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+        border-color: #2e7d32;
+    }
+    .cta-card-primary .cta-card-title { color: #ffffff; }
+    .cta-card-primary .cta-card-desc { color: rgba(255,255,255,0.92); }
+    .cta-card-primary .cta-btn { background: #ffffff; color: #2e7d32; }
+    .cta-card-primary:hover { border-color: #1b5e20; }
+
     .cta-card-icon {
         font-size: 40px;
         margin-bottom: 12px;
@@ -344,7 +401,7 @@
 
     /* ========== HOW IT WORKS SECTION ========== */
     .how-section {
-        background: linear-gradient(135deg, #fefdf9 0%, #fff8f0 50%, #f1f8f0 100%);
+        background: linear-gradient(135deg, #f1f8f0 0%, #e8f5e9 100%);
         padding: 45px 20px;
         position: relative;
         overflow: hidden;
@@ -616,6 +673,20 @@
             <h1 class="hero-title">
                 Trova l'esperto che ha già affrontato la tua sfida
             </h1>
+            <p class="hero-subtitle">
+                Prenota una videoconsulenza con professionisti verificati e ricevi
+                consigli concreti, su misura per la tua situazione.
+            </p>
+            <form class="hero-search" method="GET" action="/consultants">
+                <input type="text" name="search" class="hero-search-input"
+                       placeholder="Di cosa hai bisogno? Es. partita IVA, cambio lavoro…">
+                <button type="submit" class="hero-search-btn">Trova il tuo esperto →</button>
+            </form>
+            <div class="hero-trust">
+                <span>✓ Consulenti verificati</span>
+                <span>✓ Pagamenti sicuri</span>
+                <span>✓ Videocall integrata</span>
+            </div>
         </div>
         
         <div class="hero-right">
@@ -633,20 +704,22 @@
 <!-- ========== CTA CARDS ========== -->
 <section class="cta-section">
     <div class="cta-container">
-        <!-- Trova Consulenti -->
-        <a href="/consultants" class="cta-card">
+        <!-- Trova Consulenti (azione principale) -->
+        <a href="/consultants" class="cta-card cta-card-primary">
             <h3 class="cta-card-title">Trova Consulenti</h3>
             <p class="cta-card-desc">
-                Scopri una gamma di esperti in diversi settori pronti ad aiutarti.
+                Scegli tra professionisti verificati per categoria, prezzo e recensioni.
+                Prenoti la videocall in pochi clic.
             </p>
             <span class="cta-btn">Esplora Consulenti →</span>
         </a>
-        
+
         <!-- Community Q&A -->
         <a href="/community" class="cta-card">
             <h3 class="cta-card-title">Community Q&A</h3>
             <p class="cta-card-desc">
-                Fai domande e ottieni risposte dagli esperti della community.
+                Pubblica la tua domanda e ricevi risposte dagli esperti della community,
+                gratis.
             </p>
             <span class="cta-btn cta-btn-secondary">Vai a Q&A →</span>
         </a>
@@ -670,7 +743,7 @@
             <div class="how-icon"><i class="fas fa-pen-to-square"></i></div>
             <h3 class="how-item-title">Richiedi una Consulenza</h3>
             <p class="how-item-desc">
-                Descrivi le tue esigenze a trovare l'esperto che faccia al caso tuo.
+                Descrivi le tue esigenze per trovare l'esperto che fa al caso tuo.
             </p>
         </div>
         
@@ -681,6 +754,11 @@
                 Prenota una sessione e ottieni consigli su misura tramite videocall.
             </p>
         </div>
+    </div>
+    <div style="text-align:center;margin-top:36px;">
+        <a href="/consultants" class="cta-btn" style="padding:14px 34px;font-size:15px;">
+            Pronto? Trova il tuo consulente →
+        </a>
     </div>
 </section>
 
@@ -707,6 +785,9 @@
             {% endif %}
             
             <div class="consultant-stats">
+                {% if item.avg_rating %}
+                <span>⭐ {{ item.avg_rating }} <span style="opacity:.75;">({{ item.review_count }})</span></span>
+                {% endif %}
                 <span>💼 {{ item.user.consulenze_vendute }} consulenze</span>
             </div>
             

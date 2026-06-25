@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from app.database import get_session
-from app.models import User, Category
+from app.models import User, Category, Review
 from app.routes.auth import verify_token
 from sqlmodel import select, func
 from app.logger_config import logger
@@ -35,10 +35,25 @@ async def home(request: Request):
                 category = None
                 if user.category_id:
                     category = session.get(Category, user.category_id)
-                
+
+                # Rating medio dalle recensioni ricevute
+                reviews = session.exec(
+                    select(Review).where(Review.consultant_user_id == user.id)
+                ).all()
+                review_count = len(reviews)
+                avg_rating = None
+                if reviews:
+                    total = sum(
+                        (r.rating_helpful + r.rating_prepared + r.rating_communication) / 3
+                        for r in reviews
+                    )
+                    avg_rating = round(total / review_count, 1)
+
                 consultants.append({
                     "user": user,
-                    "category": category
+                    "category": category,
+                    "avg_rating": avg_rating,
+                    "review_count": review_count,
                 })
             
             logger.info(f"Home page loaded with {len(consultants)} featured consultants")
