@@ -886,50 +886,19 @@
         
         <!-- Right: Link semplici in fila -->
         <div class="navbar-links">
-            <!-- Trova Consulenti con Dropdown -->
-            <div class="navbar-dropdown">
-                <a href="/consultants" class="navbar-link">
-                    <span class="navbar-link-text">Trova Consulenti</span>
-                    <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 4px;"></i>
-                </a>
-                
-                <!-- Dropdown Content -->
-                <div class="navbar-dropdown-content">
-                    {% if categories %}
-                        {% for category in categories %}
-                        <a href="/consultants?category={{ category.id }}" class="dropdown-category-item">
-                            <span class="dropdown-category-icon">{{ category.icon }}</span>
-                            <div class="dropdown-category-info">
-                                <div class="dropdown-category-name">{{ category.name }}</div>
-                                {% if category.description %}
-                                <div class="dropdown-category-desc">{{ category.description[:50] }}...</div>
-                                {% endif %}
-                            </div>
-                        </a>
-                        {% endfor %}
-                        
-                        <div class="dropdown-divider"></div>
-                        
-                        <a href="/consultants" class="dropdown-all-link">
-                            <i class="fas fa-th"></i>
-                            <span>Vedi Tutti i Consulenti</span>
-                        </a>
-                    {% else %}
-                        <a href="/consultants" class="dropdown-all-link">
-                            <span>Vedi Tutti i Consulenti</span>
-                        </a>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Nuovo link alla Community -->
+            <!-- Trova Consulenti (le categorie sono nella striscia sotto la navbar) -->
+            <a href="/consultants" class="navbar-link">
+                <span class="navbar-link-text">Trova Consulenti</span>
+            </a>
+
+            <!-- Community -->
             <a href="/community" class="navbar-link">
                 <span class="navbar-link-text">Community</span>
             </a>
             
             {% if current_user %}
                 <!-- Icona Notifiche con testo Chat sotto -->
-                <div class="notifications-icon" id="notificationsIcon" onclick="toggleNotifications()">
+                <div class="notifications-icon" id="notificationsIcon" onclick="toggleNotifications()" title="Notifiche">
                     <i class="fas fa-bell"></i>
                     <span class="notifications-badge" id="notificationsBadge" style="display: none;">0</span>
                 </div>
@@ -1058,6 +1027,12 @@
         </div>
         
         <div class="footer-bottom">
+            <div style="margin-bottom:14px;display:flex;gap:22px;justify-content:center;flex-wrap:wrap;color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;">
+                <span>🔒 Pagamenti sicuri</span>
+                <span>✓ Consulenti verificati</span>
+                <span>📹 Videoconsulenze integrate</span>
+                <span>💬 Supporto dedicato</span>
+            </div>
             © {{ current_year or 2026 }} Ispiramy. Tutti i diritti riservati. Made with ❤️ in Italy
         </div>
     </footer>

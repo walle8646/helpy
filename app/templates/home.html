@@ -569,11 +569,27 @@
         flex-direction: column;
         align-items: center;
         text-align: center;
+        border: 2px solid transparent;
     }
 
     .consultant-card:hover {
         transform: translateY(-6px);
         box-shadow: 0 6px 25px rgba(76, 175, 80, 0.15);
+        border-color: #43a047;
+    }
+
+    .consultant-view-profile {
+        margin-top: 12px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #2e7d32;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: all 0.25s ease;
+    }
+    .consultant-card:hover .consultant-view-profile {
+        opacity: 1;
+        transform: translateY(0);
     }
 
     .consultant-avatar {
@@ -770,32 +786,34 @@
     <div class="consultant-grid">
         {% for item in consultants %}
         <a href="/user/{{ item.user.id }}" class="consultant-card">
-            <img src="{{ item.user.profile_picture or item.user|default_avatar }}" 
-                 alt="{{ item.user.nome }}" 
+            <img src="{{ item.user.profile_picture or ('https://ui-avatars.com/api/?name=' ~ ((item.user.nome or 'U') ~ ' ' ~ (item.user.cognome or ''))|trim|urlencode ~ '&background=2e7d32&color=fff&size=200&bold=true&length=2') }}"
+                 alt="{{ item.user.nome }}"
                  class="consultant-avatar"
                  onerror="this.onerror=null; this.src='{{ item.user|default_avatar }}'">
-            
+
             <h3>{{ item.user.nome }} {{ item.user.cognome or '' }}</h3>
             <p class="consultant-profession">{{ item.user.professione or 'Consulente' }}</p>
-            
+
             {% if item.category %}
             <span class="consultant-category" style="background: {{ item.category.color }}20; color: {{ item.category.color }};">
                 {{ item.category.icon }} {{ item.category.name }}
             </span>
             {% endif %}
-            
+
             <div class="consultant-stats">
                 {% if item.avg_rating %}
                 <span>⭐ {{ item.avg_rating }} <span style="opacity:.75;">({{ item.review_count }})</span></span>
                 {% endif %}
                 <span>💼 {{ item.user.consulenze_vendute }} consulenze</span>
             </div>
-            
+
             {% if item.user.prezzo_consulenza %}
             <div class="consultant-price">
                 €{{ "%.0f"|format(item.user.prezzo_consulenza) }}/ora
             </div>
             {% endif %}
+
+            <span class="consultant-view-profile">Vedi profilo →</span>
         </a>
         {% endfor %}
     </div>
