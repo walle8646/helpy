@@ -28,17 +28,21 @@ Ti viene fornito il video di una consulenza in videochiamata e le seguenti infor
 - Data: {booking_date}
 - Durata prevista: {booking_time}
 
-Analizza il video della consulenza e valuta:
+**Trascrizione della chat testuale scambiata durante la consulenza (messaggi e allegati):**
+{chat_transcript}
+
+Analizza il video della consulenza E la chat testuale e valuta:
 1. Il consulente ha affrontato l'argomento richiesto dal cliente?
 2. Il consulente ha dato risposte concrete e utili o è stato evasivo/impreparato?
 3. La contestazione del cliente è giustificata in base a quanto avvenuto nel video?
 4. Il consulente si è comportato in modo professionale e rispettoso?
+5. Nella chat testuale (messaggi o immagini/allegati) sono stati scambiati contenuti osceni, volgari, offensivi, minacciosi o comunque inappropriati? In caso affermativo indica CHI li ha inviati (consulente o cliente).
 
 Rispondi ESCLUSIVAMENTE con un JSON valido (senza markdown, senza ```json) nel seguente formato:
 {{
     "verdict": "justified" oppure "unjustified" oppure "uncertain",
     "confidence": numero da 0 a 100,
-    "comment": "Commento dettagliato in italiano che spiega il verdetto, citando momenti specifici del video come evidenza. Massimo 1000 caratteri."
+    "comment": "Commento dettagliato in italiano che spiega il verdetto, citando momenti specifici del video e/o della chat come evidenza. Se nella chat ci sono contenuti inappropriati, segnalalo esplicitamente indicando chi li ha inviati. Massimo 1000 caratteri."
 }}
 
 Dove:
@@ -57,6 +61,7 @@ def analyze_dispute_video(
     client_name: str,
     booking_date: str,
     booking_time: str,
+    chat_transcript: str = "",
 ) -> dict:
     """
     Analizza un video di consulenza con Gemini e restituisce il verdetto.
@@ -97,6 +102,7 @@ def analyze_dispute_video(
         client_name=client_name,
         booking_date=booking_date,
         booking_time=booking_time,
+        chat_transcript=chat_transcript or "(nessun messaggio scambiato in chat durante la consulenza)",
     )
 
     # Invia al modello

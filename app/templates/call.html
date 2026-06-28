@@ -1434,22 +1434,44 @@
     }
 
     async function setupVirtualBackgroundProcessor() {
-        if (!vbExtension || !localTracks.video) return;
+        // Assicura che l'estensione sia registrata (timing: lo script potrebbe
+        // essersi caricato dopo il primo tentativo di init)
+        if (!vbExtension) initVirtualBackground();
+        if (!vbExtension || !localTracks.video) return false;
+        if (vbProcessor) return true; // già pronto
         try {
             vbProcessor = vbExtension.createProcessor();
             await vbProcessor.init();
             localTracks.video.pipe(vbProcessor).pipe(localTracks.video.processorDestination);
             console.log('✅ Virtual Background processor pronto');
+            return true;
         } catch (e) {
-            console.warn('⚠️ Setup Virtual Background processor fallito:', e);
+            // Log completo per diagnosi (era un warning silenzioso che nascondeva il bottone)
+            console.error('❌ Setup Virtual Background processor fallito:', e);
             vbProcessor = null;
-            const btn = document.getElementById('bgEffectBtn');
-            if (btn) btn.style.display = 'none'; // nascondi il bottone se non supportato
+            return false;
         }
     }
 
+    function vbFeedbackUnavailable() {
+        const btn = document.getElementById('bgEffectBtn');
+        if (!btn) return;
+        btn.style.background = '#dc3545';
+        btn.title = 'Sfondo virtuale non disponibile su questo dispositivo/browser';
+        setTimeout(updateBgButton, 2500);
+    }
+
     async function applyBackground(type) {
-        if (!vbProcessor) return;
+        // Lazy setup: se il processor non è pronto (es. estensione caricata in ritardo),
+        // proviamo a inizializzarlo ora, al primo click dell'utente.
+        if (!vbProcessor) {
+            const ok = await setupVirtualBackgroundProcessor();
+            if (!ok) {
+                console.warn('⚠️ Virtual Background non disponibile: processor non inizializzato');
+                vbFeedbackUnavailable();
+                return;
+            }
+        }
         try {
             if (type === 'none') {
                 await vbProcessor.disable();
@@ -1467,14 +1489,15 @@
                             resolve();
                         } catch (err) { reject(err); }
                     };
-                    img.onerror = reject;
+                    img.onerror = () => reject(new Error('Immagine sfondo non caricata: ' + VB_IMAGE_URL));
                     img.src = VB_IMAGE_URL;
                 });
             }
             currentBackground = type;
             updateBgButton();
         } catch (e) {
-            console.error('Errore applyBackground:', e);
+            console.error('❌ Errore applyBackground:', e);
+            vbFeedbackUnavailable();
         }
     }
 
@@ -1994,7 +2017,17 @@
             localTracks.video = await AgoraRTC.createCameraVideoTrack();
             await client.publish(localTracks.video);
             localTracks.video.play('localPlayer');
-            
+
+            // Ripristina lo sfondo virtuale sul nuovo track webcam: il processor precedente
+            // era collegato al track ormai chiuso, quindi va ricreato e riapplicato.
+            const _bgToRestore = currentBackground;
+            vbProcessor = null;
+            currentBackground = 'none';
+            if (_bgToRestore !== 'none') {
+                try { await applyBackground(_bgToRestore); }
+                catch (e) { console.error('⚠️ Ripristino sfondo dopo screen share fallito:', e); }
+            }
+
             isScreenSharing = false;
             screenShareActive = false;
             

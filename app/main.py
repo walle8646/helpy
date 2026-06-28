@@ -113,10 +113,18 @@ app.add_middleware(CategoriesMiddleware)
 app.add_middleware(CSRFMiddleware)
 
 # 3. Session middleware — gestisce le sessioni
+# In produzione (HTTPS) usiamo SameSite=None + Secure così il cookie di sessione
+# sopravvive al redirect di ritorno da Stripe Checkout (origin esterna): senza questo,
+# con SameSite=Lax alcuni browser (es. Safari) scartano il cookie e l'utente risulta
+# sloggato dopo aver prenotato. In locale (HTTP) restiamo su Lax perché Secure
+# impedirebbe del tutto il salvataggio del cookie su connessione non cifrata.
+_cookie_https = os.getenv("BASE_URL", "").startswith("https")
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "ispiramy-super-secret-key-change-in-production-2024"),
-    max_age=86400
+    max_age=86400,
+    same_site="none" if _cookie_https else "lax",
+    https_only=_cookie_https,
 )
 
 # 4. Staging Basic Auth — più esterno: blocca tutto prima di ogni altra logica

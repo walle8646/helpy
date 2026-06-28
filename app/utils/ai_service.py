@@ -706,7 +706,111 @@ async def valida_profilo(descrizione: str, professione: str = None, aree_interes
         
         logger.info(f"👤 Validazione profilo: {'✅ Approvato' if approved else '❌ Rifiutato'} - {reason}")
         return {"approved": approved, "reason": reason}
-        
+
     except Exception as e:
         logger.error(f"❌ Errore validazione profilo: {e}", exc_info=True)
         return {"approved": True, "reason": "Profilo approvato"}
+
+
+# ========== MODERAZIONE CHAT DELLA CALL (tempo reale) ==========
+# Usa la OpenAI Moderation API (omni-moderation-latest): gratuita, a bassa latenza e
+# adatta alla chat live. Rileva contenuti sessuali, di odio, violenti, molestie e
+# autolesionismo, sia su testo che su immagini.
+# Politica FAIL-OPEN: se la moderazione va in errore tecnico NON blocchiamo il
+# messaggio (la chat non deve interrompersi per un problema di rete) — il contenuto
+# resta comunque salvato e analizzabile dalla verifica AI in caso di contestazione.
+
+_MODERAZIONE_CATEGORIE_IT = {
+    "sexual": "contenuti sessuali",
+    "sexual/minors": "contenuti sessuali che coinvolgono minori",
+    "sexual_minors": "contenuti sessuali che coinvolgono minori",
+    "harassment": "molestie o offese",
+    "harassment/threatening": "molestie con minacce",
+    "harassment_threatening": "molestie con minacce",
+    "hate": "incitamento all'odio",
+    "hate/threatening": "incitamento all'odio con minacce",
+    "hate_threatening": "incitamento all'odio con minacce",
+    "violence": "violenza",
+    "violence/graphic": "violenza esplicita",
+    "violence_graphic": "violenza esplicita",
+    "self-harm": "autolesionismo",
+    "self_harm": "autolesionismo",
+    "self-harm/intent": "intenti di autolesionismo",
+    "self_harm_intent": "intenti di autolesionismo",
+    "self-harm/instructions": "istruzioni di autolesionismo",
+    "self_harm_instructions": "istruzioni di autolesionismo",
+    "illicit": "attività illecite",
+    "illicit_violent": "attività illecite violente",
+}
+
+
+def _descrivi_categorie_moderazione(categorie_attive: list[str]) -> str:
+    """Trasforma le categorie segnalate da OpenAI in un messaggio leggibile in italiano."""
+    leggibili = []
+    for c in categorie_attive:
+        nome = _MODERAZIONE_CATEGORIE_IT.get(c)
+        if nome and nome not in leggibili:
+            leggibili.append(nome)
+    if leggibili:
+        return "Contenuto bloccato: rilevati " + ", ".join(leggibili) + "."
+    return "Contenuto bloccato dal sistema di moderazione automatica."
+
+
+def _categorie_attive(result) -> list[str]:
+    """Estrae l'elenco delle categorie segnalate (flagged) da un risultato Moderation."""
+    try:
+        cats = result.categories.model_dump()
+    except Exception:
+        try:
+            cats = dict(result.categories)
+        except Exception:
+            return []
+    return [k for k, v in cats.items() if v]
+
+
+async def modera_testo_chat(testo: str) -> dict:
+    """
+    Modera un messaggio di testo della chat della call.
+    Returns: {approved: bool, reason: str}
+    """
+    testo = (testo or "").strip()
+    if not testo:
+        return {"approved": True, "reason": ""}
+    try:
+        client = _get_client()
+        resp = client.moderations.create(model="omni-moderation-latest", input=testo)
+        result = resp.results[0]
+        if result.flagged:
+            attive = _categorie_attive(result)
+            logger.warning(f"🚫 Messaggio chat bloccato dalla moderazione: {attive}")
+            return {"approved": False, "reason": _descrivi_categorie_moderazione(attive)}
+        return {"approved": True, "reason": ""}
+    except Exception as e:
+        # FAIL-OPEN: non blocchiamo la chat per un errore tecnico
+        logger.error(f"⚠️ Errore moderazione testo chat (fail-open, messaggio consentito): {e}")
+        return {"approved": True, "reason": ""}
+
+
+async def modera_immagine_chat(image_data_url: str) -> dict:
+    """
+    Modera un'immagine inviata nella chat della call (data URL o URL pubblico).
+    Returns: {approved: bool, reason: str}
+    """
+    if not image_data_url:
+        return {"approved": True, "reason": ""}
+    try:
+        client = _get_client()
+        resp = client.moderations.create(
+            model="omni-moderation-latest",
+            input=[{"type": "image_url", "image_url": {"url": image_data_url}}],
+        )
+        result = resp.results[0]
+        if result.flagged:
+            attive = _categorie_attive(result)
+            logger.warning(f"🚫 Immagine chat bloccata dalla moderazione: {attive}")
+            return {"approved": False, "reason": _descrivi_categorie_moderazione(attive)}
+        return {"approved": True, "reason": ""}
+    except Exception as e:
+        # FAIL-OPEN: non blocchiamo l'upload per un errore tecnico
+        logger.error(f"⚠️ Errore moderazione immagine chat (fail-open, immagine consentita): {e}")
+        return {"approved": True, "reason": ""}

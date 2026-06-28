@@ -1853,7 +1853,20 @@ async def upload_chat_attachment(
         file_extension = file.filename.split('.')[-1].lower() if file.filename and '.' in file.filename else ''
         if file_extension not in allowed_extensions:
             raise HTTPException(status_code=400, detail=f"Tipo file non supportato. Formati accettati: {', '.join(allowed_extensions)}")
-        
+
+        # Moderazione immagini in tempo reale: blocca contenuti osceni/offensivi prima dell'upload.
+        # Limitata a immagini fino a 12MB per non inviare base64 enormi alla Moderation API;
+        # le immagini più grandi saltano il controllo live e restano coperte dalla verifica dispute.
+        if file_extension in {'jpg', 'jpeg', 'png', 'gif', 'webp'} and file_size <= 12 * 1024 * 1024:
+            from app.utils.ai_service import modera_immagine_chat
+            import base64
+            mime = 'jpeg' if file_extension == 'jpg' else file_extension
+            data_url = f"data:image/{mime};base64,{base64.b64encode(contents).decode()}"
+            moderazione_img = await modera_immagine_chat(data_url)
+            if not moderazione_img["approved"]:
+                logger.warning(f"🚫 Immagine chat rifiutata nel booking {booking_id} da user {current_user.id}: {moderazione_img['reason']}")
+                raise HTTPException(status_code=400, detail=moderazione_img["reason"])
+
         # Ottieni client S3 riutilizzabile
         s3_client = _get_chat_s3_client()
         if not s3_client:
@@ -1914,7 +1927,15 @@ async def send_call_message(
         
         if not message_text and not attachments_data:
             raise HTTPException(status_code=400, detail="Messaggio o allegato richiesto")
-        
+
+        # Moderazione contenuti in tempo reale: blocca testo osceno/offensivo
+        if message_text:
+            from app.utils.ai_service import modera_testo_chat
+            moderazione = await modera_testo_chat(message_text)
+            if not moderazione["approved"]:
+                logger.warning(f"🚫 Messaggio chat rifiutato nel booking {booking_id} da user {current_user.id}: {moderazione['reason']}")
+                raise HTTPException(status_code=400, detail=moderazione["reason"])
+
         # Usa current_user già disponibile dal Depends (evita query extra)
         user_name = f"{current_user.nome} {current_user.cognome}" if current_user.nome and current_user.cognome else current_user.email
         

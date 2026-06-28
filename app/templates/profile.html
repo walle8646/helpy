@@ -773,13 +773,17 @@
                             <div class="form-section-title">👤 Informazioni Personali</div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Nome Completo</label>
+                                    <label>Nome</label>
                                     <input type="text" name="nome" value="{{ user.nome or '' }}" placeholder="Inserisci il tuo nome">
                                 </div>
                                 <div class="form-group">
-                                    <label>Professione</label>
-                                    <input type="text" name="professione" value="{{ user.professione or '' }}" placeholder="Es: Lead Software Developer">
+                                    <label>Cognome</label>
+                                    <input type="text" name="cognome" value="{{ user.cognome or '' }}" placeholder="Inserisci il tuo cognome">
                                 </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Professione</label>
+                                <input type="text" name="professione" value="{{ user.professione or '' }}" placeholder="Es: Lead Software Developer">
                             </div>
                             <div class="form-group">
                                 <label>Genere</label>
@@ -891,7 +895,49 @@
                                 </label>
                             </div>
                             <div id="otherLanguageField" style="display: {% if user_other_language %}block{% else %}none{% endif %}; margin-top: 10px;">
-                                <input type="text" name="other_language" value="{{ user_other_language or '' }}" placeholder="Specifica la lingua..." style="padding: 10px 14px; border: 1px solid #d1d8e0; border-radius: 8px; font-size: .95em; width: 100%;">
+                                <input type="text" name="other_language" list="worldLanguages" autocomplete="off" value="{{ user_other_language or '' }}" placeholder="Scrivi o scegli un'altra lingua..." style="padding: 10px 14px; border: 1px solid #d1d8e0; border-radius: 8px; font-size: .95em; width: 100%;">
+                                <datalist id="worldLanguages">
+                                    <option value="Portoghese"></option>
+                                    <option value="Cinese (Mandarino)"></option>
+                                    <option value="Arabo"></option>
+                                    <option value="Russo"></option>
+                                    <option value="Giapponese"></option>
+                                    <option value="Coreano"></option>
+                                    <option value="Olandese"></option>
+                                    <option value="Polacco"></option>
+                                    <option value="Rumeno"></option>
+                                    <option value="Ucraino"></option>
+                                    <option value="Greco"></option>
+                                    <option value="Turco"></option>
+                                    <option value="Hindi"></option>
+                                    <option value="Bengalese"></option>
+                                    <option value="Urdu"></option>
+                                    <option value="Persiano (Farsi)"></option>
+                                    <option value="Ebraico"></option>
+                                    <option value="Svedese"></option>
+                                    <option value="Norvegese"></option>
+                                    <option value="Danese"></option>
+                                    <option value="Finlandese"></option>
+                                    <option value="Ceco"></option>
+                                    <option value="Slovacco"></option>
+                                    <option value="Ungherese"></option>
+                                    <option value="Croato"></option>
+                                    <option value="Serbo"></option>
+                                    <option value="Sloveno"></option>
+                                    <option value="Bosniaco"></option>
+                                    <option value="Bulgaro"></option>
+                                    <option value="Albanese"></option>
+                                    <option value="Catalano"></option>
+                                    <option value="Thailandese"></option>
+                                    <option value="Vietnamita"></option>
+                                    <option value="Indonesiano"></option>
+                                    <option value="Filippino (Tagalog)"></option>
+                                    <option value="Swahili"></option>
+                                    <option value="Maltese"></option>
+                                    <option value="Estone"></option>
+                                    <option value="Lettone"></option>
+                                    <option value="Lituano"></option>
+                                </datalist>
                             </div>
                         </div>
 
@@ -1258,10 +1304,12 @@
         if (isSimple && simpleEditBtn) {
             simpleEditBtn.textContent = '❌ Chiudi senza salvare';
             simpleEditBtn.style.backgroundColor = '#dc3545';
+            simpleEditBtn.style.color = '#ffffff';
         }
         if (!isSimple && editBtn) {
             editBtn.textContent = '❌ Chiudi senza salvare';
             editBtn.style.backgroundColor = '#dc3545';
+            editBtn.style.color = '#ffffff';
         }
         originalDescrizione = (document.getElementById('descrizioneTextarea')?.value || '').trim();
         originalAreeInteresse = (document.getElementById('areeInteresseTextarea')?.value || '').trim();
@@ -1276,10 +1324,12 @@
         if (editBtn) {
             editBtn.textContent = editBtnDefaultLabel;
             editBtn.style.backgroundColor = '';
+            editBtn.style.color = '';
         }
         if (simpleEditBtn) {
             simpleEditBtn.textContent = simpleEditBtnDefaultLabel;
             simpleEditBtn.style.backgroundColor = '';
+            simpleEditBtn.style.color = '';
         }
     }
 
@@ -1543,7 +1593,7 @@
     const generateInterestsStatus = document.getElementById('generateInterestsStatus');
 
     const AI_COOLDOWN_KEY = 'ispiramy_ai_generate_interests_ts';
-    const AI_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 ore
+    const AI_COOLDOWN_MS = 60 * 1000; // 1 minuto (anti-spam sulle chiamate AI)
 
     function getAiCooldownRemaining() {
         const lastUsed = parseInt(localStorage.getItem(AI_COOLDOWN_KEY) || '0', 10);
@@ -1553,10 +1603,13 @@
     }
 
     function formatCooldownTime(ms) {
-        const hours = Math.floor(ms / (1000 * 60 * 60));
-        const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+        const totalSec = Math.ceil(ms / 1000);
+        const hours = Math.floor(totalSec / 3600);
+        const minutes = Math.floor((totalSec % 3600) / 60);
+        const seconds = totalSec % 60;
         if (hours > 0) return `${hours}h ${minutes}min`;
-        return `${minutes}min`;
+        if (minutes > 0) return `${minutes}min ${seconds}s`;
+        return `${seconds}s`;
     }
 
     function applyAiCooldown() {
@@ -1566,8 +1619,8 @@
             generateInterestsBtn.innerHTML = `🕐 Disponibile tra ${formatCooldownTime(remaining)}`;
             generateInterestsBtn.style.opacity = '0.6';
             generateInterestsBtn.style.cursor = 'not-allowed';
-            // Aggiorna ogni minuto
-            setTimeout(applyAiCooldown, 60000);
+            // Aggiorna il countdown ogni secondo
+            setTimeout(applyAiCooldown, 1000);
         } else if (generateInterestsBtn) {
             generateInterestsBtn.disabled = false;
             generateInterestsBtn.innerHTML = '🤖 Genera con AI';
@@ -2159,7 +2212,13 @@
         }
     }
     
-    function startCall(bookingId) { window.location.href = `/booking/call/${bookingId}`; }
+    function startCall(bookingId) {
+        // Apri la consulenza in una nuova scheda così l'utente può continuare a navigare il sito
+        const callUrl = `/booking/call/${bookingId}`;
+        const w = window.open(callUrl, '_blank');
+        // Fallback se il browser blocca il popup (raro: è dentro un click utente)
+        if (!w) window.location.href = callUrl;
+    }
     
     async function updateCallButtonStatus(bookingId) {
         try {

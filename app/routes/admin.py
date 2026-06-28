@@ -805,7 +805,32 @@ async def admin_ai_analysis(dispute_id: int, request: Request):
             # 1. Scarica video da S3
             video_path = download_video_from_s3(booking.id)
 
-            # 2. Analizza con Gemini
+            # 1b. Costruisci la trascrizione della chat testuale della call (con allegati)
+            import json as _json
+            from app.models import CallMessage
+            chat_msgs = session.exec(
+                select(CallMessage)
+                .where(CallMessage.booking_id == booking.id)
+                .order_by(CallMessage.created_at)
+            ).all()
+            _lines = []
+            for m in chat_msgs:
+                autore = consultant_name if m.user_id == dispute.consultant_user_id else client_name
+                ts = m.created_at.strftime('%H:%M') if m.created_at else ''
+                testo = (m.message or '').strip()
+                allegati = ''
+                if m.attachments:
+                    try:
+                        _atts = _json.loads(m.attachments)
+                        if _atts:
+                            _nomi = ', '.join(a.get('filename', 'allegato') for a in _atts)
+                            allegati = f" [allegati inviati: {_nomi}]"
+                    except Exception:
+                        allegati = " [allegato inviato]"
+                _lines.append(f"[{ts}] {autore}: {testo}{allegati}".rstrip())
+            chat_transcript = "\n".join(_lines)
+
+            # 2. Analizza con Gemini (video + chat)
             result = analyze_dispute_video(
                 video_path=video_path,
                 booking_description=booking.description,
@@ -814,6 +839,7 @@ async def admin_ai_analysis(dispute_id: int, request: Request):
                 client_name=client_name,
                 booking_date=booking_date,
                 booking_time=booking_time,
+                chat_transcript=chat_transcript,
             )
 
             # 3. Salva risultati nel DB

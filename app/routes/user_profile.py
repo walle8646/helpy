@@ -297,7 +297,8 @@ async def update_profile(
             
             # Check if user was already verified before update
             was_verified_before = db_user.is_verified
-            
+            descrizione_originale = (db_user.descrizione or "").strip()
+
             if nome is not None:
                 db_user.nome = nome
             if cognome is not None:  # ✅ AGGIUNGI questo
@@ -356,16 +357,13 @@ async def update_profile(
                 else:
                     return JSONResponse({"error": "Email PayPal non valida"}, status_code=400)
             
-            session.add(db_user)
-            session.commit()
-            session.refresh(db_user)
-            
-            logger.info(f"✅ Profile updated for user: {db_user.email}")
-            
             is_simple = simple_mode and simple_mode.lower() == 'true'
-            
+
             if is_simple:
                 # Modalità semplice: salva solo i campi base, niente AI e niente verifica
+                session.add(db_user)
+                session.commit()
+                session.refresh(db_user)
                 logger.info(f"🔄 Simple mode save for user {db_user.email}, skipping AI validation")
                 return JSONResponse({
                     "message": "Profilo aggiornato con successo!",
@@ -376,21 +374,24 @@ async def update_profile(
                     },
                     "is_verified": db_user.is_verified
                 })
-            
-            # Check if profile meets verification criteria
+
+            # Check if profile meets verification criteria (valori in memoria, NON ancora salvati)
             has_professione = db_user.professione and db_user.professione.strip() != ""
             has_category = db_user.category_id is not None
             has_aree_interesse = db_user.aree_interesse and db_user.aree_interesse.strip() != ""
             has_descrizione = db_user.descrizione and len(db_user.descrizione.strip()) >= 200
-            
+
             profile_complete = has_professione and has_category and has_aree_interesse and has_descrizione
             logger.info(f"🔍 Profile complete: {profile_complete} for user {db_user.email}")
-            
-            # ========== VALIDAZIONE AI DEL PROFILO ==========
-            ai_verified = False
-            ai_reason = ""
-            
-            if profile_complete:
+
+            # ========== VALIDAZIONE AI DEL PROFILO (BLOCCANTE) ==========
+            # Validiamo PRIMA di salvare. Per non bloccare chi è già verificato e modifica
+            # altri campi, ri-validiamo solo se la descrizione è cambiata o non era ancora
+            # verificato. Se l'AI giudica la descrizione non genuina/incoerente, blocchiamo
+            # il salvataggio (nessun commit = rollback) e chiediamo di riscriverla.
+            descrizione_cambiata = (db_user.descrizione or "").strip() != descrizione_originale
+
+            if profile_complete and (descrizione_cambiata or not was_verified_before):
                 try:
                     validazione = await valida_profilo(
                         descrizione=db_user.descrizione,
@@ -399,31 +400,49 @@ async def update_profile(
                     )
                     ai_verified = validazione.get("approved", False)
                     ai_reason = validazione.get("reason", "")
-                    
-                    # Aggiorna il flag is_verified in base al risultato AI
-                    db_user.is_verified = ai_verified
-                    session.add(db_user)
-                    session.commit()
-                    session.refresh(db_user)
-                    
-                    if ai_verified:
-                        logger.info(f"✅ Profilo VERIFICATO automaticamente per {db_user.email}: {ai_reason}")
-                    else:
-                        logger.warning(f"❌ Profilo NON verificato per {db_user.email}: {ai_reason}")
-                    
-                except Exception as e:
+                except Exception:
                     logger.exception("❌ Errore validazione AI profilo")
-                    # In caso di errore AI, mantieni lo stato precedente
-                    ai_reason = "Errore durante la verifica automatica"
-            else:
-                # Profilo incompleto → non verificato
-                if db_user.is_verified:
+                    # Errore TECNICO dell'AI (rete/API): non blocchiamo, salviamo non verificato
                     db_user.is_verified = False
                     session.add(db_user)
                     session.commit()
-                    logger.info(f"ℹ️ Profilo incompleto, verifica rimossa per {db_user.email}")
-            
-            response_data = {
+                    session.refresh(db_user)
+                    return JSONResponse({
+                        "message": "Profilo salvato, ma la verifica automatica non è disponibile in questo momento.",
+                        "user": {
+                            "nome": db_user.nome,
+                            "cognome": db_user.cognome,
+                            "professione": db_user.professione
+                        },
+                        "is_verified": False,
+                        "verification_warning": "Verifica automatica non disponibile, riprova più tardi."
+                    })
+
+                if not ai_verified:
+                    # 🚫 BLOCCO: profilo non genuino → non salviamo nulla (return senza commit)
+                    logger.warning(f"🚫 Salvataggio bloccato per {db_user.email}: {ai_reason}")
+                    return JSONResponse({
+                        "error": ai_reason or "La descrizione non sembra autentica o coerente con la professione indicata. Riscrivila in modo genuino per completare la verifica.",
+                        "validation_failed": True
+                    }, status_code=400)
+
+                # ✅ Profilo approvato dall'AI
+                db_user.is_verified = True
+                logger.info(f"✅ Profilo VERIFICATO automaticamente per {db_user.email}: {ai_reason}")
+            elif profile_complete:
+                # Profilo completo e già verificato, descrizione invariata → mantieni la verifica
+                db_user.is_verified = True
+            else:
+                # Profilo incompleto → salvato ma non verificato
+                db_user.is_verified = False
+
+            session.add(db_user)
+            session.commit()
+            session.refresh(db_user)
+
+            logger.info(f"✅ Profile updated for user: {db_user.email}")
+
+            return JSONResponse({
                 "message": "Profilo aggiornato con successo!",
                 "user": {
                     "nome": db_user.nome,
@@ -431,12 +450,7 @@ async def update_profile(
                     "professione": db_user.professione
                 },
                 "is_verified": db_user.is_verified
-            }
-            
-            if profile_complete and not ai_verified:
-                response_data["verification_warning"] = ai_reason
-            
-            return JSONResponse(response_data)
+            })
     
     except Exception as e:
         logger.exception("Error updating profile")
