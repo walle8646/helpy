@@ -608,6 +608,17 @@ def start_scheduler():
         misfire_grace_time=300,
     )
 
+    # Job periodico: pubblica i social draft approvati la cui ora è arrivata
+    # e aggiorna gli esiti dei post in pubblicazione (via Post for Me).
+    from app.social.publisher import process_social_queue
+    scheduler.add_job(
+        process_social_queue,
+        trigger=IntervalTrigger(minutes=5),
+        id="process_social_queue",
+        replace_existing=True,
+        misfire_grace_time=300,
+    )
+
     # Recovery: processa booking rimasti bloccati durante il downtime
     recover_stuck_bookings()
     # Recovery: ferma eventuali recording orfani rimasti dal downtime

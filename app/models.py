@@ -453,8 +453,40 @@ class DisputeMessage(SQLModel, table=True):
 class FavoriteConsultant(SQLModel, table=True):
     """Consulenti preferiti salvati dagli utenti"""
     __tablename__ = "favorite_consultants"
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
     consultant_id: int = Field(foreign_key="user.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SocialDraft(SQLModel, table=True):
+    """Bozze di post social generate dall'AI, in attesa di approvazione e pubblicazione.
+
+    Workflow status: draft -> approved -> publishing -> published | failed
+                     (oppure draft -> rejected)
+    La pubblicazione avviene via Post for Me (postforme.dev).
+    """
+    __tablename__ = "social_drafts"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    platform: str = Field(index=True)  # 'facebook' | 'instagram' | 'tiktok'
+    caption: str = Field(max_length=5000)  # testo pronto da pubblicare (hashtag inclusi)
+    media_urls: Optional[str] = Field(default=None, max_length=3000)  # URL pubblici, uno per riga (IG richiede >=1 immagine, TikTok >=1 video)
+
+    # Provenienza (domanda community da cui è stato generato)
+    source_question_id: Optional[int] = Field(default=None, index=True)
+    source_title: Optional[str] = Field(default=None, max_length=500)
+    extra_content: Optional[str] = Field(default=None, max_length=8000)  # JSON: hook, carousel_slides, script... per la fase grafica
+
+    status: str = Field(default="draft", index=True)
+    scheduled_at: Optional[datetime] = Field(default=None)  # ora italiana naive; None = solo pubblicazione manuale
+
+    # Tracking Post for Me
+    postforme_post_id: Optional[str] = Field(default=None, index=True)
+    published_url: Optional[str] = Field(default=None, max_length=1000)
+    error: Optional[str] = Field(default=None, max_length=2000)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    published_at: Optional[datetime] = Field(default=None)

@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Social - Admin Ispiramy{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-container {
+        max-width: 1200px;
+        margin: 30px auto;
+        padding: 0 20px;
+    }
+    .admin-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .admin-header h1 {
+        font-size: 1.6rem;
+        color: #1a1a2e;
+        margin: 0;
+    }
+    .admin-header h1 i { color: #2e7d32; }
+    .admin-nav {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .admin-nav a {
+        padding: 8px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #555;
+        background: #f5f5f5;
+        transition: all 0.2s;
+    }
+    .admin-nav a:hover, .admin-nav a.active {
+        background: #2e7d32;
+        color: #fff;
+    }
+
+    /* Barra stato account + azioni */
+    .social-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        background: #fff;
+        border-radius: 12px;
+        padding: 14px 18px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        margin-bottom: 20px;
+    }
+    .account-badges { display: flex; gap: 10px; flex-wrap: wrap; }
+    .account-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 12px; border-radius: 20px; font-size: .85rem; font-weight: 600;
+    }
+    .account-badge.ok { background: #e8f5e9; color: #2e7d32; }
+    .account-badge.ko { background: #ffebee; color: #c62828; }
+    .toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+        padding: 9px 16px; border: none; border-radius: 8px; cursor: pointer;
+        font-size: .88rem; font-weight: 600; font-family: inherit; transition: all .2s;
+        text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary { background: #2e7d32; color: #fff; }
+    .btn-primary:hover { background: #1b5e20; }
+    .btn-light { background: #f5f5f5; color: #444; }
+    .btn-light:hover { background: #e0e0e0; }
+    .btn-danger { background: #ffebee; color: #c62828; }
+    .btn-danger:hover { background: #ffcdd2; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* Filtri stato */
+    .status-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+    .status-filter {
+        padding: 7px 14px; border-radius: 20px; font-size: .85rem; font-weight: 600;
+        background: #f5f5f5; color: #555; cursor: pointer; border: none; font-family: inherit;
+    }
+    .status-filter.active { background: #2e7d32; color: #fff; }
+
+    /* Card draft */
+    .draft-card {
+        background: #fff; border-radius: 12px; padding: 18px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 14px;
+        border-left: 4px solid #bdbdbd;
+    }
+    .draft-card[data-status="draft"] { border-left-color: #ffa726; }
+    .draft-card[data-status="approved"] { border-left-color: #42a5f5; }
+    .draft-card[data-status="publishing"] { border-left-color: #ab47bc; }
+    .draft-card[data-status="published"] { border-left-color: #43a047; }
+    .draft-card[data-status="failed"] { border-left-color: #e53935; }
+    .draft-card[data-status="rejected"] { border-left-color: #9e9e9e; opacity: .75; }
+
+    .draft-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .draft-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .platform-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-weight: 700; font-size: .9rem;
+    }
+    .platform-chip .fa-facebook { color: #1877f2; }
+    .platform-chip .fa-instagram { color: #d62976; }
+    .platform-chip .fa-tiktok { color: #111; }
+    .status-chip {
+        padding: 3px 10px; border-radius: 12px; font-size: .75rem; font-weight: 700; text-transform: uppercase;
+    }
+    .status-chip.draft { background: #fff3e0; color: #e65100; }
+    .status-chip.approved { background: #e3f2fd; color: #1565c0; }
+    .status-chip.publishing { background: #f3e5f5; color: #7b1fa2; }
+    .status-chip.published { background: #e8f5e9; color: #2e7d32; }
+    .status-chip.failed { background: #ffebee; color: #c62828; }
+    .status-chip.rejected { background: #eeeeee; color: #616161; }
+    .draft-source { font-size: .82rem; color: #888; }
+
+    .draft-caption {
+        width: 100%; min-height: 110px; padding: 10px 12px;
+        border: 2px solid #eee; border-radius: 8px; font-family: inherit; font-size: .92rem;
+        resize: vertical; line-height: 1.45;
+    }
+    .draft-caption:focus { outline: none; border-color: #66bb6a; }
+    .draft-fields { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+    .draft-fields label { font-size: .82rem; color: #666; font-weight: 600; }
+    .draft-fields input {
+        padding: 8px 10px; border: 2px solid #eee; border-radius: 8px; font-family: inherit; font-size: .88rem;
+    }
+    .draft-fields input:focus { outline: none; border-color: #66bb6a; }
+    .media-input { flex: 1; min-width: 240px; }
+    .media-required { font-size: .78rem; color: #e65100; font-weight: 600; }
+
+    .draft-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .draft-error {
+        margin-top: 10px; padding: 10px 12px; background: #ffebee; border-radius: 8px;
+        color: #c62828; font-size: .84rem; word-break: break-word;
+    }
+    .draft-published-link { margin-top: 10px; font-size: .88rem; }
+    .empty-state {
+        text-align: center; padding: 60px 20px; color: #999; background: #fff;
+        border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .empty-state i { font-size: 2.4rem; color: #c8e6c9; margin-bottom: 12px; display: block; }
+
+    #toast {
+        position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+        background: #1a1a2e; color: #fff; padding: 12px 22px; border-radius: 10px;
+        font-size: .9rem; z-index: 3000; display: none; max-width: 90vw;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1><i class="fas fa-bullhorn"></i> Social</h1>
+        <div class="admin-nav">
+            <a href="/admin">Dashboard</a>
+            <a href="/admin/users">Utenti</a>
+            <a href="/admin/bookings">Consulenze</a>
+            <a href="/admin/disputes">Contestazioni</a>
+            <a href="/admin/social" class="active">Social</a>
+        </div>
+    </div>
+
+    <div class="social-toolbar">
+        <div class="account-badges">
+            {% for p, label in platform_labels.items() %}
+                {% if accounts.get(p) %}
+                <span class="account-badge ok"><i class="fas fa-check-circle"></i> {{ label }}: {{ accounts[p].username or 'collegato' }}</span>
+                {% else %}
+                <span class="account-badge ko"><i class="fas fa-times-circle"></i> {{ label }}: non collegato</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div class="toolbar-actions">
+            <button class="btn btn-light" onclick="refreshResults()"><i class="fas fa-rotate"></i> Aggiorna esiti</button>
+            <button class="btn btn-primary" id="generateBtn" onclick="generateDrafts()"><i class="fas fa-wand-magic-sparkles"></i> Genera contenuti</button>
+        </div>
+    </div>
+
+    <div class="status-filters">
+        <button class="status-filter active" data-filter="all" onclick="filterDrafts(this)">Tutti ({{ drafts|length }})</button>
+        {% for st, label in [('draft','Bozze'), ('approved','Approvati'), ('publishing','In pubblicazione'), ('published','Pubblicati'), ('failed','Falliti'), ('rejected','Rifiutati')] %}
+        <button class="status-filter" data-filter="{{ st }}" onclick="filterDrafts(this)">{{ label }} ({{ counts.get(st, 0) }})</button>
+        {% endfor %}
+    </div>
+
+    {% if not drafts %}
+    <div class="empty-state">
+        <i class="fas fa-wand-magic-sparkles"></i>
+        Nessun draft ancora. Clicca <strong>Genera contenuti</strong> per creare bozze dalle domande della community.
+    </div>
+    {% endif %}
+
+    {% for d in drafts %}
+    <div class="draft-card" data-status="{{ d.status }}" id="draft-{{ d.id }}">
+        <div class="draft-head">
+            <div class="draft-meta">
+                <span class="platform-chip">
+                    {% if d.platform == 'facebook' %}<i class="fab fa-facebook"></i>
+                    {% elif d.platform == 'instagram' %}<i class="fab fa-instagram"></i>
+                    {% elif d.platform == 'tiktok' %}<i class="fab fa-tiktok"></i>{% endif %}
+                    {{ platform_labels.get(d.platform, d.platform) }}
+                </span>
+                <span class="status-chip {{ d.status }}">{{ d.status }}</span>
+                {% if d.source_title %}<span class="draft-source">da: “{{ d.source_title[:70] }}”</span>{% endif %}
+            </div>
+            <span class="draft-source">#{{ d.id }} · {{ d.created_at.strftime('%d/%m %H:%M') }}</span>
+        </div>
+
+        {% if d.status in ('draft', 'approved', 'failed', 'rejected') %}
+        <textarea class="draft-caption" id="caption-{{ d.id }}">{{ d.caption }}</textarea>
+        <div class="draft-fields">
+            <label>Media URL{% if d.platform in ('instagram','tiktok') %} <span class="media-required">(obbligatorio per {{ platform_labels.get(d.platform) }}{% if d.platform=='tiktok' %}: video{% endif %})</span>{% endif %}</label>
+            <input type="text" class="media-input" id="media-{{ d.id }}" placeholder="https://... (uno per riga, incolla URL pubblici)" value="{{ d.media_urls or '' }}">
+            <label>Programma</label>
+            <input type="datetime-local" id="sched-{{ d.id }}" value="{{ d.scheduled_at.strftime('%Y-%m-%dT%H:%M') if d.scheduled_at else '' }}">
+        </div>
+        {% else %}
+        <div style="white-space: pre-wrap; font-size: .92rem; color: #444; line-height: 1.45;">{{ d.caption }}</div>
+        {% endif %}
+
+        {% if d.error %}
+        <div class="draft-error"><strong>Errore:</strong> {{ d.error }}</div>
+        {% endif %}
+        {% if d.published_url %}
+        <div class="draft-published-link">
+            <a href="{{ d.published_url }}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Vedi post pubblicato</a>
+        </div>
+        {% endif %}
+
+        <div class="draft-actions">
+            {% if d.status in ('draft', 'approved', 'failed', 'rejected') %}
+            <button class="btn btn-light" onclick="saveDraft({{ d.id }})"><i class="fas fa-floppy-disk"></i> Salva</button>
+            {% endif %}
+            {% if d.status in ('draft', 'failed') %}
+            <button class="btn btn-primary" onclick="draftAction({{ d.id }}, 'approve')"><i class="fas fa-check"></i> Approva</button>
+            {% endif %}
+            {% if d.status == 'approved' %}
+            <button class="btn btn-primary" onclick="publishNow({{ d.id }})"><i class="fas fa-paper-plane"></i> Pubblica ora</button>
+            <button class="btn btn-light" onclick="draftAction({{ d.id }}, 'back_to_draft')"><i class="fas fa-rotate-left"></i> Torna bozza</button>
+            {% endif %}
+            {% if d.status == 'draft' %}
+            <button class="btn btn-light" onclick="draftAction({{ d.id }}, 'reject')"><i class="fas fa-ban"></i> Rifiuta</button>
+            {% endif %}
+            {% if d.status == 'rejected' %}
+            <button class="btn btn-light" onclick="draftAction({{ d.id }}, 'back_to_draft')"><i class="fas fa-rotate-left"></i> Ripristina</button>
+            {% endif %}
+            {% if d.status not in ('published', 'publishing') %}
+            <button class="btn btn-danger" onclick="deleteDraft({{ d.id }})"><i class="fas fa-trash"></i> Elimina</button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="toast"></div>
+
+<script>
+function toast(msg, isError) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.background = isError ? '#c62828' : '#1a1a2e';
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+async function post(url, body, method) {
+    const resp = await fetch(url, {
+        method: method || 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await resp.json().catch(() => ({}));
+    return { ok: resp.ok && data.ok !== false, message: data.message || (resp.ok ? 'OK' : 'Errore') };
+}
+
+async function generateDrafts() {
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Genero...';
+    const r = await post('/admin/social/generate', { limit: 3 });
+    toast(r.message, !r.ok);
+    if (r.ok) setTimeout(() => location.reload(), 1200);
+    else { btn.disabled = false; btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Genera contenuti'; }
+}
+
+async function saveDraft(id) {
+    const r = await post(`/admin/social/drafts/${id}`, {
+        caption: document.getElementById(`caption-${id}`).value,
+        media_urls: document.getElementById(`media-${id}`).value,
+        scheduled_at: document.getElementById(`sched-${id}`).value,
+    });
+    toast(r.message, !r.ok);
+}
+
+async function draftAction(id, action) {
+    // salva prima le modifiche correnti se i campi sono presenti
+    if (document.getElementById(`caption-${id}`)) await saveDraft(id);
+    const r = await post(`/admin/social/drafts/${id}/status`, { action });
+    toast(r.message, !r.ok);
+    if (r.ok) setTimeout(() => location.reload(), 800);
+}
+
+async function publishNow(id) {
+    if (!confirm('Pubblicare subito questo post?')) return;
+    const r = await post(`/admin/social/drafts/${id}/publish`);
+    toast(r.message, !r.ok);
+    if (r.ok) setTimeout(() => location.reload(), 1500);
+}
+
+async function refreshResults() {
+    const r = await post('/admin/social/refresh-results');
+    toast(r.message, !r.ok);
+    if (r.ok) setTimeout(() => location.reload(), 800);
+}
+
+async function deleteDraft(id) {
+    if (!confirm('Eliminare definitivamente questo draft?')) return;
+    const r = await post(`/admin/social/drafts/${id}`, null, 'DELETE');
+    toast(r.message, !r.ok);
+    if (r.ok) document.getElementById(`draft-${id}`).remove();
+}
+
+function filterDrafts(btn) {
+    document.querySelectorAll('.status-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const f = btn.dataset.filter;
+    document.querySelectorAll('.draft-card').forEach(c => {
+        c.style.display = (f === 'all' || c.dataset.status === f) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,189 @@
+"""
+Publisher: pubblica i SocialDraft approvati via Post for Me (postforme.dev).
+
+Idempotenza: ogni draft viene inviato con external_id univoco ("ispiramy-draft-{id}").
+Prima di creare un post si verifica che non esista già su Post for Me — lezione
+imparata: Facebook può rispondere con errore ("reduce the amount of data") anche
+quando il post è uscito, quindi MAI ritentare alla cieca.
+"""
+import os
+import json
+import urllib.request
+import urllib.parse
+from datetime import datetime
+from typing import Optional
+
+from sqlmodel import Session, select
+
+from app.database import engine
+from app.models import SocialDraft
+from app.logger_config import logger
+
+API_BASE = "https://api.postforme.dev/v1"
+
+# Requisiti media per piattaforma
+PLATFORM_REQUIRES_MEDIA = {"instagram", "tiktok"}
+
+
+def _api(method: str, path: str, body: Optional[dict] = None) -> dict:
+    api_key = os.getenv("POSTFORME_API_KEY")
+    if not api_key:
+        raise RuntimeError("POSTFORME_API_KEY non configurata")
+    req = urllib.request.Request(
+        f"{API_BASE}{path}",
+        method=method,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        data=json.dumps(body).encode() if body else None,
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read())
+
+
+def get_connected_accounts() -> dict[str, dict]:
+    """Ritorna {platform: account} per gli account collegati su Post for Me."""
+    accounts = {}
+    for a in _api("GET", "/social-accounts").get("data", []):
+        if a.get("status") == "connected":
+            accounts[a["platform"]] = a
+    return accounts
+
+
+def _external_id(draft: SocialDraft) -> str:
+    return f"ispiramy-draft-{draft.id}"
+
+
+def _find_existing_post(external_id: str) -> Optional[dict]:
+    """Cerca su Post for Me un post già creato con questo external_id (idempotenza)."""
+    try:
+        q = urllib.parse.urlencode({"external_id": external_id})
+        data = _api("GET", f"/social-posts?{q}").get("data", [])
+        return data[0] if data else None
+    except Exception as e:
+        logger.warning(f"Social publisher: check idempotenza fallito per {external_id}: {e}")
+        return None  # in dubbio, il chiamante deciderà (non ritenta se il draft è già 'publishing')
+
+
+def publish_draft(draft_id: int) -> dict:
+    """Pubblica (o programma) un singolo draft. Ritorna {ok, message}."""
+    with Session(engine) as session:
+        draft = session.get(SocialDraft, draft_id)
+        if not draft:
+            return {"ok": False, "message": "Draft non trovato"}
+        if draft.status not in ("approved", "publishing", "failed"):
+            return {"ok": False, "message": f"Stato '{draft.status}' non pubblicabile (serve 'approved')"}
+
+        # Vincoli piattaforma
+        media = [u.strip() for u in (draft.media_urls or "").splitlines() if u.strip()]
+        if draft.platform in PLATFORM_REQUIRES_MEDIA and not media:
+            return {"ok": False, "message": f"{draft.platform} richiede almeno un media (aggiungi URL immagine/video)"}
+
+        # Idempotenza: se già inviato (o risulta su Post for Me), non ricreare
+        ext_id = _external_id(draft)
+        existing = None
+        if draft.postforme_post_id:
+            existing = {"id": draft.postforme_post_id}
+        else:
+            existing = _find_existing_post(ext_id)
+        if existing:
+            draft.postforme_post_id = existing["id"]
+            draft.status = "publishing"
+            draft.updated_at = datetime.utcnow()
+            session.add(draft)
+            session.commit()
+            check_publishing_results()
+            return {"ok": True, "message": "Post già inviato in precedenza: aggiornato lo stato invece di duplicare"}
+
+        accounts = get_connected_accounts()
+        account = accounts.get(draft.platform)
+        if not account:
+            return {"ok": False, "message": f"Nessun account '{draft.platform}' collegato su Post for Me"}
+
+        payload = {
+            "caption": draft.caption,
+            "social_accounts": [account["id"]],
+            "external_id": ext_id,
+        }
+        if media:
+            payload["media"] = [{"url": u} for u in media]
+
+        try:
+            result = _api("POST", "/social-posts", payload)
+        except Exception as e:
+            draft.error = f"Errore invio a Post for Me: {e}"[:2000]
+            draft.status = "failed"
+            draft.updated_at = datetime.utcnow()
+            session.add(draft)
+            session.commit()
+            logger.error(f"Social publisher: invio draft {draft.id} fallito: {e}")
+            return {"ok": False, "message": draft.error}
+
+        draft.postforme_post_id = result.get("id")
+        draft.status = "publishing"
+        draft.error = None
+        draft.updated_at = datetime.utcnow()
+        session.add(draft)
+        session.commit()
+        logger.info(f"📤 Social publisher: draft {draft.id} ({draft.platform}) inviato -> {draft.postforme_post_id}")
+        return {"ok": True, "message": f"Inviato a {draft.platform} (post {draft.postforme_post_id})"}
+
+
+def check_publishing_results() -> None:
+    """Aggiorna lo stato dei draft in 'publishing' leggendo i risultati da Post for Me."""
+    with Session(engine) as session:
+        publishing = session.exec(
+            select(SocialDraft).where(SocialDraft.status == "publishing")
+        ).all()
+        for draft in publishing:
+            if not draft.postforme_post_id:
+                continue
+            try:
+                q = urllib.parse.urlencode({"post_id": draft.postforme_post_id})
+                results = _api("GET", f"/social-post-results?{q}").get("data", [])
+            except Exception as e:
+                logger.warning(f"Social publisher: lettura risultato draft {draft.id} fallita: {e}")
+                continue
+            if not results:
+                continue  # ancora in elaborazione
+            r = results[0]
+            if r.get("success"):
+                details = r.get("details") or {}
+                draft.status = "published"
+                draft.published_url = details.get("url") or details.get("post_url")
+                draft.published_at = datetime.utcnow()
+                draft.error = None
+                logger.info(f"✅ Social publisher: draft {draft.id} pubblicato su {draft.platform}")
+            else:
+                draft.status = "failed"
+                draft.error = json.dumps(r.get("error"), ensure_ascii=False)[:2000]
+                logger.error(f"❌ Social publisher: draft {draft.id} fallito: {draft.error}")
+            draft.updated_at = datetime.utcnow()
+            session.add(draft)
+        session.commit()
+
+
+def process_social_queue() -> None:
+    """Job schedulato: pubblica i draft approvati la cui ora è arrivata e aggiorna gli esiti.
+
+    NB: i draft 'failed' NON vengono ritentati automaticamente (rischio duplicati,
+    vedi falsi negativi di Facebook) — si ritenta manualmente dalla dashboard admin.
+    """
+    from zoneinfo import ZoneInfo
+    now_italy = datetime.now(ZoneInfo("Europe/Rome")).replace(tzinfo=None)
+
+    try:
+        with Session(engine) as session:
+            due = session.exec(
+                select(SocialDraft)
+                .where(SocialDraft.status == "approved")
+                .where(SocialDraft.scheduled_at != None)  # noqa: E711
+                .where(SocialDraft.scheduled_at <= now_italy)
+            ).all()
+            due_ids = [d.id for d in due]
+        for draft_id in due_ids:
+            publish_draft(draft_id)
+        check_publishing_results()
+    except Exception as e:
+        logger.error(f"Social publisher: errore nel job process_social_queue: {e}", exc_info=True)
