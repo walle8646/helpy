@@ -248,6 +248,11 @@ def _upload_png(img: Image.Image, key: str) -> str:
         Bucket=bucket, Key=key, Body=buf.getvalue(),
         ContentType="image/png", CacheControl="public, max-age=604800",
     )
+    # In locale (MinIO) l'URL AWS non risolve: S3_PUBLIC_BASE_URL permette di
+    # puntare all'endpoint raggiungibile dal browser (es. http://localhost:9000/ispiramy-images)
+    public_base = os.getenv("S3_PUBLIC_BASE_URL")
+    if public_base:
+        return f"{public_base.rstrip('/')}/{key}"
     return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
 
 

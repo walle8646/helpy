@@ -90,6 +90,9 @@ services:
       # Placeholder: in locale EMAIL_BACKEND=smtp ignora le chiavi SendGrid,
       # ma alcuni check in legacy code richiedono un valore non vuoto.
       SENDGRID_API_KEY: dev-only-placeholder
+      # URL pubblico (lato browser) delle immagini social generate: in locale
+      # puntano a MinIO esposto su localhost, in prod si omette (URL AWS diretto)
+      S3_PUBLIC_BASE_URL: http://localhost:9000/ispiramy-images
     env_file:
       - .env.local
     volumes:
