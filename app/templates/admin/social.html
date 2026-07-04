@@ -224,6 +224,14 @@
         <div style="white-space: pre-wrap; font-size: .92rem; color: #444; line-height: 1.45;">{{ d.caption }}</div>
         {% endif %}
 
+        {% if d.media_urls %}
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+            {% for u in d.media_urls.splitlines() %}{% if u.strip() %}
+            <a href="{{ u.strip() }}" target="_blank" rel="noopener"><img src="{{ u.strip() }}" alt="media" style="height:90px; border-radius:8px; border:2px solid #e8f5e9;" onerror="this.style.display='none'"></a>
+            {% endif %}{% endfor %}
+        </div>
+        {% endif %}
+
         {% if d.error %}
         <div class="draft-error"><strong>Errore:</strong> {{ d.error }}</div>
         {% endif %}
@@ -236,6 +244,9 @@
         <div class="draft-actions">
             {% if d.status in ('draft', 'approved', 'failed', 'rejected') %}
             <button class="btn btn-light" onclick="saveDraft({{ d.id }})"><i class="fas fa-floppy-disk"></i> Salva</button>
+            {% endif %}
+            {% if d.platform == 'instagram' and d.status in ('draft', 'approved', 'failed') %}
+            <button class="btn btn-light" id="genmedia-{{ d.id }}" onclick="generateMedia({{ d.id }})"><i class="fas fa-image"></i> Genera grafica</button>
             {% endif %}
             {% if d.status in ('draft', 'failed') %}
             <button class="btn btn-primary" onclick="draftAction({{ d.id }}, 'approve')"><i class="fas fa-check"></i> Approva</button>
@@ -304,6 +315,18 @@ async function draftAction(id, action) {
     const r = await post(`/admin/social/drafts/${id}/status`, { action });
     toast(r.message, !r.ok);
     if (r.ok) setTimeout(() => location.reload(), 800);
+}
+
+async function generateMedia(id) {
+    // salva prima eventuali modifiche al testo
+    await saveDraft(id);
+    const btn = document.getElementById(`genmedia-${id}`);
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Genero grafica...';
+    const r = await post(`/admin/social/drafts/${id}/generate-media`);
+    toast(r.message, !r.ok);
+    if (r.ok) setTimeout(() => location.reload(), 1200);
+    else { btn.disabled = false; btn.innerHTML = '<i class="fas fa-image"></i> Genera grafica'; }
 }
 
 async function publishNow(id) {

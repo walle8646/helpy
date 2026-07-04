@@ -153,6 +153,22 @@ async def admin_social_draft_status(draft_id: int, request: Request):
     return {"ok": True, "message": f"Stato: {new_status}"}
 
 
+@router.post("/social/drafts/{draft_id}/generate-media")
+async def admin_social_generate_media(draft_id: int, request: Request):
+    """Genera il carosello brand (Pillow + illustrazione AI) e compila media_urls."""
+    admin_user = require_admin(request)
+    if not admin_user:
+        return JSONResponse({"ok": False, "message": "Non autorizzato"}, status_code=403)
+
+    try:
+        from app.social.image_generator import generate_carousel_for_draft
+        result = generate_carousel_for_draft(draft_id)
+        return JSONResponse(result, status_code=200 if result["ok"] else 400)
+    except Exception as e:
+        logger.error(f"Admin social: errore generazione grafica draft {draft_id}: {e}", exc_info=True)
+        return JSONResponse({"ok": False, "message": str(e)[:300]}, status_code=500)
+
+
 @router.post("/social/drafts/{draft_id}/publish")
 async def admin_social_publish_now(draft_id: int, request: Request):
     """Pubblica subito un draft approvato (o ritenta un failed dopo verifica idempotente)."""
