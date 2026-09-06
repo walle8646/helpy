@@ -284,6 +284,125 @@
     .call-timer-inline span {
         color: #ffffff;
     }
+
+    /* Il display ora conta in avanti: negli ultimi 3 minuti diventa rosso
+       pulsante, così l'utente sa comunque che la consulenza sta finendo. */
+    .call-timer-inline.warning {
+        background: rgba(239, 68, 68, 0.9);
+        animation: timerPulse 1.5s infinite;
+    }
+
+    /* ===== Pannello "Effetti sfondo" ancorato all'icona sfondo =====
+       Si apre SOPRA la barra dei comandi (bottom: 100%): non copre le altre
+       icone e non c'è nulla da trascinare. Sostituisce del tutto i pannelli
+       esterni del browser / del software della webcam. */
+    .bg-effect-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .control-btn.bg-effect {
+        background: #4a5568;
+    }
+
+    .control-btn.bg-effect.active {
+        background: #43a047;
+    }
+
+    .bg-panel {
+        position: absolute;
+        bottom: calc(100% + 14px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: 268px;
+        max-width: 90vw;
+        background: #1f2733;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        padding: 12px;
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+        z-index: 200;
+        display: none;
+        text-align: left;
+    }
+
+    .bg-panel.open {
+        display: block;
+    }
+
+    /* freccetta verso l'icona */
+    .bg-panel::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 8px solid transparent;
+        border-top-color: #1f2733;
+    }
+
+    .bg-panel-title {
+        color: #ffffff;
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .bg-option {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #e5e7eb;
+        font-size: 0.9rem;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background 0.2s;
+        text-align: left;
+    }
+
+    .bg-option:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.14);
+    }
+
+    .bg-option:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+
+    .bg-option.selected {
+        background: rgba(67, 160, 71, 0.25);
+        border-color: #43a047;
+        color: #ffffff;
+    }
+
+    .bg-option > i:first-child {
+        width: 18px;
+        text-align: center;
+    }
+
+    .bg-option .bg-option-check {
+        margin-left: auto;
+        opacity: 0;
+    }
+
+    .bg-option.selected .bg-option-check {
+        opacity: 1;
+        color: #43a047;
+    }
+
+    .bg-panel-hint {
+        color: #9aa5b1;
+        font-size: 0.78rem;
+        line-height: 1.35;
+        margin-top: 8px;
+    }
     
     /* Connection Status - nascosto */
     .connection-status {
@@ -1174,8 +1293,8 @@
 <div class="call-container">
     <!-- Call Timer -->
     <div class="call-timer" id="callTimer">
-        <div class="call-timer-label">Tempo rimanente</div>
-        <div class="call-timer-time" id="timerDisplay">--:--</div>
+        <div class="call-timer-label">Durata chiamata</div>
+        <div class="call-timer-time" id="timerDisplay">0:00</div>
     </div>
     
     <!-- Connection Status -->
@@ -1186,8 +1305,20 @@
     
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
-        <i class="fas fa-spinner spinner"></i>
-        <p style="margin-top: 1rem; font-size: 1.2rem;">Inizializzazione chiamata...</p>
+        <i class="fas fa-spinner spinner" id="loadingSpinner"></i>
+        <p style="margin-top: 1rem; font-size: 1.2rem;" id="loadingTitle">Inizializzazione chiamata...</p>
+        <p style="margin-top: 0.4rem; font-size: 0.9rem; opacity: 0.75;" id="loadingStep"></p>
+        <div id="loadingError" style="display:none; max-width:460px; width:88%; margin-top:1.5rem; text-align:center;">
+            <p id="loadingErrorText" style="font-size:1rem; line-height:1.55; margin-bottom:1.25rem;"></p>
+            <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+                <button id="loadingRetryBtn" style="padding:12px 24px; border:none; border-radius:8px; font-weight:600; font-size:0.95rem; cursor:pointer; background:#2e7d32; color:#fff;">
+                    <i class="fas fa-redo"></i> Riprova
+                </button>
+                <button id="loadingExitBtn" style="padding:12px 24px; border:2px solid rgba(255,255,255,0.35); border-radius:8px; font-weight:600; font-size:0.95rem; cursor:pointer; background:transparent; color:#fff;">
+                    Esci
+                </button>
+            </div>
+        </div>
     </div>
     
     <!-- Video Grid -->
@@ -1236,13 +1367,38 @@
             <i class="fas fa-desktop"></i>
         </button>
 
-        <button class="control-btn bg-effect" id="bgEffectBtn" title="Sfondo (nessuno → sfocato → logo)" style="background:#4a5568;">
-            <i class="fas fa-image"></i>
-        </button>
+        <div class="bg-effect-wrap" id="bgEffectWrap">
+            <button class="control-btn bg-effect" id="bgEffectBtn" title="Effetti sfondo"
+                    aria-haspopup="true" aria-expanded="false">
+                <i class="fas fa-image"></i>
+            </button>
+
+            <!-- Pannello effetti sfondo: si apre sopra la barra, sempre
+                 raggiungibile, senza finestre da trascinare e senza "pausa". -->
+            <div class="bg-panel" id="bgPanel">
+                <div class="bg-panel-title">Effetti sfondo</div>
+                <button type="button" class="bg-option" data-bg="none">
+                    <i class="fas fa-ban"></i>
+                    <span>Nessuno</span>
+                    <i class="fas fa-check bg-option-check"></i>
+                </button>
+                <button type="button" class="bg-option" data-bg="blur">
+                    <i class="fas fa-droplet"></i>
+                    <span>Sfoca lo sfondo</span>
+                    <i class="fas fa-check bg-option-check"></i>
+                </button>
+                <button type="button" class="bg-option" data-bg="img">
+                    <i class="fas fa-image"></i>
+                    <span>Sfondo Ispiramy</span>
+                    <i class="fas fa-check bg-option-check"></i>
+                </button>
+                <div class="bg-panel-hint" id="bgPanelHint"></div>
+            </div>
+        </div>
         
         <!-- Timer moved to controls bar -->
         <div class="call-timer-inline" id="callTimerInline">
-            <span id="timerDisplayInline">--:--</span>
+            <span id="timerDisplayInline">0:00</span>
         </div>
         
         <button class="control-btn end-call" id="endCallBtn" title="Termina chiamata">
@@ -1411,110 +1567,267 @@
     };
     let screenTrack = null;
     let isScreenSharing = false;
+    // Istante di avvio della chiamata secondo il server (booking.call_started_at):
+    // ancora del cronometro crescente, condivisa tra i due partecipanti.
+    let callStartedAt = null;
+
+    // ===== Rilevamento ambiente (mobile / browser in-app / contesto sicuro) =====
+    const UA = navigator.userAgent || '';
+    const IS_IOS = /iPad|iPhone|iPod/i.test(UA) ||
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const IS_ANDROID = /Android/i.test(UA);
+    const IS_MOBILE = IS_IOS || IS_ANDROID || /Mobi/i.test(UA);
+    const IS_SAFARI = /Safari/i.test(UA) && !/Chrome|CriOS|FxiOS|Edg|OPR/i.test(UA);
+    // I browser integrati nelle app (Instagram, Facebook, LinkedIn, TikTok...) NON
+    // espongono getUserMedia: la chiamata non potrà mai partire da lì.
+    const IS_INAPP_BROWSER = /(FBAN|FBAV|FB_IAB|Instagram|LinkedInApp|TikTok|Twitter|WhatsApp|Snapchat|MicroMessenger|Line\/)/i.test(UA);
+    console.log(`🖥️ Ambiente: mobile=${IS_MOBILE} ios=${IS_IOS} android=${IS_ANDROID} safari=${IS_SAFARI} inApp=${IS_INAPP_BROWSER}`);
+
+    // ===== Utility: timeout su promise e su fetch =====
+    // Nessuna fase dell'inizializzazione deve poter restare appesa all'infinito:
+    // su mobile è la causa tipica dello spinner "Inizializzazione chiamata..." eterno.
+    function withTimeout(promise, ms, label) {
+        let timer = null;
+        const timeout = new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`TIMEOUT:${label}`)), ms);
+        });
+        return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+    }
+
+    // NB: fetchWithTimeout(url, options, timeoutMs) è già definita più in basso in
+    // questo stesso script (sezione chat) e viene sollevata (hoisted) qui: la usiamo
+    // per tutte le chiamate di rete dell'inizializzazione. Non ridichiararla.
 
     // ===== Virtual Background (sfondo sfocato / logo Ispiramy) =====
     let vbExtension = null;
     let vbProcessor = null;
     let currentBackground = 'none'; // none | blur | img
+    let vbUnavailableReason = '';   // motivo leggibile, mostrato nel pannello
+    let vbBusy = false;             // evita click sovrapposti mentre applichiamo
+
     const VB_IMAGE_URL = 'https://ispiramy-images.s3.eu-north-1.amazonaws.com/call-background.png';
 
+    // Lo sfondo virtuale usa WASM + segmentazione: su mobile non e' supportato
+    // (e il caricamento del modulo puo' restare appeso, bloccando tutta la call).
+    function isVirtualBackgroundSupported() {
+        if (IS_MOBILE) {
+            vbUnavailableReason = 'Gli effetti sfondo non sono disponibili da smartphone o tablet.';
+            return false;
+        }
+        if (typeof VirtualBackgroundExtension === 'undefined') {
+            vbUnavailableReason = 'Modulo effetti sfondo non caricato: ricarica la pagina.';
+            return false;
+        }
+        return true;
+    }
+
+    // IMPORTANTE: l'estensione va registrata PRIMA di creare i track locali e il
+    // client (come nel sample ufficiale Agora). Registrandola dopo, il processor
+    // non riesce ad agganciarsi al video track e il pulsante rispondeva
+    // "sfondo virtuale non disponibile su questo dispositivo/browser".
     function initVirtualBackground() {
+        if (vbExtension) return true; // gia' registrata: mai registrarla due volte
         try {
-            if (typeof VirtualBackgroundExtension === 'undefined') {
-                console.warn('⚠️ Virtual Background extension non caricata');
-                return;
+            if (!isVirtualBackgroundSupported()) {
+                console.warn('⚠️ Virtual Background non supportato: ' + vbUnavailableReason);
+                return false;
             }
             vbExtension = new VirtualBackgroundExtension();
             AgoraRTC.registerExtensions([vbExtension]);
+            if (typeof AgoraRTC.checkVirtualBackgroundSupported === 'function') {
+                try {
+                    console.log('ℹ️ checkVirtualBackgroundSupported:', AgoraRTC.checkVirtualBackgroundSupported());
+                } catch (err) { /* solo diagnostica */ }
+            }
             console.log('✅ Virtual Background extension registrata');
+            return true;
         } catch (e) {
             console.warn('⚠️ Init Virtual Background fallito:', e);
             vbExtension = null;
-        }
-    }
-
-    async function setupVirtualBackgroundProcessor() {
-        // Assicura che l'estensione sia registrata (timing: lo script potrebbe
-        // essersi caricato dopo il primo tentativo di init)
-        if (!vbExtension) initVirtualBackground();
-        if (!vbExtension || !localTracks.video) return false;
-        if (vbProcessor) return true; // già pronto
-        try {
-            vbProcessor = vbExtension.createProcessor();
-            await vbProcessor.init();
-            localTracks.video.pipe(vbProcessor).pipe(localTracks.video.processorDestination);
-            console.log('✅ Virtual Background processor pronto');
-            return true;
-        } catch (e) {
-            // Log completo per diagnosi (era un warning silenzioso che nascondeva il bottone)
-            console.error('❌ Setup Virtual Background processor fallito:', e);
-            vbProcessor = null;
+            vbUnavailableReason = 'Il browser non supporta gli effetti sfondo (' + ((e && e.message) || 'errore') + ').';
             return false;
         }
     }
 
-    function vbFeedbackUnavailable() {
-        const btn = document.getElementById('bgEffectBtn');
-        if (!btn) return;
-        btn.style.background = '#dc3545';
-        btn.title = 'Sfondo virtuale non disponibile su questo dispositivo/browser';
-        setTimeout(updateBgButton, 2500);
+    // Registrazione immediata, al caricamento dello script: prima di qualunque
+    // createMicrophoneAndCameraTracks() / createClient().
+    initVirtualBackground();
+
+    async function setupVirtualBackgroundProcessor() {
+        if (!initVirtualBackground()) return false;
+        if (!localTracks.video) {
+            vbUnavailableReason = 'Videocamera non attiva: accendila per usare gli effetti sfondo.';
+            return false;
+        }
+        if (vbProcessor) return true; // gia' pronto
+        try {
+            vbProcessor = vbExtension.createProcessor();
+            // init() scarica il modulo WASM (qualche MB): con cache fredda serve
+            // tempo, ma non deve poter restare appeso all'infinito.
+            await withTimeout(vbProcessor.init(), 25000, 'virtual-background-init');
+            localTracks.video.pipe(vbProcessor).pipe(localTracks.video.processorDestination);
+            console.log('✅ Virtual Background processor pronto');
+            return true;
+        } catch (e) {
+            console.error('❌ Setup Virtual Background processor fallito:', e);
+            try { if (vbProcessor && vbProcessor.release) vbProcessor.release(); } catch (err) { /* ignora */ }
+            vbProcessor = null;
+            vbUnavailableReason = /^TIMEOUT:/.test((e && e.message) || '')
+                ? 'Caricamento del modulo effetti troppo lento: riprova con una connessione migliore.'
+                : 'Effetti sfondo non attivabili su questo browser (' + ((e && e.message) || 'errore') + ').';
+            return false;
+        }
+    }
+
+    // L'immagine di sfondo viene scaricata una sola volta e riusata
+    let vbImagePromise = null;
+    function loadBackgroundImage() {
+        if (vbImagePromise) return vbImagePromise;
+        vbImagePromise = new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = () => {
+                vbImagePromise = null;
+                reject(new Error('immagine sfondo non caricata'));
+            };
+            img.src = VB_IMAGE_URL;
+        });
+        return vbImagePromise;
     }
 
     async function applyBackground(type) {
-        // Lazy setup: se il processor non è pronto (es. estensione caricata in ritardo),
-        // proviamo a inizializzarlo ora, al primo click dell'utente.
+        if (type === 'none') {
+            // Spegnere l'effetto non deve richiedere il caricamento del WASM
+            if (vbProcessor) {
+                try { await vbProcessor.disable(); }
+                catch (e) { console.error('❌ Disattivazione sfondo fallita:', e); }
+            }
+            currentBackground = 'none';
+            vbUnavailableReason = '';
+            updateBgUi();
+            return true;
+        }
         if (!vbProcessor) {
             const ok = await setupVirtualBackgroundProcessor();
             if (!ok) {
-                console.warn('⚠️ Virtual Background non disponibile: processor non inizializzato');
-                vbFeedbackUnavailable();
-                return;
+                console.warn('⚠️ Effetti sfondo non disponibili: ' + vbUnavailableReason);
+                updateBgUi();
+                return false;
             }
         }
         try {
-            if (type === 'none') {
-                await vbProcessor.disable();
-            } else if (type === 'blur') {
+            if (type === 'blur') {
                 vbProcessor.setOptions({ type: 'blur', blurDegree: 2 });
                 await vbProcessor.enable();
             } else if (type === 'img') {
-                await new Promise((resolve, reject) => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = async () => {
-                        try {
-                            vbProcessor.setOptions({ type: 'img', source: img });
-                            await vbProcessor.enable();
-                            resolve();
-                        } catch (err) { reject(err); }
-                    };
-                    img.onerror = () => reject(new Error('Immagine sfondo non caricata: ' + VB_IMAGE_URL));
-                    img.src = VB_IMAGE_URL;
-                });
+                const img = await loadBackgroundImage();
+                vbProcessor.setOptions({ type: 'img', source: img });
+                await vbProcessor.enable();
+            } else {
+                return false;
             }
             currentBackground = type;
-            updateBgButton();
+            vbUnavailableReason = '';
+            updateBgUi();
+            return true;
         } catch (e) {
             console.error('❌ Errore applyBackground:', e);
-            vbFeedbackUnavailable();
+            vbUnavailableReason = 'Non è stato possibile applicare l\'effetto (' + ((e && e.message) || 'errore') + ').';
+            updateBgUi();
+            return false;
         }
     }
 
-    function updateBgButton() {
+    // ---- UI del pannello effetti sfondo ----
+    function updateBgUi() {
         const btn = document.getElementById('bgEffectBtn');
-        if (!btn) return;
-        // Evidenzia il bottone quando un effetto è attivo
-        btn.style.background = currentBackground === 'none' ? '#4a5568' : '#43a047';
-        const titles = { none: 'Sfondo: nessuno', blur: 'Sfondo: sfocato', img: 'Sfondo: logo Ispiramy' };
-        btn.title = titles[currentBackground] + ' (clic per cambiare)';
+        const panel = document.getElementById('bgPanel');
+        const hint = document.getElementById('bgPanelHint');
+        if (btn) {
+            btn.classList.toggle('active', currentBackground !== 'none');
+            const titles = {
+                none: 'Effetti sfondo: nessuno',
+                blur: 'Effetti sfondo: sfocatura',
+                img: 'Effetti sfondo: sfondo Ispiramy'
+            };
+            btn.title = titles[currentBackground] || 'Effetti sfondo';
+        }
+        if (panel) {
+            panel.querySelectorAll('.bg-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.bg === currentBackground);
+                opt.disabled = vbBusy;
+            });
+        }
+        if (hint) {
+            if (vbBusy) {
+                hint.textContent = 'Attivazione in corso... al primo utilizzo servono qualche secondo per scaricare il modulo.';
+            } else if (vbUnavailableReason) {
+                hint.textContent = vbUnavailableReason;
+            } else {
+                hint.textContent = 'L\'effetto resta attivo anche se spegni e riaccendi la videocamera.';
+            }
+        }
     }
 
-    function cycleBackground() {
-        const next = currentBackground === 'none' ? 'blur'
-                   : currentBackground === 'blur' ? 'img'
-                   : 'none';
-        applyBackground(next);
+    function openBgPanel() {
+        const panel = document.getElementById('bgPanel');
+        const btn = document.getElementById('bgEffectBtn');
+        if (!panel) return;
+        panel.classList.add('open');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        updateBgUi();
+    }
+
+    function closeBgPanel() {
+        const panel = document.getElementById('bgPanel');
+        const btn = document.getElementById('bgEffectBtn');
+        if (!panel) return;
+        panel.classList.remove('open');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleBgPanel() {
+        const panel = document.getElementById('bgPanel');
+        if (!panel) return;
+        if (panel.classList.contains('open')) closeBgPanel();
+        else openBgPanel();
+    }
+
+    async function selectBackground(type) {
+        if (vbBusy) return;
+        vbBusy = true;
+        updateBgUi();
+        try { await applyBackground(type); }
+        finally {
+            vbBusy = false;
+            updateBgUi();
+        }
+    }
+
+    // Riapplica l'effetto sul video track corrente. Serve dopo lo spegnimento e
+    // riaccensione della videocamera e dopo la fine della condivisione schermo:
+    // in entrambi i casi il processor era agganciato al track precedente e
+    // l'effetto andava perso.
+    async function reapplyBackground() {
+        if (currentBackground === 'none') return;
+        const wanted = currentBackground;
+        if (!localTracks.video) return;
+        try {
+            if (vbProcessor) {
+                try {
+                    localTracks.video.pipe(vbProcessor).pipe(localTracks.video.processorDestination);
+                } catch (e) {
+                    console.warn('⚠️ Ricollegamento processor fallito, lo ricreo:', e);
+                    try { if (vbProcessor.release) vbProcessor.release(); } catch (err) { /* ignora */ }
+                    vbProcessor = null;
+                }
+            }
+            currentBackground = 'none'; // forza la riapplicazione completa
+            await applyBackground(wanted);
+        } catch (e) {
+            console.error('⚠️ Ripristino effetto sfondo fallito:', e);
+        }
     }
 
     let remoteUsers = {};
@@ -1539,8 +1852,42 @@
     const screenShareBtn = document.getElementById('screenShareBtn');
     const endCallBtn = document.getElementById('endCallBtn');
     const bgEffectBtn = document.getElementById('bgEffectBtn');
-    if (bgEffectBtn) bgEffectBtn.addEventListener('click', cycleBackground);
+    const bgEffectWrap = document.getElementById('bgEffectWrap');
+    const bgPanel = document.getElementById('bgPanel');
+    if (bgEffectBtn) {
+        bgEffectBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleBgPanel();
+        });
+    }
+    if (bgPanel) {
+        bgPanel.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const opt = e.target.closest ? e.target.closest('.bg-option') : null;
+            if (!opt || opt.disabled) return;
+            selectBackground(opt.dataset.bg);
+        });
+    }
+    // Il pannello si chiude con un clic fuori o con ESC: niente finestre da
+    // trascinare e nessun rischio di coprire le altre icone.
+    document.addEventListener('click', (e) => {
+        if (bgPanel && bgPanel.classList.contains('open') &&
+            bgEffectWrap && !bgEffectWrap.contains(e.target)) {
+            closeBgPanel();
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeBgPanel();
+    });
+    updateBgUi();
+    // Sfondo virtuale e condivisione schermo non esistono su mobile: nascondiamo
+    // subito i bottoni (non dopo l'init) per non mostrare controlli che falliscono.
+    if (IS_MOBILE && bgEffectWrap) bgEffectWrap.style.display = 'none';
+    if (screenShareBtn && (IS_MOBILE || !navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia)) {
+        screenShareBtn.style.display = 'none';
+    }
     const callTimer = document.getElementById('callTimer');
+    const callTimerInline = document.getElementById('callTimerInline');
     const timerDisplay = document.getElementById('timerDisplay');
     const timerDisplayInline = document.getElementById('timerDisplayInline');
     
@@ -1688,29 +2035,67 @@
         }
     }
     
-    // Start call timer - basato su end_time del booking + 5 minuti
+    // Formatta una durata in secondi come M:SS (oppure H:MM:SS oltre l'ora)
+    function formatElapsed(totalSeconds) {
+        const s = Math.max(0, Math.floor(totalSeconds));
+        const hours = Math.floor(s / 3600);
+        const minutes = Math.floor((s % 3600) / 60);
+        const seconds = s % 60;
+        if (hours > 0) {
+            return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Start call timer.
+    // Il display mostra il tempo TRASCORSO (crescente); la scadenza
+    // (end_time del booking + 5 minuti) resta attiva sotto il cofano per
+    // chiudere automaticamente la chiamata e per gli avvisi.
     function startCallTimer() {
         // Calcola l'orario di scadenza: end_time del booking + 5 minuti
         const endDateTime = new Date(bookingEndTime);
         const callDeadline = new Date(endDateTime.getTime() + 5 * 60 * 1000); // Aggiungi 5 minuti
-        
+
+        // Ancora locale: usata se il server non ha (ancora) fornito call_started_at.
+        const localStart = Date.now();
+
         console.log(`📅 Booking end time: ${bookingEndTime}`);
         console.log(`⏰ Call deadline (end_time + 5min): ${callDeadline.toISOString()}`);
-        
+
+        // Preferiamo l'istante di avvio dato dal server (uguale per entrambi i
+        // partecipanti e stabile se si ricarica la pagina). Se è assente o
+        // implausibile — colonna senza timezone, orologio del client sfasato —
+        // ripieghiamo sull'ancora locale.
+        function elapsedSeconds() {
+            if (callStartedAt) {
+                const secs = (Date.now() - callStartedAt.getTime()) / 1000;
+                if (secs >= 0 && secs < 24 * 3600) return secs;
+            }
+            return (Date.now() - localStart) / 1000;
+        }
+
+        function renderElapsed() {
+            const text = formatElapsed(elapsedSeconds());
+            if (timerDisplay) timerDisplay.textContent = text;
+            if (timerDisplayInline) timerDisplayInline.textContent = text;
+        }
+
+        renderElapsed(); // subito, senza aspettare il primo tick
+
         timerInterval = setInterval(() => {
             const now = new Date();
             const remainingMilliseconds = callDeadline - now;
             const remainingSeconds = Math.floor(remainingMilliseconds / 1000);
-            
+
             if (remainingSeconds <= 0) {
                 // Tempo scaduto - termina call automaticamente
                 clearInterval(timerInterval);
                 console.log('⏰ Timer scaduto - notificando il server...');
-                
+
                 // ✅ Notifica al backend che la call è terminata
                 fetch(`/api/booking/${bookingId}/call-end`, { method: 'POST' })
                     .catch(err => console.error('Errore notifica end call:', err));
-                
+
                 alert('Il tempo della consulenza è terminato. La chiamata verrà chiusa.');
                 isLeavingCall = true;  // Disabilita popup beforeunload
                 leaveCall().then(() => {
@@ -1718,64 +2103,312 @@
                 });
                 return;
             }
-            
-            // Calcola minuti e secondi rimanenti
-            const minutes = Math.floor(remainingSeconds / 60);
-            const seconds = remainingSeconds % 60;
-            
-            // Aggiorna display
-            timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            timerDisplayInline.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            
+
+            // Display: tempo trascorso, crescente
+            renderElapsed();
+
             // Avviso quando mancano 5 minuti
             if (remainingSeconds === 300) {
                 alert('⏰ Attenzione: mancano 5 minuti alla fine della consulenza');
             }
-            
+
             // Avviso quando manca 1 minuto
             if (remainingSeconds === 60) {
                 alert('⏰ Attenzione: manca 1 minuto alla fine della consulenza');
             }
-            
-            // Cambia colore quando mancano 3 minuti (rosso lampeggiante)
+
+            // Cambia colore quando mancano 3 minuti (rosso lampeggiante).
+            // Il box .call-timer è nascosto via CSS: la classe va anche sul
+            // timer inline, che è quello effettivamente visibile.
             if (remainingSeconds <= 180) {
-                callTimer.classList.add('warning');
+                if (callTimer) callTimer.classList.add('warning');
+                if (callTimerInline) callTimerInline.classList.add('warning');
             } else {
-                callTimer.classList.remove('warning');
+                if (callTimer) callTimer.classList.remove('warning');
+                if (callTimerInline) callTimerInline.classList.remove('warning');
             }
         }, 1000); // Aggiorna ogni secondo
     }
     
-    // Initialize Agora
-    async function initializeCall() {
+    // ===== Gestione overlay di caricamento =====
+    let loadingErrorShown = false;
+    function setLoadingStep(text, watchdogMs) {
+        const el = document.getElementById('loadingStep');
+        if (el) {
+            el.textContent = text || '';
+            // showLoadingError l'aveva nascosta: se l'init riparte va ripristinata
+            el.style.display = '';
+        }
+        console.log('⏳ [init]', text);
+        // Ogni passo completato fa ripartire il watchdog: così il budget è per
+        // singola fase e non cumulativo (il prompt dei permessi può essere lento).
+        startInitWatchdog(watchdogMs || 60000);
+    }
+
+    function hideLoadingOverlay() {
+        clearInitWatchdog();
+        // Se nel frattempo il watchdog aveva mostrato un errore ma la call è
+        // comunque riuscita, ripuliamo tutto e ripristiniamo lo stato "connesso".
+        const box = document.getElementById('loadingError');
+        if (box) box.style.display = 'none';
+        if (loadingErrorShown) {
+            loadingErrorShown = false;
+            const spinner = document.getElementById('loadingSpinner');
+            const title = document.getElementById('loadingTitle');
+            if (spinner) spinner.style.display = '';
+            if (title) title.textContent = 'Inizializzazione chiamata...';
+            updateStatus('connected', 'Connesso');
+        }
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+    }
+
+    function showLoadingError(message) {
+        clearInitWatchdog();
+        const spinner = document.getElementById('loadingSpinner');
+        const title = document.getElementById('loadingTitle');
+        const step = document.getElementById('loadingStep');
+        loadingErrorShown = true;
+        const box = document.getElementById('loadingError');
+        const txt = document.getElementById('loadingErrorText');
+        if (spinner) spinner.style.display = 'none';
+        if (title) title.textContent = 'Impossibile avviare la chiamata';
+        if (step) step.style.display = 'none';
+        if (txt) txt.innerHTML = message;
+        if (box) box.style.display = 'block';
+        if (loadingOverlay) loadingOverlay.style.display = 'flex';
+        updateStatus('disconnected', 'Errore di connessione');
+    }
+
+    // Watchdog "per passo": ogni volta che l'inizializzazione avanza il timer
+    // riparte. Se un singolo passo resta appeso oltre il budget, mostriamo un
+    // errore utile invece di lasciare lo spinner girare all'infinito.
+    let initWatchdog = null;
+    function startInitWatchdog(ms = 60000) {
+        clearInitWatchdog();
+        initWatchdog = setTimeout(() => {
+            if (loadingOverlay && loadingOverlay.style.display !== 'none') {
+                showLoadingError(
+                    'La connessione sta impiegando troppo tempo.<br><br>' +
+                    'Controlla la connessione a internet e riprova. Se sei sotto rete mobile, ' +
+                    'prova a passare al Wi-Fi o a disattivare eventuali VPN.'
+                );
+            }
+        }, ms);
+    }
+    function clearInitWatchdog() {
+        if (initWatchdog) { clearTimeout(initWatchdog); initWatchdog = null; }
+    }
+
+    // "Riprova" ricarica la pagina: è l'unico modo per ripartire da uno stato
+    // davvero pulito (client Agora, track, permessi, stato dei bottoni).
+    const loadingRetryBtn = document.getElementById('loadingRetryBtn');
+    if (loadingRetryBtn) {
+        loadingRetryBtn.addEventListener('click', () => {
+            isLeavingCall = true;
+            window.location.reload();
+        });
+    }
+    const loadingExitBtn = document.getElementById('loadingExitBtn');
+    if (loadingExitBtn) {
+        loadingExitBtn.addEventListener('click', () => {
+            isLeavingCall = true;
+            window.location.href = '/profile';
+        });
+    }
+
+    // ===== Controlli preliminari specifici per mobile =====
+    // Su mobile la causa più frequente di "Inizializzazione chiamata..." infinita
+    // è che il browser non può proprio accedere a microfono/videocamera.
+    function preflightMediaCheck() {
+        if (IS_INAPP_BROWSER) {
+            return 'Stai usando il browser interno di un\'altra app (Instagram, Facebook, LinkedIn...), ' +
+                   'che non permette di accedere a microfono e videocamera.<br><br>' +
+                   '<strong>Apri questo link in Safari o Chrome</strong> per partecipare alla consulenza.';
+        }
+        if (!window.isSecureContext) {
+            return 'La pagina non è servita su una connessione sicura (HTTPS): il browser blocca ' +
+                   'l\'accesso a microfono e videocamera.<br><br>Apri il sito con l\'indirizzo <strong>https://</strong>.';
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            return 'Questo browser non supporta le videochiamate.<br><br>' +
+                   'Su iPhone/iPad usa <strong>Safari</strong>, su Android usa <strong>Chrome</strong>, ' +
+                   'entrambi aggiornati all\'ultima versione.';
+        }
+        // NB: NON usiamo AgoraRTC.checkSystemRequirements() come blocco: è
+        // deprecata e dà falsi negativi. Se il browser non va, lo scopriamo dal
+        // vero errore di getUserMedia, tradotto da describeMediaError().
+        return null;
+    }
+
+    // Traduce gli errori di getUserMedia in messaggi comprensibili
+    function describeMediaError(error) {
+        const name = ((error && error.name) || '') + ' ' + ((error && error.code) || '');
+        const msg = (error && error.message) || '';
+        if (/NotAllowedError|PERMISSION_DENIED|Permission denied/i.test(name + msg)) {
+            return 'Hai negato l\'accesso a microfono e videocamera, oppure il browser lo ha bloccato.<br><br>' +
+                   (IS_IOS
+                       ? 'Su iPhone: <strong>Impostazioni → Safari → Fotocamera / Microfono → Chiedi o Consenti</strong>, ' +
+                         'poi ricarica la pagina.'
+                       : 'Tocca l\'icona del lucchetto accanto all\'indirizzo del sito e consenti Fotocamera e Microfono, ' +
+                         'poi riprova.');
+        }
+        if (/NotFoundError|DEVICE_NOT_FOUND/i.test(name + msg)) {
+            return 'Non è stata trovata nessuna videocamera o microfono su questo dispositivo.';
+        }
+        // NB: AbortError NON va qui: è anche il nome dell'errore prodotto da
+        // fetchWithTimeout, e finirebbe per mostrare "videocamera occupata"
+        // su un banale timeout di rete.
+        if (/NotReadableError|NOT_READABLE|TrackStartError/i.test(name + msg)) {
+            return 'Microfono o videocamera risultano occupati da un\'altra app.<br><br>' +
+                   'Chiudi le altre app che usano la fotocamera (o altre schede del browser) e riprova.';
+        }
+        if (/OverconstrainedError|ConstraintNotSatisfiedError|CONSTRAINT_NOT_SATISFIED/i.test(name + msg)) {
+            return 'La videocamera non supporta la qualità richiesta. Riprova: verrà usata una risoluzione più bassa.';
+        }
+        if (/NOT_SUPPORTED|WEB_SECURITY_RESTRICT/i.test(name + msg)) {
+            return 'Questo browser non supporta le videochiamate.<br><br>' +
+                   'Su iPhone/iPad usa <strong>Safari</strong>, su Android usa <strong>Chrome</strong>, ' +
+                   'entrambi aggiornati all\'ultima versione.';
+        }
+        return null;
+    }
+
+    // Chiude e azzera i track locali (evita LED videocamera acceso e "dispositivo occupato")
+    function closeLocalTracks() {
+        if (localTracks.audio) { try { localTracks.audio.close(); } catch (e) {} localTracks.audio = null; }
+        if (localTracks.video) { try { localTracks.video.close(); } catch (e) {} localTracks.video = null; }
+    }
+
+    // Come withTimeout, ma se il track arriva dopo la scadenza lo chiude: withTimeout
+    // non annulla getUserMedia, e un track orfano lascia il dispositivo occupato.
+    async function createTrackWithTimeout(trackPromise, ms, label) {
+        let timedOut = false;
+        trackPromise
+            .then(track => {
+                if (!timedOut) return;
+                const list = Array.isArray(track) ? track : [track];
+                list.forEach(t => { try { t && t.close(); } catch (err) {} });
+            })
+            .catch(() => {});
         try {
-            // ✅ PRIMO: Verifica che la call sia ancora attiva
+            return await withTimeout(trackPromise, ms, label);
+        } catch (e) {
+            if (/^TIMEOUT:/.test(e.message || '')) timedOut = true;
+            throw e;
+        }
+    }
+
+    // Crea i track locali. Su iOS due chiamate separate a getUserMedia si annullano
+    // a vicenda (la seconda spegne la prima): createMicrophoneAndCameraTracks fa
+    // un'unica richiesta ed è il metodo raccomandato da Agora su mobile.
+    async function createLocalTracks() {
+        const audioConfig = { AEC: true, ANS: true, AGC: true };
+        const videoConfig = IS_MOBILE
+            ? { encoderConfig: '480p_1', optimizationMode: 'motion' }
+            : undefined; // desktop: restano i default Agora, come prima della patch
+
+        try {
+            const [audioTrack, videoTrack] = await createTrackWithTimeout(
+                AgoraRTC.createMicrophoneAndCameraTracks(audioConfig, videoConfig),
+                120000,
+                'create-tracks'
+            );
+            return { audio: audioTrack, video: videoTrack };
+        } catch (e) {
+            if (/^TIMEOUT:/.test(e.message || '')) {
+                throw e; // niente fallback: una seconda getUserMedia peggiorerebbe le cose
+            }
+            console.warn('⚠️ createMicrophoneAndCameraTracks fallito, provo i track separatamente:', e);
+            // Se l'utente ha negato i permessi (o non ci sono dispositivi) non ha senso insistere
+            const fatal = /NotAllowedError|PERMISSION_DENIED|Permission denied|NotFoundError|DEVICE_NOT_FOUND/i;
+            if (fatal.test((e.name || '') + (e.code || '') + (e.message || ''))) {
+                throw e;
+            }
+        }
+
+        // Fallback: proviamo separatamente, accettando anche la sola presenza dell'audio
+        let audio = null, video = null, lastError = null;
+        try {
+            audio = await createTrackWithTimeout(AgoraRTC.createMicrophoneAudioTrack(audioConfig), 30000, 'create-audio');
+        } catch (e) { lastError = e; console.error('❌ Microfono non disponibile:', e); }
+        try {
+            video = await createTrackWithTimeout(AgoraRTC.createCameraVideoTrack(videoConfig), 30000, 'create-video');
+        } catch (e) {
+            lastError = e;
+            console.error('❌ Videocamera non disponibile, provo con risoluzione ridotta:', e);
+            // Su timeout non riproviamo: la getUserMedia precedente può essere ancora
+            // in volo e una seconda richiesta la farebbe fallire (tipico su iOS).
+            if (!/^TIMEOUT:/.test(e.message || '')) {
+                try {
+                    video = await createTrackWithTimeout(AgoraRTC.createCameraVideoTrack({ encoderConfig: '360p_7' }), 30000, 'create-video-low');
+                } catch (e2) { console.error('❌ Videocamera non disponibile neanche a 360p:', e2); }
+            }
+        }
+        if (!audio && !video) throw (lastError || new Error('Nessun dispositivo audio/video disponibile'));
+        return { audio, video };
+    }
+
+    // Initialize Agora
+    let callInitInProgress = false;
+    async function initializeCall() {
+        if (callInitInProgress) {
+            console.warn('⚠️ initializeCall già in corso - richiesta ignorata');
+            return;
+        }
+        callInitInProgress = true;
+        startInitWatchdog();
+
+        try {
+            // ✅ ZERO: il browser può davvero accedere a microfono/videocamera?
+            const preflightError = preflightMediaCheck();
+            if (preflightError) {
+                console.error('❌ Preflight fallito:', preflightError);
+                showLoadingError(preflightError);
+                return;
+            }
+
+            // ✅ PRIMO: microfono e videocamera SUBITO, prima di qualsiasi rete.
+            // Su iOS la "transient activation" di un tap dura pochi secondi: se
+            // chiedessimo i permessi dopo tre fetch e il join di Agora, l'attivazione
+            // sarebbe già scaduta e getUserMedia resterebbe appesa senza mai mostrare
+            // il prompt. È una delle cause dello spinner infinito su mobile.
+            // Budget ampio: qui l'utente deve materialmente rispondere al prompt.
+            setLoadingStep('Consenti l\'accesso a microfono e videocamera...', 150000);
+            const tracks = await createLocalTracks();
+            localTracks.audio = tracks.audio;
+            localTracks.video = tracks.video;
+
+            // ✅ SECONDO: Verifica che la call sia ancora attiva
+            setLoadingStep('Verifica della consulenza...');
             console.log('📞 Verificando se la call è ancora attiva...');
-            const statusResponse = await fetch(`/api/booking/${bookingId}/call-status`);
-            
+            const statusResponse = await fetchWithTimeout(`/api/booking/${bookingId}/call-status`, {}, 15000);
+
             if (!statusResponse.ok) {
                 throw new Error('Errore nella verifica dello stato della call');
             }
-            
+
             const statusData = await statusResponse.json();
             console.log('📞 Call status:', statusData);
-            
+
             if (statusData.is_expired) {
                 console.log('❌ La call è scaduta! Reindirizzamento a profile...');
+                // I track sono già aperti: chiudiamoli o la videocamera resta accesa
+                closeLocalTracks();
+                hideLoadingOverlay();
                 alert('Scusa, il tempo della consulenza è scaduto. Non puoi riaccedere a questa call.');
                 afterCallEnd();
                 return;
             }
-            
+
             console.log(`✅ Call attiva - tempo rimasto: ${statusData.remaining_seconds} secondi`);
-            
+
             // 🔔 Prima di unirti ad Agora, segna che hai joinato la booking
             console.log(`🔔 Marking user as joined for booking ${bookingId}...`);
             try {
-                const joinResponse = await fetch(`/api/booking/${bookingId}/join`, {
+                const joinResponse = await fetchWithTimeout(`/api/booking/${bookingId}/join`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
-                });
+                }, 15000);
                 if (joinResponse.ok) {
                     const joinData = await joinResponse.json();
                     console.log(`✅ User joined booking - recording_status: ${joinData.recording_status}`);
@@ -1785,66 +2418,101 @@
             } catch (e) {
                 console.error('❌ Error marking user as joined:', e);
             }
-            
+
             // Get Agora token from backend
-            const response = await fetch(`/api/booking/${bookingId}/agora-token`);
+            setLoadingStep('Preparazione della sala...');
+            const response = await fetchWithTimeout(`/api/booking/${bookingId}/agora-token`, {}, 15000);
             if (!response.ok) {
                 throw new Error('Failed to get Agora token');
             }
-            
+
             const data = await response.json();
             console.log('Agora credentials:', data);
-            
+
             // Aggiorna il nome del partecipante remoto dalla risposta API
             if (data.other_user && data.other_user.name) {
                 remoteUserName = data.other_user.name.trim() || remoteUserName;
                 remoteLabel.textContent = remoteUserName;
             }
-            
-            // Registra l'estensione Virtual Background (sfondo sfocato / logo)
-            initVirtualBackground();
 
-            // Create Agora client
+            // NB: l'estensione Virtual Background è già registrata in testa allo
+            // script (registerExtensions DEVE precedere la creazione dei track e
+            // del client): qui non va richiamata.
+
+            // Create Agora client.
+            // NB: il codec resta vp8 per tutti i partecipanti. Agora raccomanda lo
+            // stesso codec su tutto il canale: differenziarlo per Safari/iOS
+            // rischierebbe video remoto nero nella coppia desktop <-> mobile.
             client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-            
+
             // Event listeners
             client.on("user-published", handleUserPublished);
             client.on("user-unpublished", handleUserUnpublished);
             client.on("user-left", handleUserLeft);
-            
-            // Join channel
-            await client.join(data.app_id, data.channel_name, data.token, data.uid);
-            updateStatus('connected', 'Connesso');
-            
-            // 📞 Marca che la call è stata avviata
-            try {
-                await fetch(`/api/booking/${bookingId}/call-start`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                console.log('📞 Marcata call come avviata per il booking', bookingId);
-            } catch (e) {
-                console.error('Errore nel marcare call come avviata:', e);
-            }
-            
-            // Create local tracks
-            localTracks.audio = await AgoraRTC.createMicrophoneAudioTrack();
-            localTracks.video = await AgoraRTC.createCameraVideoTrack();
 
-            // Collega il processor Virtual Background al video track
-            await setupVirtualBackgroundProcessor();
+            // Su iOS l'audio remoto non parte senza un gesto dell'utente
+            AgoraRTC.onAutoplayFailed = showEnableAudioButton;
+
+            // Join channel
+            setLoadingStep('Connessione al server...');
+            await withTimeout(
+                client.join(data.app_id, data.channel_name, data.token, data.uid),
+                25000,
+                'agora-join'
+            );
+            updateStatus('connected', 'Connesso');
+
+            // 📞 Marca che la call è stata avviata (in background: non deve bloccare)
+            fetchWithTimeout(`/api/booking/${bookingId}/call-start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }, 15000)
+                .then(r => (r && r.ok) ? r.json() : null)
+                .then(d => {
+                    console.log('📞 Marcata call come avviata per il booking', bookingId);
+                    // L'endpoint è idempotente: al reload restituisce l'istante
+                    // originale, così il cronometro riprende dal valore giusto.
+                    if (d && d.call_started_at) {
+                        const parsed = new Date(d.call_started_at);
+                        if (!isNaN(parsed.getTime())) {
+                            callStartedAt = parsed;
+                            console.log('⏱️ Inizio chiamata (server):', parsed.toISOString());
+                        }
+                    }
+                })
+                .catch(e => console.error('Errore nel marcare call come avviata:', e));
+
+            // I track locali sono già stati creati in testa a questa funzione.
+            setLoadingStep('Avvio audio e video...');
+
+            // Collega il processor Virtual Background al video track (mai bloccante)
+            try {
+                await setupVirtualBackgroundProcessor();
+            } catch (e) {
+                console.warn('⚠️ Virtual Background non attivato:', e);
+            }
 
             // Play local video
-            localTracks.video.play('localPlayer');
-            
-            // Hide local placeholder
-            const localPlaceholder = localPlayer.querySelector('.video-placeholder');
-            if (localPlaceholder) {
-                localPlaceholder.style.display = 'none';
+            if (localTracks.video) {
+                localTracks.video.play('localPlayer');
+                const localPlaceholder = localPlayer.querySelector('.video-placeholder');
+                if (localPlaceholder) {
+                    localPlaceholder.style.display = 'none';
+                }
+            } else if (cameraBtn) {
+                // Nessuna videocamera: proseguiamo in sola voce
+                cameraBtn.disabled = true;
+                cameraBtn.title = 'Videocamera non disponibile';
             }
-            
+            if (!localTracks.audio && micBtn) {
+                micBtn.disabled = true;
+                micBtn.title = 'Microfono non disponibile';
+            }
+
             // Publish local tracks
-            await client.publish([localTracks.audio, localTracks.video]);
+            setLoadingStep('Pubblicazione dello stream...');
+            const tracksToPublish = [localTracks.audio, localTracks.video].filter(Boolean);
+            await withTimeout(client.publish(tracksToPublish), 25000, 'agora-publish');
             console.log('✅ Published local tracks');
 
             // ✅ La call è pronta: nascondi subito l'overlay di inizializzazione.
@@ -1852,7 +2520,11 @@
             // la visualizzazione della call — altrimenti se una è lenta/bloccata
             // (es. recording/start-now che attende Agora) l'utente resta su
             // "Inizializzazione chiamata...".
-            loadingOverlay.style.display = 'none';
+            hideLoadingOverlay();
+
+            if (!localTracks.video) {
+                console.warn('⚠️ Call avviata in sola voce (videocamera non disponibile)');
+            }
 
             // Start call timer
             startCallTimer();
@@ -1883,9 +2555,57 @@
 
         } catch (error) {
             console.error('Error initializing call:', error);
-            alert('Errore durante l\'inizializzazione della chiamata: ' + error.message);
-            updateStatus('disconnected', 'Errore di connessione');
+
+            // Se abbiamo già fatto join ma siamo falliti dopo, usciamo dal canale
+            // per non lasciare una sessione fantasma che blocca il retry.
+            if (client) {
+                // leave() senza timeout può non risolversi mai se la rete è caduta,
+                // lasciando l'utente senza nemmeno il messaggio d'errore.
+                try { await withTimeout(client.leave(), 5000, 'agora-leave'); } catch (e) { /* ignore */ }
+                client = null;
+            }
+            closeLocalTracks();
+
+            const mediaMessage = describeMediaError(error);
+            const isTimeout = /^TIMEOUT:/.test(error.message || '') || /AbortError/i.test(error.name || '');
+            let message;
+            if (mediaMessage) {
+                message = mediaMessage;
+            } else if (isTimeout) {
+                const phase = /^TIMEOUT:/.test(error.message || '')
+                    ? error.message.replace('TIMEOUT:', '')
+                    : 'rete';
+                message = 'La connessione sta impiegando troppo tempo.<br><br>' +
+                          'Controlla la connessione a internet e riprova. Se sei sotto rete mobile, ' +
+                          'prova a passare al Wi-Fi o a disattivare eventuali VPN.' +
+                          '<br><span style="opacity:.6; font-size:.8rem;">(fase: ' + phase + ')</span>';
+            } else {
+                message = 'Si è verificato un errore durante l\'avvio della chiamata.<br><br>' +
+                          '<span style="opacity:.7; font-size:.85rem;">Dettaglio: ' +
+                          String(error.message || error) + '</span>';
+            }
+            showLoadingError(message);
+        } finally {
+            callInitInProgress = false;
         }
+    }
+
+    // Su iOS l'audio remoto richiede un gesto esplicito dell'utente
+    function showEnableAudioButton() {
+        if (document.getElementById('enableAudioBtn')) return;
+        const btn = document.createElement('button');
+        btn.id = 'enableAudioBtn';
+        btn.innerHTML = '<i class="fas fa-volume-up"></i> Tocca per attivare l\'audio';
+        btn.style.cssText = 'position:fixed;bottom:110px;left:50%;transform:translateX(-50%);z-index:99998;' +
+                            'padding:14px 22px;border:none;border-radius:30px;background:#2e7d32;color:#fff;' +
+                            'font-weight:600;font-size:0.95rem;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35);';
+        btn.addEventListener('click', () => {
+            Object.values(remoteUsers).forEach(u => {
+                if (u.audioTrack) { try { u.audioTrack.play(); } catch (e) { console.warn(e); } }
+            });
+            btn.remove();
+        });
+        document.body.appendChild(btn);
     }
     
     // Handle remote user published
@@ -1927,6 +2647,7 @@
     
     // Toggle microphone
     micBtn.addEventListener('click', () => {
+        if (!localTracks.audio) return;
         const isEnabled = localTracks.audio.enabled;
         localTracks.audio.setEnabled(!isEnabled);
         micBtn.classList.toggle('active');
@@ -1934,11 +2655,23 @@
     });
     
     // Toggle camera
-    cameraBtn.addEventListener('click', () => {
-        const isEnabled = localTracks.video.enabled;
-        localTracks.video.setEnabled(!isEnabled);
-        cameraBtn.classList.toggle('active');
-        cameraBtn.querySelector('i').className = isEnabled ? 'fas fa-video-slash' : 'fas fa-video';
+    // Spegnendo la videocamera Agora rilascia il device: alla riaccensione il
+    // track sorgente è nuovo, quindi l'effetto sfondo va riapplicato.
+    let cameraToggleBusy = false;
+    cameraBtn.addEventListener('click', async () => {
+        if (!localTracks.video || cameraToggleBusy) return;
+        cameraToggleBusy = true;
+        const wasEnabled = localTracks.video.enabled;
+        try {
+            await localTracks.video.setEnabled(!wasEnabled);
+            cameraBtn.classList.toggle('active', !wasEnabled);
+            cameraBtn.querySelector('i').className = wasEnabled ? 'fas fa-video-slash' : 'fas fa-video';
+            if (!wasEnabled) await reapplyBackground();
+        } catch (e) {
+            console.error('❌ Errore toggle videocamera:', e);
+        } finally {
+            cameraToggleBusy = false;
+        }
     });
     
     // Toggle screen share
@@ -1965,6 +2698,11 @@
                 await client.unpublish(localTracks.video);
                 localTracks.video.stop();
                 localTracks.video.close();
+                // Il track è chiuso: azzeriamo il riferimento per non usarlo
+                // (es. toggle videocamera) mentre condividiamo lo schermo.
+                localTracks.video = null;
+                try { if (vbProcessor && vbProcessor.release) vbProcessor.release(); } catch (e) { /* ignora */ }
+                vbProcessor = null;
             }
             
             // Pubblica screen track
@@ -2014,19 +2752,17 @@
             }
             
             // Ricrea e pubblica il video della webcam
-            localTracks.video = await AgoraRTC.createCameraVideoTrack();
+            localTracks.video = await AgoraRTC.createCameraVideoTrack(
+                IS_MOBILE ? { encoderConfig: '480p_1', optimizationMode: 'motion' } : undefined
+            );
             await client.publish(localTracks.video);
             localTracks.video.play('localPlayer');
 
-            // Ripristina lo sfondo virtuale sul nuovo track webcam: il processor precedente
-            // era collegato al track ormai chiuso, quindi va ricreato e riapplicato.
-            const _bgToRestore = currentBackground;
+            // Ripristina lo sfondo virtuale sul nuovo track webcam: il processor
+            // precedente era collegato al track ormai chiuso, quindi va ricreato.
+            try { if (vbProcessor && vbProcessor.release) vbProcessor.release(); } catch (e) { /* ignora */ }
             vbProcessor = null;
-            currentBackground = 'none';
-            if (_bgToRestore !== 'none') {
-                try { await applyBackground(_bgToRestore); }
-                catch (e) { console.error('⚠️ Ripristino sfondo dopo screen share fallito:', e); }
-            }
+            await reapplyBackground();
 
             isScreenSharing = false;
             screenShareActive = false;
@@ -2274,19 +3010,52 @@
         waitForClientThenStart();
     }
     
+    // Su mobile (soprattutto iOS) l'accesso a microfono/videocamera va richiesto
+    // a partire da un'azione dell'utente: se initializeCall parte da un timer il
+    // permesso può non venire mai chiesto e la pagina resta in "inizializzazione".
+    // Quindi su mobile facciamo comparire un pulsante da toccare.
+    function startCallWithGesture(overlay) {
+        if (overlay) overlay.remove();
+        // Idempotente: due tick di polling sovrapposti creerebbero due gate, e il
+        // secondo (quello visibile) resterebbe senza listener → blocco definitivo.
+        if (document.getElementById('joinGateOverlay')) return;
+        if (!IS_MOBILE) {
+            initializeCall();
+            return;
+        }
+        const gate = document.createElement('div');
+        gate.id = 'joinGateOverlay';
+        gate.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        gate.innerHTML = `
+            <div style="background:#fff;border-radius:16px;padding:32px;max-width:420px;width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);">
+                <div style="font-size:2.6rem;margin-bottom:12px;">📞</div>
+                <h3 style="margin:0 0 12px;font-size:1.2rem;color:#1a202c;">Il cliente è collegato</h3>
+                <p style="color:#555;font-size:0.95rem;line-height:1.5;margin:0 0 22px;">Tocca il pulsante per entrare nella consulenza e consentire l'accesso a microfono e videocamera.</p>
+                <button id="joinGateBtn" style="padding:14px 30px;border:none;border-radius:8px;font-weight:600;font-size:1rem;cursor:pointer;background:#2e7d32;color:#fff;">
+                    <i class="fas fa-video"></i> Entra nella chiamata
+                </button>
+            </div>
+        `;
+        document.body.appendChild(gate);
+        gate.querySelector('#joinGateBtn').addEventListener('click', () => {
+            gate.remove();
+            initializeCall();
+        });
+    }
+
     async function waitForClientThenStart() {
         // Controlla subito se il cliente è già in call
         try {
-            const resp = await fetch(`/api/booking/${bookingId}/call-status`);
+            const resp = await fetchWithTimeout(`/api/booking/${bookingId}/call-status`, {}, 12000);
             if (resp.ok) {
                 const data = await resp.json();
                 if (data.client_joined) {
-                    initializeCall();
+                    startCallWithGesture(null);
                     return;
                 }
             }
         } catch (e) {}
-        
+
         // Mostra overlay di attesa
         const overlay = document.createElement('div');
         overlay.id = 'waitClientOverlay';
@@ -2301,13 +3070,32 @@
         `;
         document.body.appendChild(overlay);
         
-        // Polling ogni 3 secondi
+        // Polling ogni 3 secondi.
+        // pollBusy evita che due tick si sovrappongano quando la risposta tarda
+        // (su rete mobile succede spesso) facendo partire due volte l'ingresso.
+        let pollBusy = false;
+        let pollFailures = 0;
         const pollInterval = setInterval(async () => {
+            if (pollBusy) return;
+            pollBusy = true;
             try {
-                const resp = await fetch(`/api/booking/${bookingId}/call-status`);
-                if (!resp.ok) return;
+                const resp = await fetchWithTimeout(`/api/booking/${bookingId}/call-status`, {}, 10000);
+                if (!resp.ok) {
+                    // Se il server continua a rispondere male non lasciamo il
+                    // consulente in attesa all'infinito senza spiegazioni.
+                    if (++pollFailures >= 5) {
+                        clearInterval(pollInterval);
+                        overlay.remove();
+                        showLoadingError(
+                            'Non riusciamo a contattare il server per sapere se il cliente si è collegato.' +
+                            '<br><br>Controlla la connessione e riprova.'
+                        );
+                    }
+                    return;
+                }
+                pollFailures = 0;
                 const data = await resp.json();
-                
+
                 if (data.is_expired) {
                     clearInterval(pollInterval);
                     overlay.remove();
@@ -2318,11 +3106,20 @@
                 
                 if (data.client_joined) {
                     clearInterval(pollInterval);
-                    overlay.remove();
-                    initializeCall();
+                    startCallWithGesture(overlay);
                 }
             } catch (e) {
                 console.warn('Errore polling client status:', e);
+                if (++pollFailures >= 5) {
+                    clearInterval(pollInterval);
+                    overlay.remove();
+                    showLoadingError(
+                        'Non riusciamo a contattare il server per sapere se il cliente si è collegato.' +
+                        '<br><br>Controlla la connessione e riprova.'
+                    );
+                }
+            } finally {
+                pollBusy = false;
             }
         }, 3000);
     }
@@ -2369,11 +3166,13 @@
             
             const newValue = !recordingRequested;
             try {
-                const resp = await fetch(`/api/booking/${bookingId}/recording-preference`, {
+                // Timeout obbligatorio: senza, una rete che cade lascia il bottone
+                // disabilitato su "Aggiornamento..." e la chiamata non parte mai.
+                const resp = await fetchWithTimeout(`/api/booking/${bookingId}/recording-preference`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ recording_requested: newValue })
-                });
+                }, 15000);
                 if (resp.ok) {
                     recordingRequested = newValue;
                     console.log('📹 recording_requested aggiornato a:', recordingRequested);
