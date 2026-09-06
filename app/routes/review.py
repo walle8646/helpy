@@ -30,6 +30,24 @@ class ReviewRequest(BaseModel):
     comment: Optional[str] = None
 
 
+
+def consulenza_recensibile(booking: Booking) -> Optional[str]:
+    """Motivo per cui la consulenza NON è recensibile, o None se lo è.
+
+    Senza questo controllo si poteva recensire una consulenza mai avvenuta:
+    bastava prenotare e votare subito. E siccome la presenza di una recensione
+    chiude la call (vedi /api/booking/{id}/call-status), era anche un modo per
+    impedire al consulente di svolgerla.
+    """
+    if booking.status in ("cancelled", "pending_payment"):
+        return "Non puoi recensire una consulenza annullata"
+    # La call deve essere partita davvero, oppure la consulenza deve risultare
+    # conclusa dal job di controllo presenze.
+    if booking.call_started_at is None and booking.status not in ("completed", "no_show"):
+        return "Puoi lasciare una recensione solo dopo aver svolto la consulenza"
+    return None
+
+
 @router.post("/api/booking/{booking_id}/review")
 async def submit_review(booking_id: int, review_data: ReviewRequest, request: Request):
     """Invia una recensione per una consulenza completata"""
@@ -45,6 +63,10 @@ async def submit_review(booking_id: int, review_data: ReviewRequest, request: Re
         # Solo il cliente può lasciare una recensione
         if current_user.id != booking.client_user_id:
             raise HTTPException(status_code=403, detail="Solo il cliente può lasciare una recensione")
+
+        motivo = consulenza_recensibile(booking)
+        if motivo:
+            raise HTTPException(status_code=400, detail=motivo)
 
         # Controlla se esiste già una recensione per questo booking
         existing = session.exec(
@@ -243,6 +265,10 @@ async def submit_review_by_token(token: str, review_data: ReviewRequest):
         booking = _booking_from_review_token(session, token)
         if not booking:
             raise HTTPException(status_code=404, detail="Link non valido o scaduto")
+
+        motivo = consulenza_recensibile(booking)
+        if motivo:
+            raise HTTPException(status_code=400, detail=motivo)
 
         # Controlla se esiste già una recensione
         existing = session.exec(

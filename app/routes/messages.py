@@ -40,20 +40,30 @@ async def api_get_current_user(request: Request):
 
 # ========== HELPER FUNCTIONS ==========
 
-def get_or_create_conversation(session, user1_id: int, user2_id: int) -> Conversation:
-    """Ottieni conversazione esistente o creane una nuova"""
-    min_id = min(user1_id, user2_id)
-    max_id = max(user1_id, user2_id)
-    
-    conversation = session.exec(
+def find_conversation(session, user1_id: int, user2_id: int) -> Optional[Conversation]:
+    """Cerca la conversazione fra due utenti, senza crearla."""
+    return session.exec(
         select(Conversation).where(
             and_(
-                Conversation.user1_id == min_id,
-                Conversation.user2_id == max_id
+                Conversation.user1_id == min(user1_id, user2_id),
+                Conversation.user2_id == max(user1_id, user2_id)
             )
         )
     ).first()
-    
+
+
+def get_or_create_conversation(session, user1_id: int, user2_id: int) -> Conversation:
+    """Ottieni conversazione esistente o creane una nuova.
+
+    Da usare solo nei percorsi di scrittura: chiamarla su una GET faceva
+    nascere una riga di conversazione a ogni apertura di una chat, anche verso
+    utenti con cui non si e' mai scambiato un messaggio.
+    """
+    min_id = min(user1_id, user2_id)
+    max_id = max(user1_id, user2_id)
+
+    conversation = find_conversation(session, user1_id, user2_id)
+
     if not conversation:
         conversation = Conversation(
             user1_id=min_id,
@@ -209,9 +219,19 @@ async def get_messages(
     try:
         with get_session() as session:
             user_id = current_user.id
-            
-            conversation = get_or_create_conversation(session, user_id, other_user_id)
-            
+
+            # Sola lettura: se la conversazione non esiste ancora si risponde
+            # con una lista vuota, senza crearla. Prima ogni GET inseriva una
+            # riga, e bastava scorrere gli id utente per riempire la tabella.
+            conversation = find_conversation(session, user_id, other_user_id)
+            if not conversation:
+                return JSONResponse({
+                    "messages": [],
+                    "total": 0,
+                    "showing": 0,
+                    "has_more": False
+                }, status_code=200)
+
             # ✅ Ottieni gli ultimi 100 messaggi (modificato da 15)
             messages = session.exec(
                 select(Message)

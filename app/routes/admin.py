@@ -719,6 +719,11 @@ async def admin_download_recording(booking_id: int, request: Request):
     admin_user = require_admin(request)
     if not admin_user:
         raise HTTPException(status_code=401, detail="Non autorizzato")
+    # Il video di una consulenza e' il contenuto piu' sensibile della
+    # piattaforma: require_admin ammette anche i verificatori (livello 2),
+    # qui serve un amministratore vero.
+    if admin_user.user_type_id < 3:
+        raise HTTPException(status_code=403, detail="Solo gli amministratori possono scaricare le registrazioni")
 
     with Session(engine) as session:
         booking = session.get(Booking, booking_id)
@@ -785,6 +790,9 @@ async def admin_ai_analysis(dispute_id: int, request: Request):
     admin_user = require_admin(request)
     if not admin_user:
         raise HTTPException(status_code=401, detail="Non autorizzato")
+    # Manda il video della consulenza a un servizio esterno: solo amministratori.
+    if admin_user.user_type_id < 3:
+        raise HTTPException(status_code=403, detail="Solo gli amministratori possono avviare l'analisi AI")
 
     with Session(engine) as session:
         dispute = session.get(Dispute, dispute_id)

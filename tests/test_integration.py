@@ -128,3 +128,88 @@ class TestPresenzaInCall:
         rimasti = mark_absent(12345, 1)
         assert rimasti == {2}
         assert mark_absent(12345, 2) == set()
+
+
+class TestGuardiaRecensioni:
+    """Non si deve poter recensire una consulenza mai avvenuta: oltre a falsare
+    i voti, la presenza di una recensione chiude la call."""
+
+    def _booking(self, **kwargs):
+        base = dict(
+            client_user_id=1,
+            consultant_user_id=2,
+            booking_date=datetime(2026, 1, 10),
+            start_time="10:00",
+            end_time="11:00",
+            duration_minutes=60,
+        )
+        base.update(kwargs)
+        return Booking(**base)
+
+    def test_consulenza_mai_iniziata_non_recensibile(self):
+        from app.routes.review import consulenza_recensibile
+        motivo = consulenza_recensibile(self._booking(status="confirmed"))
+        assert motivo is not None
+        assert "svolto" in motivo
+
+    def test_consulenza_annullata_non_recensibile(self):
+        from app.routes.review import consulenza_recensibile
+        assert consulenza_recensibile(self._booking(status="cancelled")) is not None
+
+    def test_in_attesa_di_pagamento_non_recensibile(self):
+        from app.routes.review import consulenza_recensibile
+        assert consulenza_recensibile(self._booking(status="pending_payment")) is not None
+
+    def test_call_avviata_e_recensibile(self):
+        from app.routes.review import consulenza_recensibile
+        b = self._booking(status="confirmed", call_started_at=datetime(2026, 1, 10, 10, 2))
+        assert consulenza_recensibile(b) is None
+
+    def test_consulenza_completata_e_recensibile(self):
+        from app.routes.review import consulenza_recensibile
+        assert consulenza_recensibile(self._booking(status="completed")) is None
+
+
+class TestConversazioniSoloInScrittura:
+    def test_get_su_chat_inesistente_non_crea_righe(self, csrf_client):
+        import secrets
+        from sqlmodel import Session, func, select as sm_select
+        from app.database import engine
+        from app.models import Conversation, User
+        from app.utils.password import hash_password
+
+        with Session(engine) as s:
+            a = User(email=f"m1-{secrets.token_hex(4)}@test.local",
+                     password_md5=hash_password("password-di-prova"), confirmed=1)
+            b = User(email=f"m2-{secrets.token_hex(4)}@test.local",
+                     password_md5=hash_password("password-di-prova"), confirmed=1)
+            s.add(a)
+            s.add(b)
+            s.commit()
+            s.refresh(a)
+            s.refresh(b)
+            ids = (a.id, b.id, a.email)
+            prima = s.exec(sm_select(func.count(Conversation.id))).one()
+
+        try:
+            from app.utils.rate_limit import reset_rate_limit
+            reset_rate_limit()
+            login = csrf_client.post("/api/login",
+                                     data={"email": ids[2], "password": "password-di-prova"})
+            assert login.status_code == 200, login.text
+
+            resp = csrf_client.get(f"/api/messaggi/{ids[1]}")
+            assert resp.status_code == 200
+            assert resp.json()["messages"] == []
+
+            with Session(engine) as s:
+                dopo = s.exec(sm_select(func.count(Conversation.id))).one()
+            assert dopo == prima, "una GET ha creato una conversazione"
+        finally:
+            csrf_client.get("/logout")
+            with Session(engine) as s:
+                for uid in ids[:2]:
+                    u = s.get(User, uid)
+                    if u:
+                        s.delete(u)
+                s.commit()

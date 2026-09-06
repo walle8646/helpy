@@ -323,17 +323,35 @@ async def paypal_capture(request: Request):
             logger.error(f"❌ PayPal capture fallita per booking {booking_id}: {capture_data}")
             return RedirectResponse("/profile?error=paypal_capture_failed", status_code=302)
         
-        # Estrai capture_id
+        # Estrai capture_id e importo effettivamente incassato
         capture_id = None
+        importo_incassato = None
         try:
             purchase_units = capture_data.get("purchase_units", [])
             if purchase_units:
                 captures = purchase_units[0].get("payments", {}).get("captures", [])
                 if captures:
                     capture_id = captures[0].get("id")
-        except (IndexError, KeyError):
+                    importo = captures[0].get("amount", {}).get("value")
+                    if importo is not None:
+                        importo_incassato = float(importo)
+        except (IndexError, KeyError, TypeError, ValueError):
             pass
-        
+
+        # L'importo catturato deve corrispondere al prezzo della consulenza:
+        # senza questo controllo si accettava per buono qualunque valore
+        # tornasse da PayPal, compreso un ordine manipolato lato client.
+        atteso = float(booking.price) if booking.price is not None else None
+        if importo_incassato is None:
+            logger.error(f"❌ PayPal booking {booking_id}: importo non presente nella capture, non confermo")
+            return RedirectResponse("/profile?error=paypal_importo_mancante", status_code=302)
+        if atteso is not None and abs(importo_incassato - atteso) > 0.01:
+            logger.error(
+                f"❌ PayPal booking {booking_id}: incassati {importo_incassato} € "
+                f"ma il prezzo e' {atteso} €. Prenotazione NON confermata."
+            )
+            return RedirectResponse("/profile?error=paypal_importo_non_corrispondente", status_code=302)
+
         # Aggiorna booking
         booking.status = "confirmed"
         booking.payment_status = "held"
