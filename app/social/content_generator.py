@@ -78,7 +78,14 @@ I caroselli devono avere 5 slide. Le slide devono essere brevi (max ~120 caratte
 
 
 def fetch_top_questions(limit: int = 5) -> list[dict]:
-    """Pesca le domande community più popolari (validate), ordinate per engagement."""
+    """Pesca le domande community più popolari, escluse quelle già lavorate.
+
+    L'esclusione va fatta QUI, non a valle: prima si chiamava GPT su tutte le
+    top-N e solo dopo si scartavano quelle con bozze già esistenti. Siccome la
+    classifica per engagement è stabile, dal secondo "Genera contenuti" in poi
+    si pagavano N chiamate a GPT per ottenere zero bozze. Filtrando a monte,
+    ogni esecuzione pesca domande nuove e scende progressivamente in classifica.
+    """
     questions = []
     with get_session() as session:
         # upvotes + views come proxy di engagement; solo domande validate/visibili
@@ -90,6 +97,9 @@ def fetch_top_questions(limit: int = 5) -> list[dict]:
                 FROM community_questions q
                 LEFT JOIN category c ON c.id = COALESCE(q.primary_category_id, q.category_id)
                 WHERE q.validation = true
+                  AND NOT EXISTS (
+                      SELECT 1 FROM social_drafts d WHERE d.source_question_id = q.id
+                  )
                 ORDER BY (q.upvotes * 3 + q.views) DESC, q.created_at DESC
                 LIMIT :limit
                 """
@@ -144,10 +154,10 @@ def generate_for_question(q: dict) -> dict:
 
 
 def generate_batch(limit: int = 5) -> list[dict]:
-    """Genera bozze social per le top N domande."""
+    """Genera bozze social per le top N domande non ancora lavorate."""
     questions = fetch_top_questions(limit)
     if not questions:
-        logger.warning("Nessuna domanda community validata trovata nel DB.")
+        logger.info("Nessuna domanda community nuova da trasformare in contenuti social.")
         return []
 
     drafts = []

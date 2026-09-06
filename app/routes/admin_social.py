@@ -79,6 +79,12 @@ async def admin_social_generate(data: GenerateRequest, request: Request):
         from app.social.content_generator import generate_batch, save_packages_as_drafts
         limit = max(1, min(data.limit, 10))
         packages = await asyncio.to_thread(generate_batch, limit)
+        if not packages:
+            return {
+                "ok": True,
+                "message": "Nessuna domanda nuova da lavorare: tutte le domande "
+                           "più seguite hanno già delle bozze.",
+            }
         created = await asyncio.to_thread(save_packages_as_drafts, packages)
         return {"ok": True, "message": f"Creati {created} draft da {len(packages)} domande"}
     except Exception as e:
