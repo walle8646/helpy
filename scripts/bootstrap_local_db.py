@@ -13,7 +13,7 @@ Cosa fa:
    le migrazioni .sql in sql_update/ non servono su un DB nuovo (sono per
    evoluzioni di DB esistenti). Le funzionalità sono già nei modelli.
 3. Seed minimali per poter usare l'app: user_type, categorie principali +
-   qualche sottocategoria, notification_types.
+   qualche sottocategoria, notification_types, limiti chat.
 4. Crea un utente admin di test (admin@ispiramy.local / admin).
 
 Reset completo: `docker compose down -v` (cancella il volume) e rilancia.
@@ -254,8 +254,34 @@ def seed_notification_types(conn) -> None:
     print(f"   ✅ notification_types popolata ({len(NOTIFICATION_TYPES)} tipi).")
 
 
+# Limiti della chat, letti a runtime da app/routes/messages.py.
+# Senza queste righe l'app ripiega sui default scritti nel codice, e in locale
+# non si riesce a provare l'effetto di una configurazione diversa.
+CONFIGURATION_PROPERTIES = [
+    ("MAX_MESSAGES_PER_CONVERSATION", "80", "Numero massimo di messaggi per conversazione"),
+    ("MAX_MESSAGE_LENGTH", "1000", "Lunghezza massima in caratteri per un singolo messaggio"),
+]
+
+
+def seed_configuration_properties(conn) -> None:
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM configuration_property")
+        if cur.fetchone()[0] > 0:
+            print("   ℹ️ configuration_property già popolata.")
+            return
+        now = datetime.utcnow()
+        for (key, value, desc) in CONFIGURATION_PROPERTIES:
+            cur.execute(
+                "INSERT INTO configuration_property "
+                "(property_key, property_value, description, created_at, updated_at) "
+                "VALUES (%s,%s,%s,%s,%s)",
+                (key, value, desc, now, now),
+            )
+    print(f"   ✅ configuration_property popolata ({len(CONFIGURATION_PROPERTIES)} chiavi).")
+
+
 def apply_seeds(dsn: str) -> None:
-    print("🌱 Applico seed (user_type / category / notification_types)...")
+    print("🌱 Applico seed (user_type / category / notification_types / configurazione)...")
     conn = psycopg2.connect(dsn)
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
     try:
@@ -263,6 +289,7 @@ def apply_seeds(dsn: str) -> None:
         seed_categories(conn)
         seed_category_hierarchy(conn)
         seed_notification_types(conn)
+        seed_configuration_properties(conn)
     finally:
         conn.close()
     print("✅ Seed completati.")
