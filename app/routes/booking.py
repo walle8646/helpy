@@ -562,7 +562,11 @@ async def create_booking(
             client_notes=client_notes or "Prenotazione diretta",
             description=description,
             community_question_id=int(community_question_id) if community_question_id else None,
-            recording_requested=bool(recording_requested),
+            # Puo' arrivare come booleano o come stringa: bool("false") sarebbe True
+            recording_requested=(
+                recording_requested if isinstance(recording_requested, bool)
+                else str(recording_requested).lower() == "true"
+            ),
         )
         session.add(pending_booking)
         session.commit()
