@@ -27,6 +27,20 @@ class ChatMessageRequest(BaseModel):
 # Timezone italiano
 ITALY_TZ = ZoneInfo("Europe/Rome")
 
+# Stati che occupano uno slot. 'pending_payment' e' la prenotazione creata
+# prima di mandare l'utente al checkout: senza di essa nella lista, due clienti
+# potevano superare entrambi il controllo anti-doppia-prenotazione e pagare
+# lo stesso orario.
+BLOCKING_BOOKING_STATUSES = ['pending', 'pending_payment', 'confirmed']
+
+# Dopo quanto una prenotazione mai pagata smette di occupare lo slot
+PENDING_PAYMENT_TTL_MINUTES = 35
+
+# Stati di pagamento di una consulenza effettivamente pagata. 'held' e' il
+# trattenuto in attesa delle 48h, 'released' il trasferito al consulente:
+# escludere 'released' faceva sparire la consulenza dallo storico dopo 48 ore.
+PAID_PAYMENT_STATUSES = ['paid', 'held', 'released']
+
 # Lock per sincronizzare join_booking per lo stesso booking
 # Evita race condition quando il client chiama join multiple volte
 _booking_locks: Dict[int, asyncio.Lock] = {}
@@ -364,7 +378,7 @@ async def get_available_slots(
             select(Booking)
             .where(func.date(Booking.booking_date) == date)
             .where(Booking.consultant_user_id == consultant_id)
-            .where(Booking.status.in_(['pending', 'confirmed']))
+            .where(Booking.status.in_(BLOCKING_BOOKING_STATUSES))
         ).all()
         
         # Calcola gli slot disponibili
@@ -500,9 +514,9 @@ async def create_booking(
             .where(func.date(Booking.booking_date) == booking_date_str)
             .where(Booking.consultant_user_id == consultant_id)
             .where(Booking.start_time == start_time)
-            .where(Booking.status.in_(['pending', 'confirmed']))
+            .where(Booking.status.in_(BLOCKING_BOOKING_STATUSES))
         ).first()
-        
+
         if existing_booking:
             raise HTTPException(status_code=409, detail="Questo slot è già stato prenotato")
         
@@ -523,16 +537,46 @@ async def create_booking(
         
         # Get APP_URL from environment
         app_url = os.getenv("BASE_URL", "http://localhost:8080")
-        
+
+        # Prenota lo slot PRIMA di mandare l'utente al checkout, come gia' fa il
+        # flusso PayPal. Finche' la riga non esisteva, il booking nasceva solo nel
+        # webhook: due clienti potevano superare entrambi il controllo qui sopra e
+        # pagare lo stesso orario. La riga resta 'pending_payment' e viene liberata
+        # da release_expired_pending_payments se il pagamento non arriva.
+        booking_datetime_full = datetime.strptime(f"{booking_date_str} {start_time}", '%Y-%m-%d %H:%M')
+        end_datetime_full = datetime.strptime(f"{booking_date_str} {end_time}", '%Y-%m-%d %H:%M')
+
+        pending_booking = Booking(
+            client_user_id=current_user.id,
+            consultant_user_id=consultant_id,
+            availability_block_id=int(availability_block_id) if availability_block_id else None,
+            booking_date=booking_datetime_full,
+            start_time=start_time,
+            end_time=end_time,
+            duration_minutes=duration_minutes,
+            price=price,
+            status="pending_payment",
+            payment_status="pending",
+            payment_method="stripe",
+            payment_held_until=end_datetime_full + timedelta(hours=48),
+            client_notes=client_notes or "Prenotazione diretta",
+            description=description,
+            community_question_id=int(community_question_id) if community_question_id else None,
+            recording_requested=bool(recording_requested),
+        )
+        session.add(pending_booking)
+        session.commit()
+        session.refresh(pending_booking)
+
         # Create Stripe Checkout Session
         try:
             # Convert price to cents (Stripe uses smallest currency unit)
             amount_cents = int(float(price) * 100)
-            
+
             # Pagamento alla piattaforma — il trasferimento al consulente avviene dopo 48h
             if consultant.stripe_account_id and consultant.stripe_onboarding_complete:
                 logger.info(f"💰 Pagamento trattenuto: consulente {consultant.stripe_account_id} riceverà dopo 48h dalla fine consulenza")
-            
+
             checkout_session = create_checkout_session(
                 amount=amount_cents,
                 currency='eur',
@@ -540,6 +584,7 @@ async def create_booking(
                 cancel_url=f"{app_url}/book/{consultant_id}?cancelled=true",
                 metadata={
                     'booking_type': 'direct',  # differenzia da consultation offer
+                    'booking_id': str(pending_booking.id),  # riga gia' creata da confermare
                     'client_user_id': str(current_user.id),
                     'consultant_user_id': str(consultant_id),
                     'booking_date': booking_date_str,
@@ -554,14 +599,21 @@ async def create_booking(
                     'recording_requested': str(recording_requested).lower()  # 👈 Valore inviato a Stripe
                 },
             )
-            
+
+            pending_booking.stripe_checkout_session_id = checkout_session.id
+            session.add(pending_booking)
+            session.commit()
+
             return {
                 "success": True,
                 "checkout_url": checkout_session.url,
                 "session_id": checkout_session.id
             }
-            
+
         except Exception as e:
+            # Niente checkout, niente slot occupato
+            session.delete(pending_booking)
+            session.commit()
             logger.error(f"Error creating Stripe checkout session: {e}")
             raise HTTPException(status_code=500, detail=f"Errore nella creazione del pagamento: {str(e)}")
 
@@ -579,7 +631,7 @@ async def get_my_bookings(
         bookings_as_client = session.exec(
             select(Booking)
             .where(Booking.client_user_id == current_user.id)
-            .where(Booking.payment_status == 'paid')
+            .where(Booking.payment_status.in_(PAID_PAYMENT_STATUSES))
             .order_by(Booking.booking_date.desc())
         ).all()
         
@@ -587,7 +639,7 @@ async def get_my_bookings(
         bookings_as_consultant = session.exec(
             select(Booking)
             .where(Booking.consultant_user_id == current_user.id)
-            .where(Booking.payment_status == 'paid')
+            .where(Booking.payment_status.in_(PAID_PAYMENT_STATUSES))
             .order_by(Booking.booking_date.desc())
         ).all()
         
@@ -636,7 +688,7 @@ async def get_upcoming_bookings(request: Request):
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
             Booking.status.in_(['confirmed', 'pending']),
-            Booking.payment_status.in_(['paid', 'held']),
+            Booking.payment_status.in_(PAID_PAYMENT_STATUSES),
             Booking.booking_date >= now.date()
         ).order_by(Booking.booking_date, Booking.start_time)
         
@@ -728,11 +780,11 @@ async def get_booking_history(request: Request):
         raise HTTPException(status_code=401, detail="Non autenticato")
     
     with Session(engine) as session:
-        now = datetime.now()
-        
+        now = now_italy_naive()
+
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
-            Booking.payment_status.in_(['paid', 'held'])
+            Booking.payment_status.in_(PAID_PAYMENT_STATUSES)
         ).order_by(Booking.booking_date.desc(), Booking.start_time.desc())
         
         bookings = session.exec(statement).all()

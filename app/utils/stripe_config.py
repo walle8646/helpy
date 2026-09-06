@@ -70,6 +70,12 @@ def create_checkout_session(
         raise RuntimeError("Stripe is not configured. Missing STRIPE_SECRET_KEY.")
     
     try:
+        # La sessione scade dopo 30 minuti (il minimo consentito da Stripe):
+        # lo slot resta prenotato in 'pending_payment' finché il checkout è
+        # aperto, quindi non deve poter restare valido per 24 ore.
+        import time as _time
+        expires_at = int(_time.time()) + 30 * 60
+
         params = dict(
             payment_method_types=['card'],
             line_items=[{
@@ -87,6 +93,7 @@ def create_checkout_session(
             success_url=success_url,
             cancel_url=cancel_url,
             metadata=metadata or {},
+            expires_at=expires_at,
         )
         
         # Destination charges via Stripe Connect

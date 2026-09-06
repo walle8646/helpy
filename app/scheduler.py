@@ -622,8 +622,19 @@ def start_scheduler():
         misfire_grace_time=300,
     )
 
+    # Job periodico: libera gli slot dei checkout abbandonati
+    scheduler.add_job(
+        release_expired_pending_payments,
+        trigger=IntervalTrigger(minutes=10),
+        id="release_expired_pending_payments",
+        replace_existing=True,
+        misfire_grace_time=600,
+    )
+
     # Recovery: processa booking rimasti bloccati durante il downtime
     recover_stuck_bookings()
+    # Recovery: libera subito gli slot rimasti appesi durante il downtime
+    release_expired_pending_payments()
     # Recovery: ferma eventuali recording orfani rimasti dal downtime
     stop_orphan_recordings()
 
@@ -697,6 +708,37 @@ def recover_stuck_bookings():
     
     except Exception as e:
         logger.error(f"❌ Errore recovery booking bloccati: {e}")
+
+
+def release_expired_pending_payments():
+    """Libera gli slot delle prenotazioni mai pagate.
+
+    Quando parte un checkout creiamo subito una riga 'pending_payment' per
+    impedire che due clienti paghino lo stesso orario. Se il pagamento non
+    arriva (checkout abbandonato), la riga terrebbe lo slot occupato per sempre:
+    qui la si annulla. La sessione Stripe scade a 30 minuti, quindi dopo 35
+    minuti non può più diventare pagata.
+    """
+    try:
+        limite = datetime.utcnow() - timedelta(minutes=35)
+        with Session(engine) as session:
+            scadute = session.exec(
+                select(Booking)
+                .where(Booking.status == "pending_payment")
+                .where(Booking.created_at < limite)
+            ).all()
+            if not scadute:
+                return
+            for booking in scadute:
+                booking.status = "cancelled"
+                booking.cancellation_reason = "Pagamento non completato"
+                booking.cancelled_at = datetime.utcnow()
+                booking.updated_at = datetime.utcnow()
+                session.add(booking)
+            session.commit()
+            logger.info(f"🧹 Liberati {len(scadute)} slot con pagamento mai completato")
+    except Exception as e:
+        logger.error(f"❌ Errore pulizia prenotazioni non pagate: {e}")
 
 
 def stop_orphan_recordings():

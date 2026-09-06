@@ -97,6 +97,50 @@ async def handle_checkout_session_completed(checkout_session):
         await handle_consultation_offer_booking(session_id, payment_intent_id, metadata)
 
 
+def _after_booking_confirmed(db_session, booking):
+    """Notifiche e job da eseguire quando una prenotazione diventa confermata.
+
+    Condivisa fra il ramo "conferma la riga pending_payment" e quello che crea
+    la prenotazione da zero, per non avere due copie che divergono.
+    """
+    client = db_session.get(User, booking.client_user_id)
+    consultant = db_session.get(User, booking.consultant_user_id)
+    client_name = f"{client.nome} {client.cognome}" if client and client.nome else "Un utente"
+    consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant and consultant.nome else "Il consulente"
+    booking_date_str = booking.booking_date.strftime('%Y-%m-%d')
+
+    send_notification(
+        user_id=booking.consultant_user_id,
+        type_key='booking_confirmed',
+        title="Nuova Prenotazione!",
+        message=f"{client_name} ha prenotato una consulenza per il {booking_date_str} alle {booking.start_time}",
+        template_data={
+            'consultant_name': consultant_name,
+            'client_name': client_name,
+            'date': booking_date_str,
+            'time': booking.start_time,
+            'duration': str(booking.duration_minutes),
+            'action_url': f"{os.getenv('BASE_URL', 'http://localhost:8080')}/profile#bookings"
+        },
+        related_booking_id=booking.id,
+        related_user_id=booking.client_user_id,
+        action_url="/profile#bookings"
+    )
+
+    start_dt = datetime.strptime(f"{booking_date_str} {booking.start_time}", "%Y-%m-%d %H:%M").replace(tzinfo=ITALY_TZ)
+    end_dt = datetime.strptime(f"{booking_date_str} {booking.end_time}", "%Y-%m-%d %H:%M").replace(tzinfo=ITALY_TZ)
+
+    schedule_booking_reminders(
+        booking_id=booking.id,
+        booking_datetime=start_dt,
+        client_id=booking.client_user_id,
+        consultant_id=booking.consultant_user_id
+    )
+    schedule_payment_release(booking.id, end_dt)
+    schedule_noshow_check(booking.id, end_dt)
+    logger.info(f"📅 Notifiche e job schedulati per booking {booking.id}")
+
+
 async def handle_direct_booking(session_id, payment_intent_id, metadata, amount_total=None):
     """Handle direct booking payment"""
     client_user_id = int(metadata.get('client_user_id'))
@@ -120,12 +164,36 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata, amount_
     logger.info(f"   Description: {description[:50]}..." if len(description) > 50 else f"   Description: {description}")  # Log primo 50 chars
     
     with Session(engine) as db_session:
-        # Check if booking already exists
+        # La prenotazione e' gia' stata creata in stato 'pending_payment' quando
+        # e' partito il checkout (serve a tenere occupato lo slot). Qui la si
+        # conferma. Il ramo "crea da zero" resta per le sessioni aperte prima di
+        # questa modifica e per eventuali booking creati altrove.
         existing_booking = db_session.query(Booking).filter(
             Booking.stripe_checkout_session_id == session_id
         ).first()
-        
+
+        if not existing_booking and metadata.get('booking_id'):
+            try:
+                existing_booking = db_session.get(Booking, int(metadata['booking_id']))
+            except (TypeError, ValueError):
+                existing_booking = None
+
         if existing_booking:
+            if existing_booking.status == "pending_payment":
+                existing_booking.status = "confirmed"
+                existing_booking.payment_status = "held"
+                existing_booking.payment_method = "stripe"
+                existing_booking.stripe_checkout_session_id = session_id
+                existing_booking.stripe_payment_intent_id = payment_intent_id
+                existing_booking.recording_requested = recording_requested
+                existing_booking.updated_at = datetime.utcnow()
+                db_session.add(existing_booking)
+                db_session.commit()
+                db_session.refresh(existing_booking)
+                logger.info(f"✅ Booking {existing_booking.id} confermato dal pagamento (sessione {session_id})")
+                _after_booking_confirmed(db_session, existing_booking)
+                return
+
             # Sincronizza recording_requested se diverso (es. webhook production vecchio)
             if existing_booking.recording_requested != recording_requested:
                 logger.info(f"Aggiorno recording_requested per booking {existing_booking.id}: {existing_booking.recording_requested} → {recording_requested}")
@@ -195,50 +263,9 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata, amount_
         db_session.add(new_booking)
         db_session.commit()
         db_session.refresh(new_booking)
-        
-        # Get client and consultant info
-        client = db_session.get(User, client_user_id)
-        consultant = db_session.get(User, consultant_user_id)
-        client_name = f"{client.nome} {client.cognome}" if client and client.nome else "Un utente"
-        consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant and consultant.nome else "Il consulente"
-        
-        # Invia notifica al consulente usando il nuovo sistema
-        send_notification(
-            user_id=consultant_user_id,
-            type_key='booking_confirmed',
-            title="Nuova Prenotazione!",
-            message=f"{client_name} ha prenotato una consulenza per il {booking_date_str} alle {start_time}",
-            template_data={
-                'consultant_name': consultant_name,
-                'client_name': client_name,
-                'date': booking_date_str,
-                'time': start_time,
-                'duration': str(duration_minutes),
-                'action_url': f"{os.getenv('BASE_URL', 'http://localhost:8080')}/profile#bookings"
-            },
-            related_booking_id=new_booking.id,
-            related_user_id=client_user_id,
-            action_url=f"/profile#bookings"
-        )
-        
+
         logger.info(f"✅ Direct booking {new_booking.id} created successfully for session {session_id}")
-        
-        # Schedula notifiche promemoria (1 ora prima e 10 minuti prima)
-        booking_datetime_tz = booking_datetime.replace(tzinfo=ITALY_TZ)
-        schedule_booking_reminders(
-            booking_id=new_booking.id,
-            booking_datetime=booking_datetime_tz,
-            client_id=client_user_id,
-            consultant_id=consultant_user_id
-        )
-        logger.info(f"📅 Notifiche reminder schedulate per booking {new_booking.id}")
-        
-        # Schedula rilascio pagamento 48h dopo fine consulenza
-        end_datetime_tz = end_datetime.replace(tzinfo=ITALY_TZ)
-        schedule_payment_release(new_booking.id, end_datetime_tz)
-        
-        # Schedula check no-show 15 min dopo fine consulenza
-        schedule_noshow_check(new_booking.id, end_datetime_tz)
+        _after_booking_confirmed(db_session, new_booking)
 
 
 async def handle_consultation_offer_booking(session_id, payment_intent_id, metadata):
