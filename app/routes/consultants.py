@@ -7,7 +7,6 @@ import re
 from app.database import get_session
 from app.models import User, Category, CategoryHierarchy, Review
 from app.routes.auth import verify_token
-from app.utils_user import has_payment_method
 from loguru import logger
 
 router = APIRouter()
@@ -178,7 +177,16 @@ async def consultants_page(
                 })
             
             # ========== BASE QUERY ==========
-            query_stmt = select(User).where(User.is_verified == True)
+            # Il filtro sul metodo di pagamento va fatto in SQL, non in Python:
+            # prima si caricavano in memoria TUTTI i consulenti verificati a
+            # ogni ricerca, per poi scartarne una parte.
+            query_stmt = select(User).where(
+                User.is_verified == True,
+                or_(
+                    User.stripe_onboarding_complete == True,
+                    and_(User.paypal_email.isnot(None), User.paypal_email != ""),
+                ),
+            )
             
             # ========== FILTRO CATEGORIA ==========
             if category:
@@ -230,11 +238,18 @@ async def consultants_page(
                     
                     query_stmt = query_stmt.where(or_(*search_conditions))
             
-            # ========== ESEGUI QUERY (senza paginazione per scoring) ==========
-            all_results = session.exec(query_stmt).all()
-            
-            # ========== FILTRO METODO DI PAGAMENTO ==========
-            all_results = [u for u in all_results if has_payment_method(u)]
+            # ========== ESEGUI QUERY ==========
+            # Lo scoring per rilevanza si fa in Python, quindi serve l'insieme
+            # completo dei candidati: il tetto evita che una ricerca molto
+            # generica trascini in memoria l'intera tabella.
+            MAX_CANDIDATI = 500
+            all_results = session.exec(query_stmt.limit(MAX_CANDIDATI + 1)).all()
+            if len(all_results) > MAX_CANDIDATI:
+                logger.warning(
+                    f"🔍 Ricerca consulenti oltre {MAX_CANDIDATI} candidati: "
+                    "risultati troncati, valutare lo spostamento dello scoring in SQL"
+                )
+                all_results = all_results[:MAX_CANDIDATI]
             
             # ========== SCORING E ORDINAMENTO ==========
             if search and keywords:

@@ -678,6 +678,7 @@ psql -U postgres -d ispiramy_db -f sql_update/migration_add_booking_postgres.sql
 | `migration_add_paypal` | Pagamenti e payout PayPal |
 | `migration_add_booking_review_token` | Token monouso del link recensione |
 | `migration_add_missing_notification_types` | Tipi notifica usati dal codice ma mai censiti |
+| `migration_add_user_search_indexes` | Indici su `is_verified` e `category_id` per la ricerca consulenti |
 
 > Su un database nuovo le migrazioni non servono: `create_db_and_tables()`
 > crea le tabelle dai modelli SQLModel all'avvio. Servono solo per far evolvere

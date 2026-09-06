@@ -42,7 +42,7 @@ class User(SQLModel, table=True):
     professione: Optional[str] = None
     
     # Relazione con categoria
-    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+    category_id: Optional[int] = Field(default=None, foreign_key="category.id", index=True)
     selected_subcategories: Optional[str] = Field(default=None)  # JSON array di IDs: '["9", "10"]'
     
     # Profilo consulente
@@ -57,7 +57,7 @@ class User(SQLModel, table=True):
     # Status
     confirmed: int = Field(default=0)
     confirmation_code: Optional[str] = None
-    is_verified: bool = Field(default=False)
+    is_verified: bool = Field(default=False, index=True)  # filtro principale della ricerca consulenti
     is_anonymous: bool = Field(default=False)  # Se True, mostra "Utente #ID" invece del nome
     genere: Optional[str] = Field(default=None)  # M=Maschio, F=Femmina, None=Non specificato
     notify_category_requests: bool = Field(default=True)  # 🔔 Ricevi notifiche per richieste in categoria
