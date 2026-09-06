@@ -26,3 +26,15 @@ scripts/recolor_to_emerald.ps1
 scripts/test_agora_recording.py
 scripts/test_staging_auth.py
 prod_dump.sql
+# ⚠️ Dump del database: contengono email e hash password di utenti reali.
+# Il repository è pubblico: non devono MAI essere versionati.
+sql_update/backup_*.sql
+sql_update/dump-*.sql
+prod_dump.sql
+*.dump
+
+# Log di sviluppo
+docker_logs*.txt
+
+# Binari di sviluppo (Stripe CLI, 30 MB)
+stripe.exe
