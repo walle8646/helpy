@@ -35,8 +35,9 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
             'background:#e8f5e9;border-radius:10px;padding:22px;text-align:center;margin:24px 0;">'
             f'{code}</div>'
         )
+        from html import escape as _esc
         _body = (
-            f"<p>Ciao <strong>{nome}</strong>! 👋</p>"
+            f"<p>Ciao <strong>{_esc(nome or '')}</strong>! 👋</p>"
             "<p>Grazie per esserti registrato su Ispiramy! Per completare la registrazione, inserisci questo codice di verifica:</p>"
             + _code_box +
             "<p>Il codice è valido <strong>15 minuti</strong>. Se non hai richiesto questa registrazione, ignora questa email.</p>"
@@ -75,10 +76,11 @@ def send_profile_verification_request(to_email: str, user_id: int, user_name: st
         return False
     
     try:
+        from html import escape as _esc
         from app.utils.notification_email import _branded_email
         _base = os.getenv("BASE_URL", "")
         _body = (
-            f"<p>L'utente <strong>{user_name}</strong> ha aggiornato il profilo e ha completato tutti i requisiti per la verifica:</p>"
+            f"<p>L'utente <strong>{_esc(user_name or '')}</strong> ha aggiornato il profilo e ha completato tutti i requisiti per la verifica:</p>"
             '<ul style="line-height:1.8;color:#374151;">'
             "<li>✅ Professione specificata</li>"
             "<li>✅ Categoria selezionata</li>"
@@ -86,7 +88,7 @@ def send_profile_verification_request(to_email: str, user_id: int, user_name: st
             "<li>✅ Descrizione completa (minimo 200 caratteri)</li>"
             "</ul>"
             '<div style="background:#f9fafb;border-left:4px solid #43a047;border-radius:6px;padding:14px 18px;margin:20px 0;">'
-            f"<p style='margin:0;'><strong>Email utente:</strong> {user_email}</p>"
+            f"<p style='margin:0;'><strong>Email utente:</strong> {_esc(user_email or '')}</p>"
             f"<p style='margin:8px 0 0;'><strong>ID utente:</strong> {user_id}</p></div>"
             "<p>Accedi al pannello per verificare il profilo e assegnare il badge verificato.</p>"
         )

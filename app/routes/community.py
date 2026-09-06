@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Request, Form, Query, HTTPException, UploadFile, File
+﻿from fastapi import APIRouter, BackgroundTasks, Request, Form, Query, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import select, func, or_, and_
 from sqlalchemy import cast, String
@@ -17,6 +17,47 @@ from app.utils.ai_service import genera_tags, modera_immagine, valida_richiesta,
 from loguru import logger
 
 router = APIRouter()
+
+
+def _notify_consultants_by_email(recipients, question_title, question_excerpt, author_name):
+    """Avvisa via email i consulenti della categoria. Eseguita in background.
+
+    Tutti i valori che arrivano dagli utenti (titolo, testo, nome autore) vanno
+    escapati: finiscono in un'email HTML, e senza escaping l'autore della
+    domanda può iniettare markup arbitrario nella posta dei consulenti.
+    """
+    from html import escape
+    from app.utils.notification_email import _branded_email
+
+    base = os.getenv("BASE_URL", os.getenv("APP_URL", ""))
+    safe_title = escape(question_title or "")
+    q_box = (
+        '<div style="background:#f9fafb;border-left:4px solid #43a047;border-radius:8px;padding:16px 20px;margin:20px 0;">'
+        f'<h3 style="margin:0 0 8px;color:#1f2937;">{safe_title}</h3>'
+        f'<p style="margin:0;color:#6b7280;">{escape(question_excerpt or "")}...</p>'
+        f'<p style="margin:10px 0 0;"><strong>Utente:</strong> {escape(author_name or "")}</p></div>'
+    )
+
+    for email, nome in recipients:
+        try:
+            body = (
+                f"<p>Ciao <strong>{escape(nome)}</strong>,</p>"
+                "<p>C'è una nuova richiesta di consulenza nella tua categoria di expertise!</p>"
+                + q_box +
+                "<p>Accedi al tuo profilo per vedere tutte le nuove richieste della tua categoria.</p>"
+            )
+            send_email(
+                recipient_email=email,
+                subject=f"Nuova richiesta nella tua categoria: {question_title}",
+                html_content=_branded_email(
+                    "🔔", "Nuova richiesta di consulenza", "#43a047", "#2e7d32",
+                    body, "Visualizza Richieste", f"{base}/profile"
+                ),
+            )
+            logger.info(f"📧 Email sent to consultant {email}")
+        except Exception as e:
+            logger.error(f"❌ Error sending email to {email}: {e}")
+
 
 @router.get("/community", response_class=HTMLResponse)
 async def community_page(
@@ -37,7 +78,7 @@ async def community_page(
         if current_user:
             logger.info(f"✅ Community - User logged in: {current_user.nome} (ID: {current_user.id})")
         else:
-            logger.warning(f"⚠️ Community - No user logged in. Session: {dict(request.session)}")
+            logger.warning("⚠️ Community - nessun utente loggato")  # niente dump di sessione: contiene il JWT
         
         with get_session() as session:
             # ========== CARICA CATEGORIE PRINCIPALI ==========
@@ -385,6 +426,7 @@ async def community_page(
 @router.post("/api/community/ask")
 async def api_ask_question(
     request: Request,
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     description: str = Form(...),
     primary_category_id: Optional[int] = Form(None),  # ✅ Categoria principale
@@ -523,43 +565,31 @@ async def api_ask_question(
                 ).all()
                 
                 logger.info(f"🔔 Found {len(consultants)} consultants to notify for category {category_to_search}")
-                
-                # Crea notifiche e invia mail
+
+                # Le notifiche in-app sono scritture veloci: restano inline.
+                recipients = []
                 for consultant in consultants:
-                    # Crea record di notifica
                     notification = CategoryRequestNotification(
                         consultant_user_id=consultant.id,
                         question_id=new_question.id,
                         is_read=False
                     )
                     session.add(notification)
-                    
-                    # Invia email
-                    try:
-                        from app.utils.notification_email import _branded_email
-                        _base = os.getenv("BASE_URL", os.getenv("APP_URL", ""))
-                        _q_box = (
-                            '<div style="background:#f9fafb;border-left:4px solid #43a047;border-radius:8px;padding:16px 20px;margin:20px 0;">'
-                            f'<h3 style="margin:0 0 8px;color:#1f2937;">{new_question.title}</h3>'
-                            f'<p style="margin:0;color:#6b7280;">{new_question.description[:200]}...</p>'
-                            f'<p style="margin:10px 0 0;"><strong>Utente:</strong> {current_user.nome} {current_user.cognome}</p></div>'
-                        )
-                        _body = (
-                            f"<p>Ciao <strong>{consultant.nome}</strong>,</p>"
-                            "<p>C'è una nuova richiesta di consulenza nella tua categoria di expertise!</p>"
-                            + _q_box +
-                            "<p>Accedi al tuo profilo per vedere tutte le nuove richieste della tua categoria.</p>"
-                        )
-                        send_email(
-                            recipient_email=consultant.email,
-                            subject=f"Nuova richiesta nella tua categoria: {new_question.title}",
-                            html_content=_branded_email("🔔", "Nuova richiesta di consulenza", "#43a047", "#2e7d32", _body, "Visualizza Richieste", f"{_base}/profile"),
-                        )
-                        logger.info(f"📧 Email sent to consultant {consultant.email}")
-                    except Exception as e:
-                        logger.error(f"❌ Error sending email to {consultant.email}: {e}")
-                
+                    recipients.append((consultant.email, consultant.nome or "Consulente"))
+
                 session.commit()
+
+                # Le email invece no: una alla volta, dentro la richiesta, con
+                # 100 consulenti in categoria la pubblicazione della domanda
+                # impiegava decine di secondi e bloccava il server (client HTTP
+                # sincrono su un endpoint async). Vanno in background.
+                author_name = get_display_name(current_user)
+                q_title = new_question.title
+                q_excerpt = new_question.description[:200]
+
+                background_tasks.add_task(
+                    _notify_consultants_by_email, recipients, q_title, q_excerpt, author_name
+                )
             
             return JSONResponse({
                 "success": True,
@@ -600,14 +630,21 @@ async def upload_community_image(
                 status_code=400
             )
         
-        # Leggi il file
-        contents = await file.read()
-        
-        # Max 5MB
-        if len(contents) > 5 * 1024 * 1024:
+        # Il limite va applicato PRIMA di tenere tutto in memoria, altrimenti
+        # un upload enorme viene comunque bufferizzato per intero.
+        MAX_UPLOAD = 5 * 1024 * 1024
+        declared = request.headers.get("content-length")
+        if declared and declared.isdigit() and int(declared) > MAX_UPLOAD + 8192:
             return JSONResponse(
                 {"error": "File troppo grande. Massimo 5MB."},
-                status_code=400
+                status_code=413
+            )
+
+        contents = await file.read(MAX_UPLOAD + 1)
+        if len(contents) > MAX_UPLOAD:
+            return JSONResponse(
+                {"error": "File troppo grande. Massimo 5MB."},
+                status_code=413
             )
         
         # ========== MODERAZIONE AI ==========

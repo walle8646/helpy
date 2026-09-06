@@ -883,7 +883,9 @@ async def join_booking(booking_id: int, request: Request):
             if booking.recording_requested and booking.recording_status == "completed" and (client_joined or consultant_joined):
                 logger.info(f"🔄 User rejoined after previous recording completed - starting new session")
                 booking.recording_session_count = (booking.recording_session_count or 0) + 1
-                booking.recording_status = None  # Reset status per far ripartire la registrazione
+                # "not_started" e non None: su un DB creato da SQLModel la colonna
+                # e' NOT NULL e il commit fallirebbe.
+                booking.recording_status = "not_started"  # Reset per far ripartire la registrazione
                 session.add(booking)
                 session.commit()
                 session.refresh(booking)
@@ -1227,7 +1229,7 @@ async def start_recording_now(booking_id: int, request: Request):
             return {"success": False, "message": "Recording non richiesto dal cliente"}
         
         # Se non è in uno stato di registrazione, non fare nulla
-        if booking.recording_status not in ("ready", None):
+        if booking.recording_status not in ("ready", "not_started", None):
             logger.info(f"⚠️ Recording not in 'ready' state for booking {booking_id} (current: {booking.recording_status})")
             return {"success": False, "message": f"Recording not ready (status={booking.recording_status})"}
         
@@ -1526,13 +1528,16 @@ async def refuse_booking(booking_id: int, request: Request):
             client_name = f"{client.nome} {client.cognome}" if client.nome else "Cliente"
             consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant and consultant.nome else "Il consulente"
             
-            # Prepara la sezione motivo (opzionale)
+            # Prepara la sezione motivo (opzionale).
+            # Il motivo è testo libero scritto dal consulente e finisce in una
+            # email HTML: va escapato, altrimenti può iniettarci markup.
             reason_section = ""
             if refuse_reason:
+                from html import escape as _html_escape
                 reason_section = f"""
             <div style="background: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107; margin: 20px 0;">
                 <p><strong>📝 Motivo del rifiuto:</strong></p>
-                <p>{refuse_reason}</p>
+                <p>{_html_escape(refuse_reason)}</p>
             </div>
             """
             
@@ -1886,6 +1891,7 @@ def _get_chat_s3_client():
 @router.post("/api/booking/{booking_id}/chat/upload-attachment")
 async def upload_chat_attachment(
     booking_id: int,
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
@@ -1901,13 +1907,16 @@ async def upload_chat_attachment(
             if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
                 raise HTTPException(status_code=403, detail="Non autorizzato")
         
-        # Leggi il contenuto del file
-        contents = await file.read()
+        # Limita a 50MB, controllando PRIMA di bufferizzare tutto in memoria
+        MAX_ATTACHMENT = 50 * 1024 * 1024
+        declared = request.headers.get("content-length")
+        if declared and declared.isdigit() and int(declared) > MAX_ATTACHMENT + 8192:
+            raise HTTPException(status_code=413, detail="File troppo grande (max 50MB)")
+
+        contents = await file.read(MAX_ATTACHMENT + 1)
         file_size = len(contents)
-        
-        # Limita a 50MB
-        if file_size > 50 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail=f"File troppo grande (max 50MB)")
+        if file_size > MAX_ATTACHMENT:
+            raise HTTPException(status_code=413, detail="File troppo grande (max 50MB)")
         
         # Validazione tipo file
         allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip', 'csv', 'ppt', 'pptx'}

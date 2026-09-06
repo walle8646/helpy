@@ -70,7 +70,15 @@ async def google_callback(request: Request):
         if not email or not google_id:
             logger.error("❌ Google OAuth: email o sub mancanti nella risposta")
             return RedirectResponse("/login", status_code=302)
-        
+
+        # Senza email_verified il collegamento per email qui sotto diventa un
+        # takeover: basterebbe un account Google con l'indirizzo della vittima
+        # non verificato per entrare nel suo account Ispiramy.
+        if userinfo.get("email_verified") is False:
+            logger.warning(f"⚠️ Google OAuth: email non verificata da Google ({email}), login rifiutato")
+            return RedirectResponse("/login?error=email_non_verificata", status_code=302)
+
+
         logger.info(f"🔑 Google OAuth callback per: {email} (sub: {google_id})")
         
         with get_session() as session:

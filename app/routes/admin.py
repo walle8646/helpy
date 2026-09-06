@@ -759,10 +759,12 @@ async def admin_download_recording(booking_id: int, request: Request):
             raise HTTPException(status_code=404, detail="File MP4 non trovato su S3")
 
         try:
+            # 1 ora, non 7 giorni: è la registrazione di una consulenza privata
+            # e il link firmato è utilizzabile da chiunque lo riceva.
             url = s3_client.generate_presigned_url(
                 'get_object',
                 Params={'Bucket': bucket, 'Key': mp4_key},
-                ExpiresIn=604800,
+                ExpiresIn=3600,
             )
         except Exception as e:
             logger.error(f"Errore presigned URL per booking {booking.id}: {e}")

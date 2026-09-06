@@ -16,7 +16,7 @@ from apscheduler.jobstores.base import JobLookupError
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from sqlmodel import Session, select
-from app.database import engine
+from app.database import engine, DATABASE_URL
 from app.models import Notification, Booking, User, Review, Dispute
 from app.logger_config import logger
 from app.utils.notification_service import send_notification
@@ -25,9 +25,12 @@ import os
 # Timezone italiano
 ITALY_TZ = ZoneInfo("Europe/Rome")
 
-# Configurazione APScheduler
+# Configurazione APScheduler.
+# Riusa l'URL gia' normalizzato da database.py: Render espone DATABASE_URL con
+# lo schema legacy `postgres://`, che SQLAlchemy 2 rifiuta. Leggendo la env var
+# grezza, lo scheduler non partiva affatto in produzione.
 jobstores = {
-    'default': SQLAlchemyJobStore(url=os.getenv('DATABASE_URL', 'sqlite:///ispiramy.db'))
+    'default': SQLAlchemyJobStore(url=DATABASE_URL)
 }
 
 # Crea lo scheduler (BackgroundScheduler = esegue in un thread separato)

@@ -3,8 +3,17 @@ __pycache__
 *.pyo
 *.db
 .git
+.github
 .env
+.env.*
 venv/
 .vscode/
 *.log
 .DS_Store
+
+# Binario da 30 MB usato solo in locale per i webhook Stripe: non serve
+# nell'immagine e rallentava ogni build/deploy.
+stripe.exe
+
+# Log di sviluppo committati per errore
+docker_logs*.txt

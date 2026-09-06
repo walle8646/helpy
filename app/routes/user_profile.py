@@ -553,12 +553,18 @@ async def upload_profile_picture(request: Request, file: UploadFile = File(...))
         # Verifica che sia un'immagine
         if file.content_type not in ["image/jpeg", "image/png", "image/webp", "image/gif"]:
             return JSONResponse({"error": "Formato file non supportato"}, status_code=400)
-        
-        # Leggi il file
-        contents = await file.read()
-        
-        if len(contents) > 5 * 1024 * 1024:  # Max 5MB
-            return JSONResponse({"error": "File troppo grande (max 5MB)"}, status_code=400)
+
+        # Il limite va applicato PRIMA di tenere tutto in memoria: con
+        # `await file.read()` secco, un upload da qualche GB veniva caricato per
+        # intero solo per poi essere rifiutato.
+        MAX_UPLOAD = 5 * 1024 * 1024
+        declared = request.headers.get("content-length")
+        if declared and declared.isdigit() and int(declared) > MAX_UPLOAD + 8192:
+            return JSONResponse({"error": "File troppo grande (max 5MB)"}, status_code=413)
+
+        contents = await file.read(MAX_UPLOAD + 1)
+        if len(contents) > MAX_UPLOAD:
+            return JSONResponse({"error": "File troppo grande (max 5MB)"}, status_code=413)
         
         # ========== MODERAZIONE AI ==========
         import base64
@@ -583,10 +589,11 @@ async def upload_profile_picture(request: Request, file: UploadFile = File(...))
         s3_bucket = os.getenv("S3_BUCKET_NAME", "ispiramy-images")
         s3_region = os.getenv("AWS_REGION", "eu-west-1")
         
-        logger.info(f"🔍 DEBUG Upload - Access Key: {aws_access_key[:10] if aws_access_key else 'NONE'}...")
-        logger.info(f"🔍 DEBUG Upload - Secret Key: {aws_secret_key[:10] if aws_secret_key else 'NONE'}...")
-        logger.info(f"🔍 DEBUG Upload - Bucket: {s3_bucket}")
-        logger.info(f"🔍 DEBUG Upload - Region: {s3_region}")
+        # Mai loggare porzioni della secret key: e' comunque materiale segreto.
+        logger.info(
+            f"🔍 Upload S3 - credenziali {'presenti' if (aws_access_key and aws_secret_key) else 'MANCANTI'}, "
+            f"bucket={s3_bucket}, region={s3_region}"
+        )
         
         if not aws_access_key or not aws_secret_key:
             # Errore: AWS deve essere configurato

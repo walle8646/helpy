@@ -12,7 +12,8 @@ ENV/
 .vscode/
 .idea/
 uploads/
-.env          # 🔥 AGGIUNGI QUESTA RIGA
+# I commenti in coda non sono supportati: il pattern deve stare da solo.
+.env
 .env.*
 *.env
 .env.local
