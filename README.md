@@ -90,8 +90,13 @@ Il sistema supporta sia SQLite (sviluppo) che PostgreSQL (produzione) ed è cont
 - **Polling real-time** per nuovi messaggi (ogni 3-5 secondi)
 - **Toast notification** con anteprima messaggio e suono
 - **Badge** con contatore messaggi non letti
-- Limite di 80 messaggi per conversazione (reset dopo prenotazione confermata)
-- Messaggi di sistema per offerte di consulenza
+- Limite di messaggi per conversazione e di lunghezza del singolo messaggio,
+  configurabili dalla tabella `configuration_property`
+  (`MAX_MESSAGES_PER_CONVERSATION`, `MAX_MESSAGE_LENGTH`)
+- Il conteggio riparte dall'ultima consulenza **pagata** fra i due utenti:
+  prenotare sblocca la chat
+- I messaggi di sistema (offerte di consulenza) non consumano il credito
+- Limite di frequenza: 30 messaggi al minuto per utente
 
 ### 🏛️ Community Q&A
 - Gli utenti possono **pubblicare domande** (limite: 5 al giorno)
@@ -636,6 +641,10 @@ I test non richiedono servizi esterni: `tests/conftest.py` punta il
 | `tests/test_booking_rules.py` | conversioni orarie, regole delle 4 ore in fuso italiano, calcolo degli slot disponibili |
 | `tests/test_payment_states.py` | stati che occupano uno slot, stati di pagamento, pulizia dei checkout abbandonati |
 | `tests/test_review_token.py` | regressione sulla falla del token recensione |
+| `tests/test_password.py` | hashing bcrypt e migrazione trasparente dagli hash MD5 |
+| `tests/test_rate_limit.py` | finestra scorrevole, separazione per IP ed email, 429 |
+| `tests/test_message_limits.py` | conteggio messaggi, limiti da configurazione, frequenza di invio |
+| `tests/test_non_blocking.py` | guardia: nessuna chiamata lenta sull'event loop |
 | `tests/test_api.py` | pagine pubbliche, endpoint protetti, protezione CSRF |
 | `tests/test_integration.py` | template email, finestra di cancellazione, presenza in call |
 

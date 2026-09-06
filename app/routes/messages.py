@@ -12,12 +12,112 @@ import os
 from app.routes.auth import verify_token
 from app.utils_user import has_payment_method, get_display_name
 from app.utils.notification_manager import send_notification
+from app.utils.rate_limit import enforce_rate_limit
 
 router = APIRouter()
 
 # ========== CONFIGURAZIONE LIMITI ==========
-MAX_MESSAGES_PER_CONVERSATION = 80  # ✅ Modificato da 1000 a 80
-MAX_MESSAGE_LENGTH = 1000
+# Valori di ripiego, usati solo se la tabella configuration_property non è
+# raggiungibile o non contiene la chiave.
+DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 80
+DEFAULT_MAX_MESSAGE_LENGTH = 1000
+
+# Chiavi in configuration_property. Attenzione: /api/chat-config leggeva
+# 'max_messages' e 'max_length', che nel database non esistono; ricadeva
+# sempre sui default e la configurazione impostata dall'amministratore non
+# aveva alcun effetto — per di più su valori diversi da quelli applicati
+# davvero dal backend.
+CONFIG_KEY_MAX_MESSAGES = "MAX_MESSAGES_PER_CONVERSATION"
+CONFIG_KEY_MAX_LENGTH = "MAX_MESSAGE_LENGTH"
+
+# Piccola cache: questi valori cambiano di rado ma verrebbero letti a ogni
+# messaggio inviato e a ogni apertura della chat.
+_config_cache: dict[str, tuple[float, int]] = {}
+_CONFIG_TTL = 60  # secondi
+
+
+def get_config_int(key: str, default: int) -> int:
+    """Legge un intero da configuration_property, con cache e ripiego."""
+    import time as _time
+
+    scadenza = _config_cache.get(key)
+    if scadenza and _time.time() - scadenza[0] < _CONFIG_TTL:
+        return scadenza[1]
+
+    valore = default
+    try:
+        with get_session() as session:
+            riga = session.exec(
+                select(ConfigurationProperty)
+                .where(ConfigurationProperty.property_key == key)
+            ).first()
+            if riga and riga.property_value is not None:
+                valore = int(riga.property_value)
+    except (ValueError, TypeError):
+        logger.warning(f"⚠️ Valore non numerico per la configurazione '{key}', uso {default}")
+    except Exception as e:  # noqa: BLE001 — la chat non deve rompersi per la config
+        logger.warning(f"⚠️ Configurazione '{key}' non leggibile ({e}), uso {default}")
+
+    _config_cache[key] = (_time.time(), valore)
+    return valore
+
+
+def max_messaggi_per_conversazione() -> int:
+    return get_config_int(CONFIG_KEY_MAX_MESSAGES, DEFAULT_MAX_MESSAGES_PER_CONVERSATION)
+
+
+def max_lunghezza_messaggio() -> int:
+    return get_config_int(CONFIG_KEY_MAX_LENGTH, DEFAULT_MAX_MESSAGE_LENGTH)
+
+
+def svuota_cache_configurazione() -> None:
+    """Usata dai test e dopo un cambio di configurazione."""
+    _config_cache.clear()
+
+
+def conta_messaggi_conversazione(session, conversation: Conversation) -> int:
+    """Messaggi che contano ai fini del limite della conversazione.
+
+    Il conteggio riparte dall'ultima consulenza **pagata** fra i due utenti:
+    prenotare sblocca la chat. Prima il filtro era `status == 'confirmed'`, ma
+    15 minuti dopo la consulenza il job no-show porta lo stato a 'completed' o
+    'no_show': la riga smetteva di corrispondere, il conteggio tornava a
+    includere tutta la cronologia e la conversazione si richiudeva da sola —
+    stavolta per sempre, perché il totale può solo crescere.
+
+    Sono esclusi i messaggi di sistema (offerte di consulenza): li genera la
+    piattaforma, non devono consumare il credito degli utenti.
+    """
+    ultima_pagata = session.exec(
+        select(Booking)
+        .where(
+            Booking.payment_status.in_(["paid", "held", "released"]),
+            or_(
+                and_(
+                    Booking.client_user_id == conversation.user1_id,
+                    Booking.consultant_user_id == conversation.user2_id,
+                ),
+                and_(
+                    Booking.client_user_id == conversation.user2_id,
+                    Booking.consultant_user_id == conversation.user1_id,
+                ),
+            ),
+        )
+        .order_by(Booking.created_at.desc())
+    ).first()
+
+    query = (
+        select(func.count())
+        .select_from(Message)
+        .where(
+            Message.conversation_id == conversation.id,
+            Message.is_system_message == False,  # noqa: E712
+        )
+    )
+    if ultima_pagata:
+        query = query.where(Message.created_at > ultima_pagata.created_at)
+
+    return session.exec(query).one()
 
 # ========== API ENDPOINTS ==========
 
@@ -240,36 +340,9 @@ async def get_messages(
                 .limit(100)  # ✅ Carica ultimi 100 messaggi
             ).all()
             
-            # Conta messaggi totali (solo dopo ultima prenotazione confermata)
-            # Trova l'ultima prenotazione confermata tra i due utenti (in entrambi gli ordini)
-            last_confirmed_booking = session.exec(
-                select(Booking)
-                .where(
-                    and_(
-                        Booking.status == 'confirmed',
-                        or_(
-                            and_(
-                                Booking.client_user_id == conversation.user1_id,
-                                Booking.consultant_user_id == conversation.user2_id
-                            ),
-                            and_(
-                                Booking.client_user_id == conversation.user2_id,
-                                Booking.consultant_user_id == conversation.user1_id
-                            )
-                        )
-                    )
-                )
-                .order_by(Booking.created_at.desc())
-            ).first()
-            
-            # Costruisci la query per contare messaggi
-            count_query = select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
-            
-            # Se esiste una prenotazione confermata, conta solo messaggi dopo quella data
-            if last_confirmed_booking:
-                count_query = count_query.where(Message.created_at > last_confirmed_booking.created_at)
-            
-            total_messages = session.exec(count_query).one()
+            # Messaggi che contano ai fini del limite (riparte dall'ultima
+            # consulenza pagata fra i due utenti)
+            total_messages = conta_messaggi_conversazione(session, conversation)
             
             # Marca messaggi come letti
             unread_messages = session.exec(
@@ -325,17 +398,29 @@ async def send_message(
 ):
     """Invia un messaggio"""
     current_user = verify_token(request)
-    
+
     if not current_user:
         return JSONResponse({"error": "Non autenticato"}, status_code=401)
-    
+
+    # Limite di frequenza: il limite per conversazione non impedisce di
+    # martellare molti destinatari diversi, né di far partire una notifica
+    # (email inclusa) a ogni invio.
+    enforce_rate_limit(
+        request, "invio_messaggi", limit=30, window_seconds=60,
+        extra_key=str(current_user.id),
+        message="Stai inviando messaggi troppo in fretta. Riprova fra {attesa} secondi.",
+    )
+
+    max_lunghezza = max_lunghezza_messaggio()
+    max_messaggi = max_messaggi_per_conversazione()
+
     # ✅ VALIDAZIONE LUNGHEZZA
     if not content or len(content.strip()) == 0:
         return JSONResponse({"error": "Messaggio vuoto"}, status_code=400)
-    
-    if len(content) > MAX_MESSAGE_LENGTH:
+
+    if len(content) > max_lunghezza:
         return JSONResponse({
-            "error": f"Messaggio troppo lungo (max {MAX_MESSAGE_LENGTH} caratteri)"
+            "error": f"Messaggio troppo lungo (max {max_lunghezza} caratteri)"
         }, status_code=400)
     
     try:
@@ -369,42 +454,15 @@ async def send_message(
                 # Primo messaggio assoluto nella conversazione
                 should_notify = True
             
-            # ✅ VERIFICA LIMITE MESSAGGI (conta solo messaggi dopo ultima prenotazione confermata)
-            # Trova l'ultima prenotazione confermata tra i due utenti (in entrambi gli ordini)
-            last_confirmed_booking = session.exec(
-                select(Booking)
-                .where(
-                    and_(
-                        Booking.status == 'confirmed',
-                        or_(
-                            and_(
-                                Booking.client_user_id == conversation.user1_id,
-                                Booking.consultant_user_id == conversation.user2_id
-                            ),
-                            and_(
-                                Booking.client_user_id == conversation.user2_id,
-                                Booking.consultant_user_id == conversation.user1_id
-                            )
-                        )
-                    )
-                )
-                .order_by(Booking.created_at.desc())
-            ).first()
-            
-            # Costruisci la query per contare messaggi
-            count_query = select(func.count()).select_from(Message).where(Message.conversation_id == conversation.id)
-            
-            # Se esiste una prenotazione confermata, conta solo messaggi dopo quella data
-            if last_confirmed_booking:
-                count_query = count_query.where(Message.created_at > last_confirmed_booking.created_at)
-            else:
-                pass
-            
-            total_messages = session.exec(count_query).one()
-            
-            if total_messages >= MAX_MESSAGES_PER_CONVERSATION:
+            # ✅ VERIFICA LIMITE MESSAGGI
+            total_messages = conta_messaggi_conversazione(session, conversation)
+
+            if total_messages >= max_messaggi:
                 return JSONResponse({
-                    "error": f"Limite di {MAX_MESSAGES_PER_CONVERSATION} messaggi raggiunto per questa conversazione"
+                    "error": (
+                        f"Hai raggiunto il limite di {max_messaggi} messaggi per questa "
+                        "conversazione. Prenota una consulenza per continuare a scrivere."
+                    )
                 }, status_code=400)
             
             # ✅ CREA MESSAGGIO
@@ -490,7 +548,7 @@ async def send_message(
                     "created_at": message.created_at.isoformat(),
                     "is_mine": True
                 },
-                "messages_left": MAX_MESSAGES_PER_CONVERSATION - total_messages - 1
+                "messages_left": max(0, max_messaggi - total_messages - 1)
             }, status_code=201)
     
     except Exception as e:
@@ -568,28 +626,17 @@ async def get_unread_count(request: Request):
 
 @router.get("/api/chat-config")
 async def get_chat_config(request: Request):
-    """Ottieni configurazione limiti chat (max messaggi e lunghezza)"""
-    try:
-        with get_session() as session:
-            # Ottieni configurazione dal database
-            max_messages = session.exec(
-                select(ConfigurationProperty)
-                .where(ConfigurationProperty.property_key == 'max_messages')
-            ).first()
-            
-            max_length = session.exec(
-                select(ConfigurationProperty)
-                .where(ConfigurationProperty.property_key == 'max_length')
-            ).first()
-            
-            return JSONResponse({
-                "max_messages": int(max_messages.property_value) if max_messages else 40,
-                "max_length": int(max_length.property_value) if max_length else 500
-            }, status_code=200)
-    
-    except Exception as e:
-        logger.error(f"Error getting chat config: {e}", exc_info=True)
-        return JSONResponse({"max_messages": 40, "max_length": 500}, status_code=200)
+    """Ottieni configurazione limiti chat (max messaggi e lunghezza).
+
+    Usa le stesse funzioni dell'invio: prima questo endpoint cercava le chiavi
+    'max_messages' e 'max_length', che nel database non esistono, e ricadeva su
+    default diversi da quelli applicati davvero dal backend — l'interfaccia
+    mostrava un limite e il server ne imponeva un altro.
+    """
+    return JSONResponse({
+        "max_messages": max_messaggi_per_conversazione(),
+        "max_length": max_lunghezza_messaggio(),
+    }, status_code=200)
 
 # ========== API: User Online Status ==========
 

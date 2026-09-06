@@ -18,6 +18,20 @@ os.environ.pop("STAGING_PASSWORD", None)
 import pytest  # noqa: E402
 
 
+@pytest.fixture(scope="session", autouse=True)
+def schema_database():
+    """Crea le tabelle una volta per sessione, prima di qualsiasi test.
+
+    Prima lo faceva solo il fixture `client`, tramite l'evento di startup
+    dell'app: i test che usano il database direttamente funzionavano solo se
+    un'esecuzione precedente aveva lasciato il file sul disco, e fallivano
+    partendo da zero o eseguiti da soli.
+    """
+    from app.database import create_db_and_tables
+
+    create_db_and_tables()
+
+
 @pytest.fixture(scope="session")
 def client():
     """TestClient con gli hook di startup/shutdown eseguiti (crea le tabelle)."""

@@ -459,7 +459,7 @@ Gli utenti selezionano:
 | Sessioni | ✅ Starlette | Cookie httpOnly con secret key |
 | XSS | ✅ | Escape HTML nei messaggi chat |
 | CSRF | ✅ | `CSRFMiddleware` in `main.py`, token iniettato in tutte le fetch da `base.html` |
-| Rate limiting | ✅ Parziale | `app/utils/rate_limit.py` su login, registrazione, verifica email e reset. In memoria: con più worker va spostato su Redis |
+| Rate limiting | ✅ | `app/utils/rate_limit.py` su login, registrazione, verifica email, reset e invio messaggi. In memoria: con più worker va spostato su Redis |
 | Upload file | ✅ | Validazione tipo e dimensione (max 5MB) |
 | SQL Injection | ✅ | Protetto da SQLModel/SQLAlchemy ORM |
 | Stripe webhook | ✅ | Verifica firma webhook |
@@ -467,7 +467,7 @@ Gli utenti selezionano:
 ### Raccomandazioni per Produzione
 
 1. ~~Sostituire MD5 con bcrypt~~ ✅ fatto
-2. ~~Rate limiting su login e registrazione~~ ✅ fatto (manca sull'invio messaggi)
+2. ~~Rate limiting su login, registrazione e invio messaggi~~ ✅ fatto
 3. ~~CSRF token sui form~~ ✅ fatto
 4. Configurare **CORS** appropriatamente
 5. Usare **HTTPS** obbligatorio
