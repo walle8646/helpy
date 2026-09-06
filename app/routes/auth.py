@@ -4,10 +4,11 @@ from app.database import get_session
 from app.models import User
 from sqlmodel import select
 import time
-import hashlib
 from typing import Optional
 from app.logger_config import logger
-from app.utils.email import generate_verification_code  # ✅ RIMUOVI send_verification_email da qui
+from app.utils.email import generate_verification_code
+from app.utils.password import hash_password, verify_password
+from app.utils.rate_limit import clear_attempts, enforce_rate_limit
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -100,6 +101,21 @@ def get_current_user(request: Request) -> Optional[User]:
         raise HTTPException(status_code=401, detail="Non autenticato")
     return user
 
+
+# Requisito minimo sulla password. Volutamente basso ma non nullo: prima non
+# c'era alcun controllo e "1" era una password accettata.
+MIN_PASSWORD_LENGTH = 8
+
+
+def _password_troppo_debole(password: str) -> Optional[str]:
+    """Ritorna il motivo del rifiuto, oppure None se la password va bene."""
+    if not password or len(password) < MIN_PASSWORD_LENGTH:
+        return f"La password deve essere di almeno {MIN_PASSWORD_LENGTH} caratteri"
+    if password.isdigit():
+        return "La password non può essere composta da soli numeri"
+    return None
+
+
 @router.post("/login")
 async def login(
     request: Request,
@@ -107,6 +123,8 @@ async def login(
     password: str = Form(...)
 ):
     """Login con form HTML"""
+    # Forza bruta sulle password: massimo 10 tentativi in 5 minuti
+    enforce_rate_limit(request, "login", limit=10, window_seconds=300, extra_key=email)
     with get_session() as session:
         statement = select(User).where(User.email == email)
         user = session.exec(statement).first()
@@ -114,27 +132,39 @@ async def login(
         if not user:
             return request.app.state.templates.TemplateResponse(
                 "login.html",
-                {"request": request, "error": "Email non trovata"}
+                {"request": request, "error": "Email o password non corretti"}
             )
         
-        password_hash = hashlib.md5(password.encode()).hexdigest()
-        
-        if user.password_md5 != password_hash:
+        password_ok, needs_rehash = verify_password(password, user.password_md5)
+
+        if not password_ok:
             return request.app.state.templates.TemplateResponse(
                 "login.html",
-                {"request": request, "error": "Password errata"}
+                # Non distinguere fra email inesistente e password errata:
+                # il messaggio diverso permetteva di enumerare gli account.
+                {"request": request, "error": "Email o password non corretti"}
             )
-        
+
+        # Migrazione trasparente da MD5 a bcrypt al primo login riuscito
+        if needs_rehash:
+            user.password_md5 = hash_password(password)
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            logger.info(f"🔐 Password migrata a bcrypt per {user.email}")
+
         if user.confirmed != 1:
             return request.app.state.templates.TemplateResponse(
                 "login.html",
                 {"request": request, "error": "Conferma prima la tua email"}
             )
         
+        clear_attempts(request, "login", email)
+
         request.session["user_id"] = user.id
         request.session["user_email"] = user.email
         request.session["user_nome"] = user.nome or "User"
-        
+
         logger.info(f"✅ User logged in: {user.email}")
         
         return RedirectResponse(url="/profile", status_code=303)
@@ -146,6 +176,7 @@ async def api_login(
     password: str = Form(...)
 ):
     """API endpoint per login (AJAX)"""
+    enforce_rate_limit(request, "login", limit=10, window_seconds=300, extra_key=email)
     try:
         with get_session() as session:
             user = session.exec(
@@ -158,13 +189,21 @@ async def api_login(
                     status_code=401
                 )
             
-            # Verifica password
-            password_hash = hashlib.md5(password.encode()).hexdigest()
-            if user.password_md5 != password_hash:
+            # Verifica password (bcrypt, con fallback sul vecchio MD5)
+            password_ok, needs_rehash = verify_password(password, user.password_md5)
+            if not password_ok:
                 return JSONResponse(
                     {"error": "Email o password non corretti"},
                     status_code=401
                 )
+
+            # Migrazione trasparente da MD5 a bcrypt al primo login riuscito
+            if needs_rehash:
+                user.password_md5 = hash_password(password)
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+                logger.info(f"🔐 Password migrata a bcrypt per {user.email}")
 
             # L'email deve essere confermata: il form /login lo controllava gia',
             # questo endpoint no, quindi la verifica via codice era aggirabile
@@ -187,6 +226,7 @@ async def api_login(
                 "exp": datetime.utcnow() + timedelta(days=7)
             }
             access_token = jwt.encode(token_data, JWT_SECRET, algorithm="HS256")
+            clear_attempts(request, "login", email)
             
             # ✅ SALVA TOKEN IN SESSION (IMPORTANTE!)
             request.session["access_token"] = access_token
@@ -223,6 +263,12 @@ async def api_register(
     cognome: str = Form(None)
 ):
     """API Registrazione con invio email di conferma"""
+    # Creazione account a raffica (e invio email a spese nostre)
+    enforce_rate_limit(request, "register", limit=5, window_seconds=3600)
+
+    motivo = _password_troppo_debole(password)
+    if motivo:
+        return JSONResponse({"error": motivo}, status_code=400)
     try:
         with get_session() as session:
             existing = session.exec(select(User).where(User.email == email)).first()
@@ -253,7 +299,7 @@ async def api_register(
                         "requires_verification": True
                     }, status_code=200)
             
-            password_hash = hashlib.md5(password.encode()).hexdigest()
+            password_hash = hash_password(password)
             code = generate_verification_code()
             
             new_user = User(
@@ -297,6 +343,8 @@ async def verify_email(
     code: str = Form(...)
 ):
     """Verifica codice email"""
+    # Il codice e' di 6 cifre: senza limite si enumera in poche ore
+    enforce_rate_limit(request, "verify_email", limit=10, window_seconds=900, extra_key=email)
     try:
         with get_session() as session:
             user = session.exec(select(User).where(User.email == email)).first()
@@ -345,6 +393,7 @@ async def resend_verification(
     email: str = Form(...)
 ):
     """Reinvia codice di verifica"""
+    enforce_rate_limit(request, "resend_verification", limit=3, window_seconds=900, extra_key=email)
     try:
         with get_session() as session:
             user = session.exec(select(User).where(User.email == email)).first()
@@ -388,7 +437,7 @@ async def register(
                 {"request": request, "error": "Email già registrata"}
             )
         
-        password_hash = hashlib.md5(password.encode()).hexdigest()
+        password_hash = hash_password(password)
         
         # ✅ AGGIUNGI cognome
         new_user = User(
@@ -429,13 +478,20 @@ async def request_password_reset(
     email: str = Form(...)
 ):
     """API: richiedi reset password (invia codice via email)"""
+    enforce_rate_limit(request, "reset_request", limit=3, window_seconds=900, extra_key=email)
     try:
         with get_session() as session:
             user = session.exec(select(User).where(User.email == email)).first()
             
             if not user:
-                return JSONResponse({"error": "Email non trovata"}, status_code=404)
-            
+                # Risposta identica al caso "email esistente": rispondere 404
+                # permetteva di scoprire quali indirizzi sono registrati.
+                logger.info("🔐 Reset password richiesto per un'email non registrata")
+                return JSONResponse({
+                    "success": True,
+                    "message": "Se l'email è registrata, riceverai un codice"
+                }, status_code=200)
+
             # Genera codice reset (6 cifre)
             reset_code = generate_verification_code()  # Usa stessa funzione di verifica
             
@@ -451,7 +507,7 @@ async def request_password_reset(
             
             return JSONResponse({
                 "success": True,
-                "message": "Codice inviato via email"
+                "message": "Se l'email è registrata, riceverai un codice"
             }, status_code=200)
     
     except Exception as e:
@@ -480,6 +536,11 @@ async def reset_password(
     new_password: str = Form(...)
 ):
     """API: reset password con codice"""
+    enforce_rate_limit(request, "reset_submit", limit=10, window_seconds=900, extra_key=email)
+
+    motivo = _password_troppo_debole(new_password)
+    if motivo:
+        return JSONResponse({"error": motivo}, status_code=400)
     try:
         # Verifica codice in sessione
         if 'reset_code' not in request.session or 'reset_email' not in request.session:
@@ -500,7 +561,7 @@ async def reset_password(
             return JSONResponse({"error": "Codice scaduto. Richiedi un nuovo reset."}, status_code=400)
         
         # Hash nuova password
-        new_password_hash = hashlib.md5(new_password.encode()).hexdigest()
+        new_password_hash = hash_password(new_password)
         
         # Aggiorna password nel database
         with get_session() as session:

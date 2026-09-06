@@ -158,7 +158,7 @@ Il sistema supporta sia SQLite (sviluppo) che PostgreSQL (produzione) ed è cont
 | **Database (dev)** | SQLite |
 | **Database (prod)** | PostgreSQL |
 | **Frontend** | HTML + CSS + JavaScript (Jinja2 templates) |
-| **Autenticazione** | JWT (PyJWT) + Sessioni Starlette |
+| **Autenticazione** | JWT (PyJWT) + Sessioni Starlette, password con bcrypt |
 | **Login social** | Google OAuth 2.0 (Authlib) |
 | **Pagamenti** | Stripe (Checkout + Connect + Webhooks) e PayPal |
 | **Video Call** | Agora.io (RTC + Cloud Recording + sfondo virtuale) |
@@ -701,6 +701,7 @@ Nella cartella `rules/`:
 | [AGORA_RECORDING_SETUP.md](rules/AGORA_RECORDING_SETUP.md) | Setup registrazione video |
 | [S3_SETUP.md](rules/S3_SETUP.md) | Configurazione AWS S3 |
 | [VIDEO_BRIEF_ISPIRAMY.md](rules/VIDEO_BRIEF_ISPIRAMY.md) | Brief del video promozionale e posizionamento |
+| [BONIFICA_DATI_ESPOSTI.md](rules/BONIFICA_DATI_ESPOSTI.md) | ⚠️ Procedura per i dump con dati personali finiti nel repo pubblico |
 
 ---
 

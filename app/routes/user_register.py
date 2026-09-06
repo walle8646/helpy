@@ -3,7 +3,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlmodel import select
 from app.models import User
 from app.database import get_session
-from app.utils_user import hash_md5, gen_code6, send_confirmation_email
+from app.utils_user import gen_code6, send_confirmation_email
+from app.utils.password import hash_password
 from app.logger_config import logger
 import re
 
@@ -25,9 +26,9 @@ def register_user(email: str = Form(...), password: str = Form(...)):
     with get_session() as session:
         if session.exec(select(User).where(User.email == email)).first():
             return JSONResponse({"error": "Email already registered"}, status_code=409)
-        pwd_md5 = hash_md5(password)
+        pwd_hash = hash_password(password)
         code = gen_code6()
-        user = User(email=email, password_md5=pwd_md5, confirmation_code=code, confirmed=0)
+        user = User(email=email, password_md5=pwd_hash, confirmation_code=code, confirmed=0)
         session.add(user)
         session.commit()
         logger.info(f"User registered: {email}")

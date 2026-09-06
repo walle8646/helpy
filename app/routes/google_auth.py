@@ -3,8 +3,6 @@ Google OAuth2 Login Route
 Gestisce il login/registrazione tramite account Google
 """
 import os
-import secrets
-import hashlib
 
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
@@ -13,6 +11,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.models import User
+from app.utils.password import UNUSABLE_PASSWORD
 from app.logger_config import logger
 
 import jwt
@@ -78,7 +77,6 @@ async def google_callback(request: Request):
             logger.warning(f"⚠️ Google OAuth: email non verificata da Google ({email}), login rifiutato")
             return RedirectResponse("/login?error=email_non_verificata", status_code=302)
 
-
         logger.info(f"🔑 Google OAuth callback per: {email} (sub: {google_id})")
         
         with get_session() as session:
@@ -113,10 +111,12 @@ async def google_callback(request: Request):
                 _set_session(request, session, user)
                 return RedirectResponse("/profile", status_code=302)
             
-            # 3. Nuovo utente → crea account
-            # Genera password casuale (l'utente non la userà, serve per il campo obbligatorio)
-            random_password = secrets.token_hex(32)
-            password_hash = hashlib.md5(random_password.encode()).hexdigest()
+            # 3. Nuovo utente → crea account.
+            # Nessuna password: l'accesso avviene via Google. Il campo resta
+            # valorizzato con un valore impossibile da indovinare, cosi' non
+            # esiste una password "vera" da rubare. Per accedere anche con
+            # email e password l'utente usa "password dimenticata".
+            password_hash = UNUSABLE_PASSWORD
             
             new_user = User(
                 email=email,

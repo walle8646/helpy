@@ -271,7 +271,9 @@ def apply_seeds(dsn: str) -> None:
 def create_admin_user(dsn: str) -> None:
     print("👤 Creo utente admin di test...")
     email = "admin@ispiramy.local"
-    password_md5 = hashlib.md5(b"admin").hexdigest()
+    # bcrypt come in produzione: l'app non accetta piu' MD5 per le nuove password
+    import bcrypt
+    password_md5 = bcrypt.hashpw(b"admin", bcrypt.gensalt()).decode()
     now = datetime.utcnow()
     conn = psycopg2.connect(dsn)
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)

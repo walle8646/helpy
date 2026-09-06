@@ -74,8 +74,8 @@ Questo documento descrive l'architettura tecnica dettagliata della piattaforma I
 ```
 Utente → GET /register → Compila form
        → POST /api/register → Backend:
-           1. Valida email/password
-           2. Hash MD5 password
+           1. Valida email/password (minimo 8 caratteri) e rate limit
+           2. Hash bcrypt della password
            3. Genera codice 6 cifre
            4. Salva User (confirmed=0)
            5. Invia email con codice (SendGrid)
@@ -83,7 +83,8 @@ Utente → GET /register → Compila form
            1. Verifica codice
            2. Imposta confirmed=1
        → POST /api/login → Backend:
-           1. Verifica credenziali
+           1. Verifica credenziali (bcrypt; un hash MD5 storico viene
+              ri-hashato in bcrypt al primo login riuscito)
            2. Genera JWT
            3. Salva in sessione
            4. Redirect a /profile
@@ -453,22 +454,25 @@ Gli utenti selezionano:
 
 | Area | Stato | Note |
 |---|---|---|
-| Password hashing | ⚠️ MD5 | Da migrare a bcrypt/argon2 in produzione |
+| Password hashing | ✅ bcrypt | `app/utils/password.py`; gli hash MD5 storici migrano al primo login |
 | Autenticazione | ✅ JWT | Token con scadenza 7 giorni |
 | Sessioni | ✅ Starlette | Cookie httpOnly con secret key |
 | XSS | ✅ | Escape HTML nei messaggi chat |
-| CSRF | ⚠️ Parziale | Da implementare token CSRF per i form |
-| Rate limiting | ⚠️ Non impl. | Consigliato per endpoint sensibili |
+| CSRF | ✅ | `CSRFMiddleware` in `main.py`, token iniettato in tutte le fetch da `base.html` |
+| Rate limiting | ✅ Parziale | `app/utils/rate_limit.py` su login, registrazione, verifica email e reset. In memoria: con più worker va spostato su Redis |
 | Upload file | ✅ | Validazione tipo e dimensione (max 5MB) |
 | SQL Injection | ✅ | Protetto da SQLModel/SQLAlchemy ORM |
 | Stripe webhook | ✅ | Verifica firma webhook |
 
 ### Raccomandazioni per Produzione
 
-1. Sostituire MD5 con **bcrypt** per le password
-2. Implementare **rate limiting** su login, registrazione, invio messaggi
-3. Aggiungere **CSRF token** ai form
+1. ~~Sostituire MD5 con bcrypt~~ ✅ fatto
+2. ~~Rate limiting su login e registrazione~~ ✅ fatto (manca sull'invio messaggi)
+3. ~~CSRF token sui form~~ ✅ fatto
 4. Configurare **CORS** appropriatamente
 5. Usare **HTTPS** obbligatorio
 6. Ruotare i **JWT secret** periodicamente
 7. Implementare **2FA** per account sensibili
+8. Spostare il rate limiting su Redis quando si passa a più di un worker
+9. Le route sono `async def` ma fanno I/O sincrono (DB, Stripe, S3, OpenAI):
+   ogni chiamata lenta blocca l'event loop per tutti gli utenti

@@ -5,6 +5,12 @@ from email.message import EmailMessage
 import os
 
 def hash_md5(password: str) -> str:
+    """DEPRECATO: hashing legacy delle password.
+
+    Non usare per creare nuove credenziali. Le password si hashano con
+    `app.utils.password.hash_password` (bcrypt); questa resta solo per
+    verificare gli hash storici non ancora migrati.
+    """
     return hashlib.md5(password.encode('utf-8')).hexdigest()
 
 def gen_code6() -> str:
