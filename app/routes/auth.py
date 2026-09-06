@@ -165,6 +165,19 @@ async def api_login(
                     {"error": "Email o password non corretti"},
                     status_code=401
                 )
+
+            # L'email deve essere confermata: il form /login lo controllava gia',
+            # questo endpoint no, quindi la verifica via codice era aggirabile
+            # semplicemente usando il login AJAX.
+            if user.confirmed != 1:
+                return JSONResponse(
+                    {
+                        "error": "Conferma prima la tua email",
+                        "requires_verification": True,
+                        "email": user.email,
+                    },
+                    status_code=403
+                )
             
             # âœ… Genera token JWT
             JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
@@ -182,7 +195,7 @@ async def api_login(
             request.session["user_nome"] = user.nome
             
             logger.info(f"âœ… User logged in: {user.nome} ({user.email})")
-            logger.info(f"ðŸ”‘ Session data: {request.session}")  # Debug
+            logger.debug("Sessione inizializzata per user %s", user.id)
             
             return JSONResponse({
                 "success": True,
@@ -262,7 +275,7 @@ async def api_register(
             if not email_sent:
                 logger.warning(f"âš ï¸ User registered but email failed: {email}")
             
-            logger.info(f"âœ… New user registered: {email} (ID: {new_user.id}) - Code: {code}")
+            logger.info(f"âœ… New user registered: {email} (ID: {new_user.id}) - codice inviato via email")
             
             return JSONResponse({
                 "message": "Registrazione completata! Controlla la tua email per il codice di verifica.",
@@ -434,7 +447,7 @@ async def request_password_reset(
             # Invia email con codice
             send_reset_password_email(email, user.nome or "Utente", reset_code)
             
-            logger.info(f"ðŸ” Reset password requested for: {email} - Code: {reset_code}")
+            logger.info(f"ðŸ” Reset password requested for: {email} - codice inviato via email")
             
             return JSONResponse({
                 "success": True,
@@ -719,7 +732,7 @@ async def api_register(
             if not email_sent:
                 logger.warning(f"âš ï¸ User registered but email failed: {email}")
             
-            logger.info(f"âœ… New user registered: {email} (ID: {new_user.id}) - Code: {code}")
+            logger.info(f"âœ… New user registered: {email} (ID: {new_user.id}) - codice inviato via email")
             
             return JSONResponse({
                 "message": "Registrazione completata! Controlla la tua email per il codice di verifica.",
@@ -891,7 +904,7 @@ async def request_password_reset(
             # Invia email con codice
             send_reset_password_email(email, user.nome or "Utente", reset_code)
             
-            logger.info(f"ðŸ” Reset password requested for: {email} - Code: {reset_code}")
+            logger.info(f"ðŸ” Reset password requested for: {email} - codice inviato via email")
             
             return JSONResponse({
                 "success": True,

@@ -2,12 +2,17 @@
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 from app.logger_config import logger
-import random
+import secrets
 import string
 
 def generate_verification_code() -> str:
-    """Genera codice di verifica a 6 cifre"""
-    return ''.join(random.choices(string.digits, k=6))
+    """Genera codice di verifica a 6 cifre.
+
+    Usa `secrets` e non `random`: questi codici valgono come credenziale per
+    confermare l'email e per il reset password, quindi non devono essere
+    prevedibili a partire da altri codici osservati.
+    """
+    return ''.join(secrets.choice(string.digits) for _ in range(6))
 
 def send_verification_email(to_email: str, code: str, nome: str = "User") -> bool:
     """Invia email di verifica tramite SendGrid API HTTP"""

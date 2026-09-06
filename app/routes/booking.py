@@ -37,6 +37,63 @@ def get_booking_lock(booking_id: int) -> asyncio.Lock:
         _booking_locks[booking_id] = asyncio.Lock()
     return _booking_locks[booking_id]
 
+
+# Presenza "in questo momento" nella call: booking_id -> set di user_id.
+# Va tenuta separata da booking.client_joined_at / consultant_joined_at, che
+# sono il registro di PRESENZA STORICA usato dal job no-show per decidere
+# rimborsi. Azzerare i joined_at all'uscita faceva risultare "nessuno si è
+# presentato" una consulenza regolarmente svolta, con rimborso automatico.
+# È stato in memoria come _screen_share_state: dopo un riavvio si perde, ma
+# i recording orfani sono comunque chiusi dal job stop_orphan_recordings.
+_call_presence: Dict[int, set] = {}
+
+
+def mark_present(booking_id: int, user_id: int) -> None:
+    _call_presence.setdefault(booking_id, set()).add(user_id)
+
+
+def mark_absent(booking_id: int, user_id: int) -> set:
+    """Rimuove l'utente dalla call e ritorna chi resta."""
+    present = _call_presence.get(booking_id)
+    if present is None:
+        return set()
+    present.discard(user_id)
+    if not present:
+        _call_presence.pop(booking_id, None)
+        return set()
+    return present
+
+def now_italy_naive() -> datetime:
+    """Ora corrente italiana come datetime naive.
+
+    Gli orari delle prenotazioni (booking_date + start_time/end_time) sono ora
+    locale italiana senza timezone: confrontarli con datetime.utcnow() sbaglia
+    di 1-2 ore a seconda dell'ora legale, e faceva passare per "4 ore prima"
+    quello che in realtà erano 2.
+    """
+    return datetime.now(ITALY_TZ).replace(tzinfo=None)
+
+
+def booking_start_datetime(booking: Booking) -> datetime:
+    """Combina booking_date e start_time in un datetime naive (ora italiana)."""
+    booking_date = booking.booking_date
+    if isinstance(booking_date, str):
+        booking_date = datetime.strptime(booking_date, "%Y-%m-%d")
+    if isinstance(booking_date, datetime):
+        booking_date = booking_date.date()
+
+    start_time_obj = booking.start_time
+    if isinstance(start_time_obj, str):
+        start_time_obj = datetime.strptime(start_time_obj, "%H:%M").time()
+
+    return datetime.combine(booking_date, start_time_obj)
+
+
+def hours_until_booking(booking: Booking) -> float:
+    """Ore mancanti all'inizio della consulenza (negative se già iniziata)."""
+    return (booking_start_datetime(booking) - now_italy_naive()).total_seconds() / 3600
+
+
 def parse_time_to_minutes(time_input: Union[str, time]) -> int:
     """Converte una stringa HH:MM o un oggetto time in minuti dalla mezzanotte"""
     if isinstance(time_input, time):
@@ -430,11 +487,10 @@ async def create_booking(
         
         # ✅ Validazione: prenotazione almeno 4 ore nel futuro
         if not DEBUG_MODE:
-            # Combina data + ora di inizio
+            # Combina data + ora di inizio (entrambi in ora italiana)
             booking_datetime = datetime.strptime(f"{booking_date_str} {start_time}", '%Y-%m-%d %H:%M')
-            now = datetime.utcnow()
-            time_until_booking = (booking_datetime - now).total_seconds() / 3600  # in ore
-            
+            time_until_booking = (booking_datetime - now_italy_naive()).total_seconds() / 3600  # in ore
+
             if time_until_booking < 4:
                 raise HTTPException(status_code=400, detail="La consulenza deve essere prenotata almeno 4 ore nel futuro")
         
@@ -494,6 +550,7 @@ async def create_booking(
                     'client_notes': client_notes,
                     'description': description,
                     'community_question_id': str(community_question_id) if community_question_id else '',
+                    'price': f"{float(price):.2f}",  # prezzo totale, non la tariffa oraria
                     'recording_requested': str(recording_requested).lower()  # 👈 Valore inviato a Stripe
                 },
             )
@@ -757,119 +814,122 @@ async def get_booking_history(request: Request):
 @router.post("/api/booking/{booking_id}/join")
 async def join_booking(booking_id: int, request: Request):
     """Segna che l'utente ha cliccato 'Partecipa' per un appuntamento"""
-    # Acquisisci il lock per questo booking per evitare race condition
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+
+    # Il lock deve coprire TUTTA la sezione critica (lettura stato + avvio
+    # registrazione): prima racchiudeva solo get_current_user, quindi due join
+    # simultanei potevano entrambi far partire una registrazione.
     lock = get_booking_lock(booking_id)
     async with lock:
-        current_user = get_current_user(request)
-        if not current_user:
-            raise HTTPException(status_code=401, detail="Non autenticato")
-    
-    with Session(engine) as session:
-        booking = session.get(Booking, booking_id)
-        if not booking:
-            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
-        
-        # Verifica che l'utente sia parte della prenotazione
-        if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
-            raise HTTPException(status_code=403, detail="Non autorizzato")
-        
-        # Determina il ruolo e salva il timestamp
-        is_client = booking.client_user_id == current_user.id
-        now = datetime.now()
-        
-        if is_client:
-            if booking.client_joined_at is None:  # Solo se non ha già joinato
-                booking.client_joined_at = now
-        else:
-            if booking.consultant_joined_at is None:  # Solo se non ha già joinato
-                booking.consultant_joined_at = now
-        
-        booking.updated_at = now
-        session.add(booking)
-        session.commit()
-        session.refresh(booking)
-        
-        # Controlla se entrambi hanno joinato
-        client_joined = booking.client_joined_at is not None
-        consultant_joined = booking.consultant_joined_at is not None
-        
-        logger.info(f"🔍 Join check for booking {booking_id}: client_joined={client_joined}, consultant_joined={consultant_joined}, recording_status={booking.recording_status}")
+        with Session(engine) as session:
+            booking = session.get(Booking, booking_id)
+            if not booking:
+                raise HTTPException(status_code=404, detail="Prenotazione non trovata")
 
-        if booking.recording_status == "failed" and (client_joined or consultant_joined):
-            logger.warning(
-                f"♻️ Previous recording attempt failed for booking {booking_id}; resetting state to allow retry"
-            )
-            booking.recording_status = "not_started"
-            booking.recording_sid = None
-            booking.recording_resource_id = None
-            booking.recording_started_at = None
-            booking.recording_filename = None
+            # Verifica che l'utente sia parte della prenotazione
+            if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+                raise HTTPException(status_code=403, detail="Non autorizzato")
+
+            # Determina il ruolo e salva il timestamp
+            is_client = booking.client_user_id == current_user.id
+            now = now_italy_naive()
+            mark_present(booking_id, current_user.id)
+
+            if is_client:
+                if booking.client_joined_at is None:  # Solo se non ha già joinato
+                    booking.client_joined_at = now
+            else:
+                if booking.consultant_joined_at is None:  # Solo se non ha già joinato
+                    booking.consultant_joined_at = now
+
             booking.updated_at = now
             session.add(booking)
             session.commit()
             session.refresh(booking)
-            logger.info(f"✅ Recording state reset for booking {booking_id}; new attempt permitted")
-        
-        # 🎥 NUOVO: Avvia registrazione automatica se almeno uno ha joinato
-        # Se lo status è "completed" significa che gli utenti hanno riiniziato dopo aver chiuso
-        # → riavvia una nuova registrazione con un nuovo session counter
-        # ⚠️ Non registrare se il cliente non ha richiesto la registrazione
-        should_start_recording = booking.recording_requested and (client_joined or consultant_joined) and booking.recording_status not in ("recording", "failed")
-        
-        if not booking.recording_requested:
-            logger.info(f"ℹ️ Recording NOT requested for booking {booking_id} - skipping recording")
-        
-        # Se la registrazione era completata e qualcuno rejoin → incrementa session counter
-        if booking.recording_requested and booking.recording_status == "completed" and (client_joined or consultant_joined):
-            logger.info(f"🔄 User rejoined after previous recording completed - starting new session")
-            booking.recording_session_count = (booking.recording_session_count or 0) + 1
-            booking.recording_status = None  # Reset status per far ripartire la registrazione
-            session.add(booking)
-            session.commit()
-            session.refresh(booking)
-        
-        logger.info(f"🎥 Should start recording? {should_start_recording} (status={booking.recording_status})")
-        
-        if should_start_recording:
-            try:
-                logger.info(f"🎯 [join_booking] Attempting to prepare recording...")
-                from app.utils.agora_token import generate_agora_token, ROLE_PUBLISHER
-                
-                recorder_uid = 0  # uid=0 per permettere a qualsiasi uid di registrare
-                channel_name = f"booking_{booking_id}"
-                
-                logger.info(f"🔧 Generating token for recorder (uid={recorder_uid}, channel={channel_name})...")
-                # Genera token per il recorder
-                recorder_token = generate_agora_token(channel_name, recorder_uid, ROLE_PUBLISHER, 7200)
-                logger.info(f"✓ Token generated successfully")
-                
-                # Salva token per quando il frontend è pronto
-                booking.recording_status = "ready"
+
+            # Controlla se entrambi hanno joinato
+            client_joined = booking.client_joined_at is not None
+            consultant_joined = booking.consultant_joined_at is not None
+
+            logger.info(f"🔍 Join check for booking {booking_id}: client_joined={client_joined}, consultant_joined={consultant_joined}, recording_status={booking.recording_status}")
+
+            if booking.recording_status == "failed" and (client_joined or consultant_joined):
+                logger.warning(
+                    f"♻️ Previous recording attempt failed for booking {booking_id}; resetting state to allow retry"
+                )
+                booking.recording_status = "not_started"
+                booking.recording_sid = None
+                booking.recording_resource_id = None
+                booking.recording_started_at = None
+                booking.recording_filename = None
                 booking.updated_at = now
                 session.add(booking)
                 session.commit()
                 session.refresh(booking)
-                
-                logger.info(f"✅ Recording prepared for booking {booking_id} - waiting for frontend signal")
-            except Exception as e:
-                logger.error(f"❌ Error preparing recording for booking {booking_id}: {e}", exc_info=True)
-                logger.error(f"❌ Exception type: {type(e).__name__}, Message: {str(e)}")
-                # Continua anche se la registrazione fallisce
-        else:
-            if not (client_joined or consultant_joined):
-                logger.info(f"ℹ️ Skipping recording start: neither client nor consultant have joined yet")
-            elif booking.recording_status == "recording":
-                logger.info(f"ℹ️ Skipping recording start: already recording")
-            elif booking.recording_status == "failed":
-                logger.info(f"ℹ️ Skipping recording start: previous recording failed")
-        
-        return {
-            "success": True,
-            "has_joined": True,
-            "other_joined": consultant_joined if is_client else client_joined,
-            "can_start_call": client_joined and consultant_joined,
-            "recording_status": booking.recording_status
-        }
+                logger.info(f"✅ Recording state reset for booking {booking_id}; new attempt permitted")
+
+            # 🎥 NUOVO: Avvia registrazione automatica se almeno uno ha joinato
+            # Se lo status è "completed" significa che gli utenti hanno riiniziato dopo aver chiuso
+            # → riavvia una nuova registrazione con un nuovo session counter
+            # ⚠️ Non registrare se il cliente non ha richiesto la registrazione
+            should_start_recording = booking.recording_requested and (client_joined or consultant_joined) and booking.recording_status not in ("recording", "failed")
+
+            if not booking.recording_requested:
+                logger.info(f"ℹ️ Recording NOT requested for booking {booking_id} - skipping recording")
+
+            # Se la registrazione era completata e qualcuno rejoin → incrementa session counter
+            if booking.recording_requested and booking.recording_status == "completed" and (client_joined or consultant_joined):
+                logger.info(f"🔄 User rejoined after previous recording completed - starting new session")
+                booking.recording_session_count = (booking.recording_session_count or 0) + 1
+                booking.recording_status = None  # Reset status per far ripartire la registrazione
+                session.add(booking)
+                session.commit()
+                session.refresh(booking)
+
+            logger.info(f"🎥 Should start recording? {should_start_recording} (status={booking.recording_status})")
+
+            if should_start_recording:
+                try:
+                    logger.info(f"🎯 [join_booking] Attempting to prepare recording...")
+                    from app.utils.agora_token import generate_agora_token, ROLE_PUBLISHER
+
+                    recorder_uid = 0  # uid=0 per permettere a qualsiasi uid di registrare
+                    channel_name = f"booking_{booking_id}"
+
+                    logger.info(f"🔧 Generating token for recorder (uid={recorder_uid}, channel={channel_name})...")
+                    # Genera token per il recorder
+                    recorder_token = generate_agora_token(channel_name, recorder_uid, ROLE_PUBLISHER, 7200)
+                    logger.info(f"✓ Token generated successfully")
+
+                    # Salva token per quando il frontend è pronto
+                    booking.recording_status = "ready"
+                    booking.updated_at = now
+                    session.add(booking)
+                    session.commit()
+                    session.refresh(booking)
+
+                    logger.info(f"✅ Recording prepared for booking {booking_id} - waiting for frontend signal")
+                except Exception as e:
+                    logger.error(f"❌ Error preparing recording for booking {booking_id}: {e}", exc_info=True)
+                    logger.error(f"❌ Exception type: {type(e).__name__}, Message: {str(e)}")
+                    # Continua anche se la registrazione fallisce
+            else:
+                if not (client_joined or consultant_joined):
+                    logger.info(f"ℹ️ Skipping recording start: neither client nor consultant have joined yet")
+                elif booking.recording_status == "recording":
+                    logger.info(f"ℹ️ Skipping recording start: already recording")
+                elif booking.recording_status == "failed":
+                    logger.info(f"ℹ️ Skipping recording start: previous recording failed")
+
+            return {
+                "success": True,
+                "has_joined": True,
+                "other_joined": consultant_joined if is_client else client_joined,
+                "can_start_call": client_joined and consultant_joined,
+                "recording_status": booking.recording_status
+            }
 
 @router.get("/api/booking/{booking_id}/agora-token")
 async def get_agora_token(booking_id: int, request: Request):
@@ -1026,9 +1086,22 @@ async def cancel_booking(
             raise HTTPException(status_code=403, detail="Non autorizzato")
         
         # Non si può cancellare una prenotazione già completata
-        if booking.status in ['completed', 'cancelled']:
+        if booking.status in ['completed', 'cancelled', 'no_show']:
             raise HTTPException(status_code=400, detail="Non puoi cancellare questa prenotazione")
-        
+
+        # ⛔ Finestra di cancellazione: fino a 4 ore prima dell'inizio, come per
+        # il rifiuto del consulente. Senza questo controllo il cliente poteva
+        # cancellare (e farsi rimborsare per intero) anche a consulenza avvenuta,
+        # nei 15 minuti prima che il job no-show la marcasse come completed.
+        if not DEBUG_MODE:
+            hours_left = hours_until_booking(booking)
+            if hours_left < 4:
+                if hours_left < 0:
+                    detail = "La consulenza è già iniziata: non può più essere annullata. Se c'è stato un problema, apri una contestazione."
+                else:
+                    detail = "Puoi annullare la consulenza solo fino a 4 ore prima dell'inizio."
+                raise HTTPException(status_code=400, detail=detail)
+
         # Aggiorna lo stato
         booking.status = 'cancelled'
         booking.cancelled_by = current_user.id
@@ -1389,19 +1462,7 @@ async def refuse_booking(booking_id: int, request: Request):
             raise HTTPException(status_code=400, detail="Non puoi rifiutare una prenotazione in questo stato")
         
         # ✅ Validazione: annullamento max 4 ore prima dell'inizio
-        # Converti booking_date e start_time nei tipi corretti
-        if isinstance(booking.booking_date, str):
-            booking_date = datetime.strptime(booking.booking_date, "%Y-%m-%d").date()
-        elif isinstance(booking.booking_date, datetime):
-            booking_date = booking.booking_date.date()
-        else:
-            booking_date = booking.booking_date
-        start_time_obj = datetime.strptime(booking.start_time, "%H:%M").time() if isinstance(booking.start_time, str) else booking.start_time
-        booking_datetime = datetime.combine(booking_date, start_time_obj)
-        now = datetime.utcnow()
-        time_until_booking = (booking_datetime - now).total_seconds() / 3600  # in ore
-        
-        if time_until_booking < 4:
+        if hours_until_booking(booking) < 4:
             raise HTTPException(status_code=400, detail="Puoi annullare la consulenza solo fino a 4 ore prima dell'inizio")
         
         # ✅ 1. Cambia lo stato
@@ -2108,22 +2169,22 @@ async def leave_booking(booking_id: int, request: Request, background_tasks: Bac
         
         # Segna l'uscita dell'utente
         is_client = booking.client_user_id == current_user.id
-        now = datetime.now()
-        
+        now = now_italy_naive()
+
         print(f"🔔 [LEAVE] Booking found: {booking_id}, is_client={is_client}, recording_status={booking.recording_status}")
         logger.info(f"👋 User leaving booking {booking_id} (is_client={is_client})")
-        
-        if is_client:
-            booking.client_joined_at = None
-        else:
-            booking.consultant_joined_at = None
-        
+
+        # NB: client_joined_at / consultant_joined_at NON vanno azzerati: sono la
+        # prova che la consulenza si è svolta, e il job no-show ci si basa per
+        # decidere se rimborsare. La presenza istantanea è tracciata a parte.
+        still_present = mark_absent(booking_id, current_user.id)
+
         booking.updated_at = now
-        
+
         # Controlla se rimane qualcuno in call
-        client_still_in = booking.client_joined_at is not None
-        consultant_still_in = booking.consultant_joined_at is not None
-        anyone_in_call = client_still_in or consultant_still_in
+        client_still_in = booking.client_user_id in still_present
+        consultant_still_in = booking.consultant_user_id in still_present
+        anyone_in_call = bool(still_present)
         
         print(f"🔔 [LEAVE] After update - client_still_in={client_still_in}, consultant_still_in={consultant_still_in}, anyone_in_call={anyone_in_call}")
         

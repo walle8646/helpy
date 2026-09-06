@@ -1071,6 +1071,8 @@ async def get_question_followers(request: Request, question_id: int):
                 .order_by(CommunityQuestionFollow.created_at.desc())
             ).all()
             
+            from app.utils_user import get_display_name
+
             followers_data = []
             for follower in followers:
                 # Determina avatar di default in base al genere
@@ -1080,14 +1082,23 @@ async def get_question_followers(request: Request, question_id: int):
                     default_pic = "/static/avatar-female.svg"
                 else:
                     default_pic = "/static/avatar-default.svg"
-                
+
+                # L'email NON va esposta: questa lista è visibile a qualunque
+                # consulente verificato, su qualunque domanda. E il nome deve
+                # passare da get_display_name, altrimenti la modalità anonima
+                # viene aggirata proprio qui.
                 followers_data.append({
                     "id": follower.id,
-                    "nome": follower.nome or "",
-                    "cognome": follower.cognome or "",
-                    "email": follower.email,
-                    "profile_picture": follower.profile_picture or default_pic,
-                    "professione": follower.professione or "Utente"
+                    "nome": get_display_name(follower),
+                    "cognome": "",
+                    "profile_picture": (
+                        default_pic if follower.is_anonymous
+                        else (follower.profile_picture or default_pic)
+                    ),
+                    "professione": (
+                        "Utente" if follower.is_anonymous
+                        else (follower.professione or "Utente")
+                    ),
                 })
             
             return JSONResponse({

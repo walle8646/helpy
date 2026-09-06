@@ -132,6 +132,15 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
         str: HTML generato, None se errore
     """
     try:
+        # Alias per i nomi usati in alcune installazioni del DB: senza questa
+        # normalizzazione il template non veniva trovato e l'email di promemoria
+        # (1 ora / 10 minuti prima) non partiva affatto.
+        template_name = {
+            'booking_reminder_1h.html': 'reminder_1h.html',
+            'booking_reminder_10min.html': 'reminder_10min.html',
+            'booking_confirmation.html': 'booking_confirmed.html',
+        }.get(template_name, template_name)
+
         # Palette accenti per tipo di email (su base verde bosco del brand)
         GREEN, GREEN_D = "#43a047", "#2e7d32"
         AMBER, AMBER_D = "#f39c12", "#e67e22"

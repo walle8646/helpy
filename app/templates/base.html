@@ -1479,6 +1479,50 @@
             }
             return _origFetch.call(this, url, options);
         };
+
+        // sendBeacon NON può impostare header, quindi il token CSRF non può
+        // viaggiare in X-CSRF-Token e il middleware rispondeva 403 a tutte le
+        // beacon (uscita dalla call e stop registrazione non arrivavano mai al
+        // server). Il middleware però legge il token anche da un campo di form:
+        // mandiamo un body application/x-www-form-urlencoded con csrf_token.
+        window.sendBeaconCsrf = function(url, extraFields) {
+            if (!navigator.sendBeacon) return false;
+            const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const params = new URLSearchParams();
+            params.set('csrf_token', token);
+            if (extraFields) {
+                Object.keys(extraFields).forEach(k => params.set(k, extraFields[k]));
+            }
+            const blob = new Blob([params.toString()], {
+                type: 'application/x-www-form-urlencoded'
+            });
+            return navigator.sendBeacon(url, blob);
+        };
+    })();
+    </script>
+
+    <!-- Escaping globale per i testi inseriti via innerHTML.
+         Nome, cognome, testo dei messaggi e titoli delle domande arrivano dagli
+         utenti: interpolati grezzi in un template literal diventano XSS stored. -->
+    <script>
+    (function() {
+        const MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
+        // Per il contenuto di un elemento e per il valore di un attributo quotato.
+        window.escapeHtml = function(value) {
+            if (value === null || value === undefined) return '';
+            return String(value).replace(/[&<>"'`]/g, ch => MAP[ch]);
+        };
+        // Per un valore che finisce dentro una stringa JS (es. onclick="fn('...')").
+        window.escapeJsString = function(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/[\r\n]/g, ' ');
+        };
     })();
     </script>
 

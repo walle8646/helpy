@@ -75,25 +75,29 @@ async def handle_checkout_session_completed(checkout_session):
     session_id = checkout_session.get('id')
     payment_intent_id = checkout_session.get('payment_intent')
     metadata = checkout_session.get('metadata', {})
-    
+    # Importo realmente incassato, in centesimi: è l'unica fonte attendibile
+    # del prezzo della consulenza (la tariffa oraria del consulente non lo è,
+    # perché la durata può essere 90 o 120 minuti).
+    amount_total = checkout_session.get('amount_total')
+
     logger.info(f"📦 Processing checkout session: {session_id}")
     logger.info(f"💳 Payment intent: {payment_intent_id}")
-    
+
     # Check booking type
     booking_type = metadata.get('booking_type', 'consultation_offer')
     logger.info(f"📝 Booking type: {booking_type}")
-    
+
     if booking_type == 'direct':
         logger.info(f"🔄 Handling direct booking from metadata: {metadata}")
         # Direct booking (from booking.html)
-        await handle_direct_booking(session_id, payment_intent_id, metadata)
+        await handle_direct_booking(session_id, payment_intent_id, metadata, amount_total)
     else:
         logger.info(f"🔄 Handling consultation offer booking from metadata: {metadata}")
         # Consultation offer booking (from consultation offer)
         await handle_consultation_offer_booking(session_id, payment_intent_id, metadata)
 
 
-async def handle_direct_booking(session_id, payment_intent_id, metadata):
+async def handle_direct_booking(session_id, payment_intent_id, metadata, amount_total=None):
     """Handle direct booking payment"""
     client_user_id = int(metadata.get('client_user_id'))
     consultant_user_id = int(metadata.get('consultant_user_id'))
@@ -137,8 +141,28 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata):
             logger.error(f"Consultant {consultant_user_id} not found")
             return
         
-        price = consultant.prezzo_consulenza if consultant.prezzo_consulenza else 0
-        
+        # Prezzo della consulenza: usa l'importo davvero incassato da Stripe.
+        # Prima qui finiva la tariffa ORARIA del consulente, quindi una consulenza
+        # da 90 o 120 minuti veniva registrata a un prezzo inferiore a quello
+        # pagato — e il transfer a 48h (calcolato su booking.price) pagava meno
+        # del dovuto al consulente.
+        price = None
+        if amount_total:
+            price = round(amount_total / 100, 2)
+        elif metadata.get('price'):
+            try:
+                price = round(float(metadata['price']), 2)
+            except (TypeError, ValueError):
+                price = None
+        if price is None:
+            hourly = consultant.prezzo_consulenza or 0
+            price = round(hourly / 60 * duration_minutes, 2)
+            logger.warning(
+                f"⚠️ amount_total assente per la sessione {session_id}: "
+                f"prezzo ricalcolato da tariffa oraria = {price}"
+            )
+        logger.info(f"💶 Prezzo consulenza registrato: {price} € ({duration_minutes} min)")
+
         # Parse booking datetime
         booking_datetime = datetime.strptime(f"{booking_date_str} {start_time}", "%Y-%m-%d %H:%M")
         

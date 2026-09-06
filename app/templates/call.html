@@ -2026,7 +2026,7 @@
         try {
             // Fire-and-forget: invia stop via sendBeacon per garantire la consegna
             // anche se la pagina si chiude
-            navigator.sendBeacon(`/api/booking/${bookingId}/recording/stop`);
+            sendBeaconCsrf(`/api/booking/${bookingId}/recording/stop`);
             console.log('📹 [STOP_REC] sendBeacon inviato');
             return true;
         } catch (error) {
@@ -2853,10 +2853,7 @@
         // Notify backend (fire-and-forget via sendBeacon)
         console.log(`🔔 [LEAVE] Notifying backend that user is leaving booking ${bookingId}...`);
         try {
-            navigator.sendBeacon(
-                `/api/booking/${bookingId}/leave`,
-                new Blob([JSON.stringify({})], { type: 'application/json' })
-            );
+            sendBeaconCsrf(`/api/booking/${bookingId}/leave`);
             console.log('✅ [LEAVE] Leave beacon sent');
         } catch (e) {
             console.error('❌ [LEAVE] Error sending leave beacon:', e);
@@ -3237,10 +3234,7 @@
         
         // Notifica il backend che l'utente è uscito via /leave
         // Il /leave endpoint gestisce sia lo stato utente che lo stop recording
-        navigator.sendBeacon(
-            `/api/booking/${bookingId}/leave`,
-            new Blob([JSON.stringify({})], { type: 'application/json' })
-        );
+        sendBeaconCsrf(`/api/booking/${bookingId}/leave`);
         
         // Cleanup Agora resources (sincrono)
         if (timerInterval) {

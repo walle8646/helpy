@@ -285,7 +285,11 @@ class Booking(SQLModel, table=True):
     
     # Recording preference - se il cliente vuole essere registrato
     recording_requested: bool = Field(default=True)  # True = registra, False = non registrare
-    
+
+    # Token del link "lascia una recensione" inviato via email. Va salvato qui
+    # alla generazione: è l'unica cosa che autorizza a recensire senza login.
+    review_token: Optional[str] = Field(default=None, index=True)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

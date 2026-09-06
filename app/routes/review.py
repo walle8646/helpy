@@ -127,14 +127,20 @@ async def send_review_email(booking_id: int, request: Request, background_tasks:
         if existing:
             return JSONResponse({"success": False, "message": "Hai già lasciato una recensione"})
 
-        # Genera token univoco per il link email
-        token = secrets.token_urlsafe(32)
+        # Genera token univoco per il link email e SALVALO sul booking:
+        # è l'unica credenziale che autorizza a recensire senza essere loggati,
+        # quindi deve essere verificabile lato server.
+        token = booking.review_token or secrets.token_urlsafe(32)
+        if not booking.review_token:
+            booking.review_token = token
+            session.add(booking)
+            session.commit()
 
         consultant = session.get(User, booking.consultant_user_id)
         consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant and consultant.nome else "il consulente"
 
         base_url = os.getenv('BASE_URL', 'http://localhost:8080')
-        review_url = f"{base_url}/review/{token}?booking_id={booking_id}"
+        review_url = f"{base_url}/review/{token}"
 
         # Dati per i task in background
         client_user_id = current_user.id
@@ -178,92 +184,75 @@ async def send_review_email(booking_id: int, request: Request, background_tasks:
     return JSONResponse({"success": True, "message": "Email inviata! Controlla la tua casella di posta."})
 
 
+def _booking_from_review_token(session, token: str) -> Optional[Booking]:
+    """Risolve il booking a partire dal solo token.
+
+    Il booking_id NON va mai preso dalla query string: è il token, salvato sul
+    booking al momento dell'invio dell'email, l'unica cosa che autorizza a
+    recensire senza login.
+    """
+    if not token or len(token) < 20:
+        return None
+    return session.exec(
+        select(Booking).where(Booking.review_token == token)
+    ).first()
+
+
 @router.get("/review/{token}", response_class=HTMLResponse)
-async def review_page(token: str, request: Request, booking_id: Optional[int] = None):
+async def review_page(token: str, request: Request):
     """Pagina standalone per lasciare una recensione via link email"""
+    def _render(**ctx):
+        base = {
+            "request": request,
+            "error": None,
+            "already_reviewed": False,
+            "booking": None,
+            "consultant": None,
+            "token": token,
+        }
+        base.update(ctx)
+        return request.app.state.templates.TemplateResponse("review.html", base)
+
     with Session(engine) as session:
-        # Cerca se esiste già una review con questo token (completata)
+        # Recensione già inviata con questo token
         existing_review = session.exec(
             select(Review).where(Review.review_token == token)
         ).first()
         if existing_review:
-            return request.app.state.templates.TemplateResponse("review.html", {
-                "request": request,
-                "already_reviewed": True,
-                "error": None,
-                "booking": None,
-                "consultant": None,
-                "token": token,
-            })
+            return _render(already_reviewed=True)
 
-        # Cerchiamo il booking dal parametro
-        if not booking_id:
-            return request.app.state.templates.TemplateResponse("review.html", {
-                "request": request,
-                "error": "Link non valido",
-                "already_reviewed": False,
-                "booking": None,
-                "consultant": None,
-                "token": token,
-            })
-
-        booking = session.get(Booking, booking_id)
+        booking = _booking_from_review_token(session, token)
         if not booking:
-            return request.app.state.templates.TemplateResponse("review.html", {
-                "request": request,
-                "error": "Prenotazione non trovata",
-                "already_reviewed": False,
-                "booking": None,
-                "consultant": None,
-                "token": token,
-            })
+            return _render(error="Link non valido o scaduto")
 
-        # Controlla se esiste già una review per questo booking
+        # Recensione già presente per questa consulenza (es. lasciata dal profilo)
         existing_by_booking = session.exec(
-            select(Review).where(Review.booking_id == booking_id)
+            select(Review).where(Review.booking_id == booking.id)
         ).first()
         if existing_by_booking:
-            return request.app.state.templates.TemplateResponse("review.html", {
-                "request": request,
-                "already_reviewed": True,
-                "error": None,
-                "booking": None,
-                "consultant": None,
-                "token": token,
-            })
+            return _render(already_reviewed=True)
 
         consultant = session.get(User, booking.consultant_user_id)
-
-        return request.app.state.templates.TemplateResponse("review.html", {
-            "request": request,
-            "booking": booking,
-            "consultant": consultant,
-            "token": token,
-            "error": None,
-            "already_reviewed": False,
-        })
+        return _render(booking=booking, consultant=consultant)
 
 
 @router.post("/api/review/{token}/submit")
-async def submit_review_by_token(token: str, review_data: ReviewRequest, booking_id: Optional[int] = None):
+async def submit_review_by_token(token: str, review_data: ReviewRequest):
     """Invia una recensione tramite token (da link email)"""
     with Session(engine) as session:
-        if not booking_id:
-            raise HTTPException(status_code=400, detail="booking_id richiesto")
-
-        booking = session.get(Booking, booking_id)
+        booking = _booking_from_review_token(session, token)
         if not booking:
-            raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+            raise HTTPException(status_code=404, detail="Link non valido o scaduto")
 
         # Controlla se esiste già una recensione
         existing = session.exec(
-            select(Review).where(Review.booking_id == booking_id)
+            select(Review).where(Review.booking_id == booking.id)
         ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Recensione già presente per questa consulenza")
 
         review = Review(
-            booking_id=booking_id,
+            booking_id=booking.id,
             reviewer_user_id=booking.client_user_id,
             consultant_user_id=booking.consultant_user_id,
             rating_helpful=review_data.rating_helpful,
@@ -273,7 +262,11 @@ async def submit_review_by_token(token: str, review_data: ReviewRequest, booking
             review_token=token,
         )
         session.add(review)
+
+        # Il token è monouso: bruciato dopo l'invio
+        booking.review_token = None
+        session.add(booking)
         session.commit()
 
-        logger.info(f"⭐ Review via token creata per booking {booking_id}")
+        logger.info(f"⭐ Review via token creata per booking {booking.id}")
         return JSONResponse({"success": True, "message": "Recensione inviata con successo! Grazie!"})

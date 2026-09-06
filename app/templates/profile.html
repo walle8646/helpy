@@ -1731,7 +1731,7 @@
     function createAppointmentCard(booking) {
         const otherUser = booking.other_user;
         const avatarHTML = otherUser.picture 
-            ? `<img src="${otherUser.picture}" alt="${otherUser.name}" class="appointment-avatar">`
+            ? `<img src="${escapeHtml(otherUser.picture)}" alt="${escapeHtml(otherUser.name)}" class="appointment-avatar">`
             : `<div class="appointment-avatar-placeholder">👤</div>`;
         
         let date;
@@ -1765,7 +1765,7 @@
         // Bottone Rifiuta
         let refuseButtonHTML = '';
         if (booking.role === 'consultant' && booking.status && booking.status !== 'completed' && booking.status !== 'cancelled' && booking.status !== 'no_show' && timeUntilMinutes > -10 && timeUntilMinutes >= 240) {
-            refuseButtonHTML = `<button class="btn-refuse" onclick="openRefuseModal(${booking.id}, '${otherUser.name}')"><i class="fas fa-times-circle"></i> Rifiuta</button>`;
+            refuseButtonHTML = `<button class="btn-refuse" onclick="openRefuseModal(${booking.id}, '${escapeJsString(otherUser.name)}')"><i class="fas fa-times-circle"></i> Rifiuta</button>`;
         }
         
         if (timeUntilMinutes > 10) {
@@ -1781,7 +1781,7 @@
                 actionsHTML = `<button class="btn-join" disabled><i class="fas fa-check"></i> Pronto</button>`;
             } else {
                 actionsHTML = `<button class="btn-join" onclick="joinAppointment(${booking.id})" id="join-btn-${booking.id}"><i class="fas fa-sign-in-alt"></i> Partecipa</button>`;
-                if (booking.other_joined) statusHTML = `<div class="waiting-indicator"><i class="fas fa-user-check"></i> ${otherUser.name} è pronto</div>`;
+                if (booking.other_joined) statusHTML = `<div class="waiting-indicator"><i class="fas fa-user-check"></i> ${escapeHtml(otherUser.name)} è pronto</div>`;
             }
         } else if (timeUntilEndMinutes < 0) {
             if (booking.has_joined && !booking.other_joined) {
@@ -1795,8 +1795,8 @@
         }
         
         const nameHTML = otherUser.id 
-            ? `<a href="/user/${otherUser.id}" style="color:inherit;text-decoration:none;">${otherUser.name}</a>`
-            : otherUser.name;
+            ? `<a href="/user/${otherUser.id}" style="color:inherit;text-decoration:none;">${escapeHtml(otherUser.name)}</a>`
+            : escapeHtml(otherUser.name);
         
         return `
             <div class="appointment-card" id="appointment-${booking.id}">
@@ -1908,8 +1908,8 @@
                     : `<div style="width:32px;height:32px;border-radius:50%;background:#d4edda;display:flex;align-items:center;justify-content:center;font-size:0.85rem;">👤</div>`;
                 
                 const nameLink = otherUser.id
-                    ? `<a href="/user/${otherUser.id}" style="color:#1a202c;text-decoration:none;font-weight:600;">${otherUser.name}</a>`
-                    : `<span style="font-weight:600;">${otherUser.name}</span>`;
+                    ? `<a href="/user/${otherUser.id}" style="color:#1a202c;text-decoration:none;font-weight:600;">${escapeHtml(otherUser.name)}</a>`
+                    : `<span style="font-weight:600;">${escapeHtml(otherUser.name)}</span>`;
 
                 const statusMap = {
                     'completed': '<span style="color:#2e7d32;font-size:0.8rem;"><i class="fas fa-check-circle"></i> Completata</span>',
@@ -2331,7 +2331,7 @@
                 </div>
                 <h2 style="margin:0 0 8px 0;font-size:1.3rem;color:#1a202c;" id="q-detail-title">${escapeHtml(q.title)}</h2>
                 <div style="font-size:0.85rem;color:#888;margin-bottom:16px;">
-                    ${q.author ? `<a href="/user/${q.author.id}" style="color:#2e7d32;text-decoration:none;font-weight:500;">${q.author.name}</a> · ` : ''}
+                    ${q.author ? `<a href="/user/${q.author.id}" style="color:#2e7d32;text-decoration:none;font-weight:500;">${escapeHtml(q.author.name)}</a> · ` : ''}
                     ${q.created_at}
                 </div>
                 <div style="color:#333;line-height:1.6;white-space:pre-wrap;font-size:0.95rem;" id="q-detail-desc">${escapeHtml(q.description)}</div>
@@ -2685,17 +2685,17 @@
         return `
             <div class="liked-question-card" ${clickable ? `onclick="openQuestionDetail(${q.id})"` : ''} style="cursor:pointer;">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-                    <span class="q-cat-badge">${q.category_icon || '💬'} ${q.category_name || 'Generale'}</span>
+                    <span class="q-cat-badge">${escapeHtml(q.category_icon || '💬')} ${escapeHtml(q.category_name || 'Generale')}</span>
                     ${editBadge}
                 </div>
-                <h3 class="question-title">${q.title}</h3>
-                <p class="question-description">${q.description}</p>
+                <h3 class="question-title">${escapeHtml(q.title)}</h3>
+                <p class="question-description">${escapeHtml(q.description)}</p>
                 <div class="question-footer">
                     <span class="meta-item">👍 ${q.upvotes}</span>
                     <span class="meta-item">👁 ${q.views}</span>
                     <span class="meta-item">📅 ${q.created_at}</span>
                 </div>
-                ${q.author_name ? `<div class="q-author">da <strong>${q.author_name}</strong></div>` : ''}
+                ${q.author_name ? `<div class="q-author">da <strong>${escapeHtml(q.author_name)}</strong></div>` : ''}
             </div>
         `;
     }
@@ -2706,12 +2706,12 @@
         const priceLabel = c.prezzo_consulenza ? `€${c.prezzo_consulenza}/h` : '';
         return `
             <a href="/user/${c.id}" class="fav-consultant-card">
-                <img src="${avatarSrc}" alt="${c.nome}"
+                <img src="${escapeHtml(avatarSrc)}" alt="${escapeHtml(c.nome)}"
                      onerror="this.onerror=null; this.src='/static/avatar-default.svg'">
                 <div class="fav-card-info">
-                    <span class="fav-card-name">${c.nome} ${c.cognome || ''}</span>
-                    <span class="fav-card-role">${c.professione || ''}</span>
-                    ${catLabel ? `<span class="fav-card-cat">${catLabel}</span>` : ''}
+                    <span class="fav-card-name">${escapeHtml(`${c.nome || ''} ${c.cognome || ''}`)}</span>
+                    <span class="fav-card-role">${escapeHtml(c.professione || '')}</span>
+                    ${catLabel ? `<span class="fav-card-cat">${escapeHtml(catLabel)}</span>` : ''}
                     ${priceLabel ? `<span class="fav-card-price">${priceLabel}</span>` : ''}
                 </div>
             </a>
@@ -3013,10 +3013,14 @@
         return `hsl(${Math.abs(hash) % 360}, 70%, 60%)`;
     }
 
+    // NB: questa dichiarazione ombreggia window.escapeHtml di base.html, quindi
+    // deve essere altrettanto forte. La versione textContent/innerHTML che c'era
+    // qui non escapava apici e virgolette e non proteggeva i contesti attributo
+    // (title="...", alt="...", onclick="fn('...')") usati nelle card qui sotto.
     function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
+        if (text === null || text === undefined) return '';
+        return String(text).replace(/[&<>"'`]/g, ch => map[ch]);
     }
 
     // ========== BADGE NOTIFICHE ==========

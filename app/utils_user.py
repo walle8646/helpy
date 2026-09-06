@@ -1,5 +1,5 @@
 ﻿import hashlib
-import random
+import secrets
 import smtplib
 from email.message import EmailMessage
 import os
@@ -8,7 +8,8 @@ def hash_md5(password: str) -> str:
     return hashlib.md5(password.encode('utf-8')).hexdigest()
 
 def gen_code6() -> str:
-    return f"{random.randint(0, 999999):06d}"
+    """Codice a 6 cifre imprevedibile (vale come credenziale: mai `random`)."""
+    return f"{secrets.randbelow(1000000):06d}"
 
 def has_payment_method(user) -> bool:
     """Controlla se un consulente ha almeno un metodo di pagamento configurato (Stripe o PayPal)."""

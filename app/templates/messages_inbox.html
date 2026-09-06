@@ -154,18 +154,24 @@
 
                         const defaultAvatar = conv.other_user.genere === 'M' ? '/static/avatar-male.svg' : conv.other_user.genere === 'F' ? '/static/avatar-female.svg' : '/static/avatar-default.svg';
 
+                        // Nome e anteprima arrivano dagli utenti: vanno sempre
+                        // passati da escapeHtml/escapeJsString prima di finire
+                        // in innerHTML o dentro un attributo onclick.
+                        const fullName = `${conv.other_user.nome || ''} ${conv.other_user.cognome || ''}`.trim();
+                        const avatarUrl = conv.other_user.profile_picture || defaultAvatar;
+
                         return `
-                            <div class="conversation-item" onclick="openChat(${conv.other_user.id}, '${conv.other_user.nome} ${conv.other_user.cognome || ''}', '${conv.other_user.profile_picture || defaultAvatar}')" style="cursor: pointer;">
+                            <div class="conversation-item" onclick="openChat(${conv.other_user.id}, '${escapeJsString(fullName)}', '${escapeJsString(avatarUrl)}')" style="cursor: pointer;">
                                 <div class="conversation-avatar">
-                                    <img src="${conv.other_user.profile_picture || defaultAvatar}" 
-                                         alt="${conv.other_user.nome}"
-                                         onerror="this.src='${defaultAvatar}'">
+                                    <img src="${escapeHtml(avatarUrl)}" 
+                                         alt="${escapeHtml(conv.other_user.nome)}"
+                                         onerror="this.src='${escapeJsString(defaultAvatar)}'">
                                 </div>
                                 <div class="conversation-info">
                                     <div class="conversation-name">
-                                        ${conv.other_user.nome} ${conv.other_user.cognome || ''}
+                                        ${escapeHtml(fullName)}
                                     </div>
-                                    <div class="conversation-preview">${preview}</div>
+                                    <div class="conversation-preview">${escapeHtml(preview)}</div>
                                 </div>
                                 <div class="conversation-meta">
                                     <div class="conversation-time">${time}</div>

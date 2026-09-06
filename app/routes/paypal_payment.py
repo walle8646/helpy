@@ -87,7 +87,10 @@ async def create_booking_paypal(request: Request):
         
         if not DEBUG_MODE:
             booking_datetime = datetime.strptime(f"{booking_date_str} {start_time}", '%Y-%m-%d %H:%M')
-            time_until = (booking_datetime - datetime.utcnow()).total_seconds() / 3600
+            # Gli orari di prenotazione sono ora italiana: confrontarli con utcnow()
+            # rendeva il vincolo di 4 ore un vincolo di 2 ore in ora legale.
+            now_italy = datetime.now(ITALY_TZ).replace(tzinfo=None)
+            time_until = (booking_datetime - now_italy).total_seconds() / 3600
             if time_until < 4:
                 raise HTTPException(status_code=400, detail="La consulenza deve essere prenotata almeno 4 ore nel futuro")
         

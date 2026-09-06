@@ -954,25 +954,23 @@
         
         if (hasValidAvatar) {
             // Ha un'immagine profilo valida
-            return `<div class="chat-message-avatar" title="${fullName}">
-                        <img src="${avatarUrl}" alt="${fullName}" onerror="this.parentElement.innerHTML='<div class=\\'chat-message-avatar-initials\\'>${getUserInitials(userName)}</div>'">
+            return `<div class="chat-message-avatar" title="${escapeHtml(fullName)}">
+                        <img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(fullName)}" onerror="this.parentElement.innerHTML='<div class=\\'chat-message-avatar-initials\\'>${escapeJsString(getUserInitials(userName))}</div>'">
                     </div>`;
         } else {
             // Usa iniziali
             const initials = getUserInitials(userName);
-            return `<div class="chat-message-avatar" title="${fullName}">
-                        <div class="chat-message-avatar-initials">${initials}</div>
+            return `<div class="chat-message-avatar" title="${escapeHtml(fullName)}">
+                        <div class="chat-message-avatar-initials">${escapeHtml(initials)}</div>
                     </div>`;
         }
     }
     
-    // Escape HTML
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
+    // escapeHtml e escapeJsString sono definite globalmente in base.html.
+    // La versione locale che c'era qui usava textContent/innerHTML e quindi NON
+    // escapava apici e virgolette: dentro un attributo (title="...", alt="...")
+    // non proteggeva. Quella globale copre anche i contesti attributo.
+
     // Format system message content with clickable links
     function formatSystemMessage(content) {
         // Replace markdown-style links [text](url) with HTML links
@@ -1159,13 +1157,13 @@
                 
                 convItem.innerHTML = `
                     <div class="conversation-item-avatar">
-                        <div class="chat-message-avatar-initials" style="width: 48px; height: 48px; font-size: 18px;" title="${conv.other_user.nome}">
+                        <div class="chat-message-avatar-initials" style="width: 48px; height: 48px; font-size: 18px;" title="${escapeHtml(conv.other_user.nome)}">
                             ${initials}
                         </div>
                     </div>
                     <div class="conversation-item-content">
                         <div class="conversation-item-header">
-                            <span class="conversation-item-name">${conv.other_user.nome} ${conv.other_user.cognome || ''}</span>
+                            <span class="conversation-item-name">${escapeHtml(`${conv.other_user.nome || ''} ${conv.other_user.cognome || ''}`)}</span>
                             <span class="conversation-item-time">${lastTime}</span>
                         </div>
                         <div class="conversation-item-message">${escapeHtml(lastMessage)}</div>

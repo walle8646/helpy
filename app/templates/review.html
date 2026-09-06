@@ -354,7 +354,7 @@
         btn.textContent = 'Invio in corso...';
 
         try {
-            const resp = await fetch('/api/review/{{ token }}/submit?booking_id={{ booking.id }}', {
+            const resp = await fetch('/api/review/{{ token }}/submit', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

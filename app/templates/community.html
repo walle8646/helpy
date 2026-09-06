@@ -3467,24 +3467,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                const followersHTML = filteredFollowers.map(follower => `
+                const followersHTML = filteredFollowers.map(follower => {
+                    // Nomi e avatar arrivano dagli utenti: sempre escapati.
+                    // L'email non viene piu' esposta dall'API.
+                    const fullName = `${follower.nome || ''} ${follower.cognome || ''}`.trim();
+                    const avatar = follower.profile_picture || '/static/avatar-default.svg';
+                    return `
                     <div class="follower-item">
-                        <img src="${follower.profile_picture}" alt="${follower.nome}" class="follower-avatar">
+                        <img src="${escapeHtml(avatar)}" alt="${escapeHtml(fullName)}" class="follower-avatar">
                         <div class="follower-info">
                             <p class="follower-name">
                                 <a href="/user/${follower.id}" target="_blank" style="color: #333; text-decoration: none; cursor: pointer;">
-                                    ${follower.nome} ${follower.cognome}
+                                    ${escapeHtml(fullName)}
                                 </a>
                             </p>
-                            <p class="follower-email">${follower.email}</p>
+                            <p class="follower-email">${escapeHtml(follower.professione || '')}</p>
                         </div>
                         <button 
                             class="follower-message-btn"
-                            onclick="startDirectMessage(${follower.id}, '${follower.nome} ${follower.cognome}', '${follower.profile_picture}')">
+                            onclick="startDirectMessage(${follower.id}, '${escapeJsString(fullName)}', '${escapeJsString(avatar)}')">
                             <i class="fas fa-envelope"></i> Messaggia
                         </button>
                     </div>
-                `).join('');
+                `;
+                }).join('');
 
                 container.innerHTML = followersHTML;
             } else {

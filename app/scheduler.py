@@ -217,7 +217,7 @@ def send_review_reminder_notification(booking_id: int, client_id: int, review_to
 
             consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant.nome else consultant.email.split('@')[0]
             base_url = os.getenv('BASE_URL', 'http://localhost:8080')
-            review_url = f"{base_url}/review/{review_token}?booking_id={booking_id}"
+            review_url = f"{base_url}/review/{review_token}"
             booking_date_str = booking.booking_date.strftime('%d/%m/%Y')
 
             send_notification(

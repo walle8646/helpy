@@ -148,18 +148,34 @@ NOTIFICATION_TYPES = [
     ("booking_refused", "Prenotazione rifiutata",
      "Quando una prenotazione viene rifiutata", True, True,
      "❌ Prenotazione rifiutata", "booking_refused.html"),
+    # NB: i nomi template devono combaciare con quelli gestiti in
+    # notification_email.generate_email_html, altrimenti l'email non parte.
     ("reminder_1h", "Promemoria 1 ora prima",
      "Promemoria 1 ora prima della consulenza", True, True,
-     "⏰ La tua consulenza è tra 1 ora", "booking_reminder_1h.html"),
+     "⏰ La tua consulenza è tra 1 ora", "reminder_1h.html"),
     ("reminder_10min", "Promemoria 10 minuti prima",
      "Promemoria 10 minuti prima della consulenza", True, False,
-     "⏰ La tua consulenza è tra 10 minuti", "booking_reminder_10min.html"),
+     "⏰ La tua consulenza è tra 10 minuti", "reminder_10min.html"),
     ("review_request", "Richiesta recensione",
      "Email per votare la consulenza", False, True,
      "Lascia una recensione su Ispiramy", "review_request.html"),
     ("review_received", "Recensione ricevuta",
      "Notifica al consulente quando riceve una recensione", True, True,
      "Hai ricevuto una recensione su Ispiramy", "review_received.html"),
+    ("review_reminder", "Promemoria recensione",
+     "Sollecito 24h dopo se la recensione non è stata lasciata", False, True,
+     "Non dimenticare la recensione", "review_reminder.html"),
+    # Tipi usati dallo scheduler: senza queste righe send_notification scarta
+    # la notifica in silenzio e il consulente non sa nemmeno di essere stato pagato.
+    ("payment_released", "Pagamento rilasciato",
+     "Il compenso della consulenza è stato trasferito al consulente", True, False,
+     None, None),
+    ("payment_hold", "Pagamento sospeso",
+     "Il pagamento resta bloccato per una contestazione in corso", True, False,
+     None, None),
+    ("booking_noshow", "Assenza alla consulenza",
+     "Uno dei partecipanti non si è presentato", True, False,
+     None, None),
 ]
 
 
