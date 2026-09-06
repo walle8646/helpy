@@ -16,7 +16,7 @@
 - [API Endpoints](#-api-endpoints)
 - [Variabili d'Ambiente](#-variabili-dambiente)
 - [Setup Locale](#️-setup-locale)
-- [Deploy con Docker](#-deploy-con-docker)
+- [Ambiente locale con Docker](#-ambiente-locale-con-docker)
 - [Deploy su Render](#-deploy-su-render)
 - [Testing](#-testing)
 - [Migrazioni Database](#-migrazioni-database)
@@ -61,16 +61,20 @@ Il sistema supporta sia SQLite (sviluppo) che PostgreSQL (produzione) ed è cont
 
 ### 📅 Sistema Prenotazioni
 - I consulenti gestiscono la **disponibilità** tramite blocchi orari su calendario
-- I clienti scelgono **data, durata** (30/60/90/120 min) e **slot orario** disponibile
+- I clienti scelgono **data, durata** (60/90/120 min) e **slot orario** disponibile
 - Prenotazione almeno **4 ore nel futuro**
 - **Calcolo automatico prezzo** in base alla tariffa oraria × durata
 - Copia disponibilità da un giorno a più giorni target
 
-### 💳 Pagamenti Stripe
-- Integrazione **Stripe Checkout** per pagamenti sicuri
-- Webhook per conferma automatica del pagamento
-- **Rimborso automatico** in caso di rifiuto della consulenza da parte del consulente
-- Supporto per prenotazione diretta e tramite offerta di consulenza
+### 💳 Pagamenti
+- **Stripe Checkout** o **PayPal**, a scelta in base a quanto configurato dal consulente
+- Lo slot viene riservato all'avvio del checkout e liberato se il pagamento non arriva
+- Webhook per la conferma automatica del pagamento
+- **Trattenuto 48 ore**: l'importo resta alla piattaforma e viene trasferito al
+  consulente (meno la commissione, default 20%) solo 48 ore dopo la fine della
+  consulenza, e solo se non ci sono contestazioni aperte
+- **Rimborso automatico** se il consulente rifiuta o non si presenta
+- **Stripe Connect** per l'onboarding dei consulenti; PayPal Payout in alternativa
 
 ### 📹 Video Call (Agora.io)
 - Video call in tempo reale tra cliente e consulente
@@ -90,7 +94,7 @@ Il sistema supporta sia SQLite (sviluppo) che PostgreSQL (produzione) ed è cont
 - Messaggi di sistema per offerte di consulenza
 
 ### 🏛️ Community Q&A
-- Gli utenti possono **pubblicare domande** (limite: 2 ogni 7 giorni)
+- Gli utenti possono **pubblicare domande** (limite: 5 al giorno)
 - Domande con **categorie e sottocategorie**
 - Sistema di **like/upvote** (un like per utente per domanda)
 - Contatore **"Messaggia"** (quanti utenti hanno contattato l'autore)
@@ -113,6 +117,36 @@ Il sistema supporta sia SQLite (sviluppo) che PostgreSQL (produzione) ed è cont
 - Scadenza automatica dopo 7 giorni
 - Il cliente può prenotare tramite l'offerta con pagamento Stripe
 
+### ⭐ Recensioni
+- Il cliente valuta la consulenza su tre assi: **utilità, preparazione, comunicazione** (1-5)
+- Recensione dal profilo oppure tramite **link monouso ricevuto via email**
+- Promemoria automatico dopo 24 ore se la recensione manca
+- Media voti e numero recensioni mostrati sul profilo pubblico e nella ricerca
+
+### ⚖️ Contestazioni
+- Il cliente può aprire una **contestazione** su una consulenza
+- Scambio di messaggi fra le parti e l'amministrazione
+- Il rilascio del pagamento resta bloccato finché la contestazione è aperta
+- **Analisi AI del video** della consulenza (Gemini) a supporto della decisione: verdetto, livello di confidenza e motivazione
+
+### 🛠️ Pannello Amministrazione (`/admin`)
+- Dashboard con statistiche della piattaforma
+- Gestione utenti e assegnazione ruoli
+- Elenco consulenze con ricerca e download della registrazione
+- Gestione delle contestazioni
+
+### 🤖 Funzioni AI
+- **Moderazione immagini** (OpenAI vision) su foto profilo e allegati community
+- **Validazione delle richieste** community e rilevamento duplicati
+- **Generazione di aree di interesse e tag** per migliorare la ricerca
+- **Moderazione della chat** durante la videochiamata
+- **Analisi video delle contestazioni** con Gemini
+
+### 📣 Pipeline Social (`/admin/social`)
+- Generazione automatica di contenuti social dalle domande community più seguite
+- Composizione grafica dei **caroselli brand** (Pillow) con copertina generata dall'AI
+- Coda di bozze con approvazione, programmazione e pubblicazione via **Post for Me**
+
 ---
 
 ## ⚙️ Stack Tecnologico
@@ -125,11 +159,14 @@ Il sistema supporta sia SQLite (sviluppo) che PostgreSQL (produzione) ed è cont
 | **Database (prod)** | PostgreSQL |
 | **Frontend** | HTML + CSS + JavaScript (Jinja2 templates) |
 | **Autenticazione** | JWT (PyJWT) + Sessioni Starlette |
-| **Pagamenti** | Stripe (Checkout + Webhooks) |
-| **Video Call** | Agora.io (RTC + Cloud Recording) |
-| **Email** | SendGrid (API + SMTP) |
-| **Storage** | AWS S3 (foto profilo, registrazioni video) |
-| **Scheduler** | APScheduler (promemoria automatici) |
+| **Login social** | Google OAuth 2.0 (Authlib) |
+| **Pagamenti** | Stripe (Checkout + Connect + Webhooks) e PayPal |
+| **Video Call** | Agora.io (RTC + Cloud Recording + sfondo virtuale) |
+| **Email** | SendGrid / Resend / SMTP (Mailpit in locale) |
+| **Storage** | AWS S3 (foto profilo, registrazioni, grafiche social) — MinIO in locale |
+| **AI** | OpenAI gpt-4o-mini (moderazione, tag, validazione) e Gemini 2.5 Flash (analisi video contestazioni) |
+| **Social** | Post for Me (pubblicazione Facebook / Instagram / TikTok) |
+| **Scheduler** | APScheduler con jobstore su database |
 | **Logging** | Loguru |
 | **Testing** | pytest + httpx |
 | **Containerizzazione** | Docker + Docker Compose |
@@ -165,6 +202,14 @@ ispiramy/
 │   │   ├── booking.py            # Prenotazioni, video call, registrazione, chat in-call
 │   │   ├── consultation.py       # Offerte di consulenza personalizzate
 │   │   ├── stripe_webhook.py     # Webhook Stripe per conferma pagamenti
+│   │   ├── stripe_connect.py     # Onboarding Stripe Connect dei consulenti
+│   │   ├── paypal_payment.py     # Pagamenti e payout PayPal
+│   │   ├── google_auth.py        # Login con Google (OAuth 2.0)
+│   │   ├── review.py             # Recensioni post-consulenza
+│   │   ├── dispute.py            # Apertura contestazioni
+│   │   ├── admin.py              # Pannello amministrazione
+│   │   ├── admin_social.py       # Dashboard contenuti social
+│   │   ├── pages.py              # Pagine statiche (about, faq, privacy…)
 │   │   ├── notifications.py      # API notifiche in-app
 │   │   └── api.py                # Router API base (prefisso /api)
 │   │
@@ -176,7 +221,16 @@ ispiramy/
 │   │   ├── notification_manager.py   # Gestore centralizzato notifiche (v1)
 │   │   ├── notification_service.py   # Servizio notifiche centralizzato (v2)
 │   │   ├── notification_email.py     # Template email per notifiche (HTML inline)
+│   │   ├── email_backend.py          # Selezione backend email (Resend/SendGrid/SMTP)
+│   │   ├── ai_service.py             # OpenAI: moderazione, tag, validazione contenuti
+│   │   ├── gemini_analysis.py        # Gemini: analisi video delle contestazioni
+│   │   ├── paypal_config.py          # Ordini, catture e payout PayPal
 │   │   └── template_helpers.py       # Helper Jinja2: caricamento categorie globale
+│   │
+│   ├── social/                   # Pipeline contenuti social
+│   │   ├── content_generator.py  # Genera le bozze dalle domande community (GPT)
+│   │   ├── image_generator.py    # Compone i caroselli brand (Pillow + copertina AI)
+│   │   └── publisher.py          # Pubblica via Post for Me, con idempotenza
 │   │
 │   ├── templates/                # Template HTML (Jinja2)
 │   │   ├── base.html             # Layout base con navbar e chat widget
@@ -207,9 +261,10 @@ ispiramy/
 │       └── script.js             # JavaScript globale
 │
 ├── rules/                        # Documentazione tecnica e regole
-├── sql_update/                   # Migrazioni SQL e seed data
-├── tests/                        # Test automatizzati
-├── setup_file/                   # Script di setup iniziale
+├── sql_update/                   # Migrazioni SQL (variante sqlite + postgres)
+├── tests/                        # Test automatizzati (pytest)
+├── scripts/                      # Bootstrap DB locale, generatori, diagnostica
+├── setup_file/                   # Script di setup iniziale (storici)
 ├── uploads/                      # File caricati (locale)
 │
 ├── Dockerfile                    # Immagine Docker (Python 3.11-slim)
@@ -243,6 +298,11 @@ ispiramy/
 | `notifications` | Notifiche in-app per utenti |
 | `notification_types` | Configurazione tipi notifica (in-app / email) |
 | `category_request_notifications` | Notifiche nuove domande per consulenti |
+| `reviews` | Recensioni post-consulenza (3 valutazioni + commento) |
+| `disputes` | Contestazioni, con verdetto e confidenza dell'analisi AI |
+| `dispute_messages` | Scambio di messaggi su una contestazione |
+| `favorite_consultants` | Consulenti salvati come preferiti |
+| `social_drafts` | Bozze di post social generate dall'AI e loro stato |
 | `configuration_property` | Configurazione globale dell'applicazione |
 
 ### Schema User
@@ -254,12 +314,14 @@ User
 ├── category_id, selected_subcategories (JSON)
 ├── profile_picture (URL S3)
 ├── prezzo_consulenza (€/ora)
-├── consulenze_vendute, consulenze_acquistate, bollini
-├── descrizione, aree_interesse
-├── confirmed, is_verified, is_anonymous
+├── consulenze_vendute, consulenze_acquistate
+├── descrizione, aree_interesse, tags (generati da AI)
+├── confirmed, is_verified, is_anonymous, genere, languages
 ├── notify_category_requests
+├── stripe_account_id, stripe_onboarding_complete, platform_fee_percent
+├── paypal_email, google_id
 ├── user_type_id (1=User, 2=Verifier, 3=Admin)
-└── created_at
+└── created_at, last_seen
 ```
 
 ### Schema Booking
@@ -268,8 +330,12 @@ User
 Booking
 ├── id, client_user_id, consultant_user_id
 ├── booking_date, start_time, end_time, duration_minutes
-├── status (pending / confirmed / completed / cancelled / no_show)
-├── price, payment_status, stripe_checkout_session_id, stripe_payment_intent_id
+├── status (pending_payment / pending / confirmed / completed / cancelled / no_show)
+├── price, payment_status (pending / held / released / refunded)
+├── stripe_checkout_session_id, stripe_payment_intent_id, stripe_transfer_id
+├── paypal_order_id, paypal_capture_id, paypal_payout_id
+├── payment_held_until, payment_released_at, refund_amount
+├── review_token (link monouso per la recensione via email)
 ├── description, client_notes, consultant_notes
 ├── client_joined_at, consultant_joined_at, call_started_at
 ├── recording_* (sid, resource_id, status, url, duration, filename...)
@@ -345,10 +411,34 @@ Booking
 | `POST` | `/api/notifications/{id}/read` | Segna come letta |
 | `POST` | `/api/notifications/read-all` | Segna tutte come lette |
 
-### Stripe Webhook
+### Recensioni e Contestazioni
 | Metodo | Endpoint | Descrizione |
 |---|---|---|
-| `POST` | `/webhook/stripe` | Gestione eventi Stripe |
+| `POST` | `/api/booking/{id}/review` | Lascia una recensione (cliente loggato) |
+| `POST` | `/api/booking/{id}/review/send-email` | Invia il link recensione via email |
+| `GET` | `/review/{token}` | Pagina recensione da link email |
+| `POST` | `/api/review/{token}/submit` | Invia la recensione col token monouso |
+| `POST` | `/api/booking/{id}/dispute` | Apri una contestazione |
+
+### Pagamenti
+| Metodo | Endpoint | Descrizione |
+|---|---|---|
+| `POST` | `/webhook/stripe` | Eventi Stripe (conferma pagamenti) |
+| `POST` | `/webhook/stripe/connect` | Eventi Stripe Connect (stato account) |
+| `POST` | `/api/stripe/connect/onboard` | Avvia l'onboarding del consulente |
+| `GET` | `/api/stripe/connect/status` | Stato onboarding |
+| `POST` | `/api/booking/create-paypal` | Crea ordine PayPal |
+| `GET` | `/booking/paypal/capture` | Callback di cattura PayPal |
+
+### Amministrazione (`user_type_id >= 2`)
+| Metodo | Endpoint | Descrizione |
+|---|---|---|
+| `GET` | `/admin/` | Dashboard con statistiche |
+| `GET` | `/admin/users` | Gestione utenti |
+| `GET` | `/admin/bookings` | Elenco consulenze |
+| `GET` | `/admin/disputes` | Contestazioni |
+| `POST` | `/admin/api/disputes/{id}/ai-analysis` | Analisi AI del video |
+| `GET` | `/admin/social` | Dashboard contenuti social |
 
 ---
 
@@ -395,9 +485,39 @@ AWS_S3_BUCKET_NAME=ispiramy-recordings
 AWS_S3_REGION=eu-south-1
 S3_BUCKET_NAME=ispiramy-images
 AWS_REGION=eu-west-1
+# In locale con MinIO: endpoint alternativo e URL pubblico delle immagini
+# AWS_ENDPOINT_URL_S3=http://minio:9000
+# S3_PUBLIC_BASE_URL=http://localhost:9000/ispiramy-images
+
+# ============ PAYPAL (alternativa a Stripe) ============
+PAYPAL_CLIENT_ID=xxxxxxxxxxxxxxxxxxxx
+PAYPAL_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxx
+PAYPAL_MODE=sandbox            # sandbox | live
+
+# ============ GOOGLE OAUTH (login social) ============
+GOOGLE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxx
+
+# ============ AI ============
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx      # moderazione, tag, validazione
+GEMINI_API_KEY=xxxxxxxxxxxxxxxxxxxx         # analisi video delle contestazioni
+
+# ============ SOCIAL (Post for Me) ============
+POSTFORME_API_KEY=xxxxxxxxxxxxxxxxxxxx
+
+# ============ STAGING ============
+# Se valorizzata, l'intero sito viene protetto da Basic Auth.
+# Lasciare vuota in produzione e in locale.
+STAGING_PASSWORD=
+STAGING_USER=ispiramy
 ```
 
-> **Nota**: Il sistema usa l'API HTTP di SendGrid per un invio email più veloce e affidabile. Ottieni la tua API key da https://app.sendgrid.com/settings/api_keys.
+> **Nota**: Il backend email si sceglie con `EMAIL_BACKEND` (`smtp` per Mailpit
+> in locale) oppure automaticamente in base a `RESEND_API_KEY` /
+> `SENDGRID_API_KEY`.
+
+> **Nota**: senza `OPENAI_API_KEY` la moderazione fallisce in modo restrittivo e
+> l'upload delle immagini (foto profilo comprese) viene rifiutato.
 
 ---
 
@@ -460,24 +580,38 @@ Configura `.vscode/launch.json`:
 
 ---
 
-## 🐳 Deploy con Docker
+## 🐳 Ambiente locale con Docker
+
+Il `docker-compose.yml` tira su l'intero stack di sviluppo, senza bisogno di
+account esterni:
+
+| Servizio | Cosa fa | Dove |
+|---|---|---|
+| `web` | l'applicazione FastAPI | http://localhost:10000 |
+| `db` | PostgreSQL 17 | `localhost:5433` |
+| `mailpit` | server SMTP finto con interfaccia web per leggere le email | http://localhost:8025 |
+| `minio` | storage S3-compatibile locale | http://localhost:9001 (`minio` / `minio12345`) |
 
 ```bash
-# Build e avvio
+# 1. Crea .env.local con le chiavi dei servizi che vuoi usare davvero
+#    (OPENAI_API_KEY, AGORA_*, STRIPE_*). Il compose lo richiede: se manca,
+#    `docker compose up` non parte.
+touch .env.local
+
+# 2. Avvia tutto
 docker compose up --build
 
-# In background
-docker compose up --build -d
-
-# Ferma tutto
-docker compose down
+# 3. Popola il database (idempotente: crea tabelle, categorie,
+#    tipi di notifica e l'utente admin@ispiramy.local / admin)
+docker compose exec web python scripts/bootstrap_local_db.py
 ```
 
-Il `docker-compose.yml` monta i volumi per hot-reload del codice e dei file caricati.
+Reset completo del database: `docker compose down -v` e poi di nuovo `up`.
 
 ---
 
 ## 🌍 Deploy su Render
+
 
 Il progetto include un file `render.yaml` per il deploy automatico su [Render](https://render.com):
 
@@ -490,16 +624,23 @@ Il progetto include un file `render.yaml` per il deploy automatico su [Render](h
 ## 🧪 Testing
 
 ```bash
-# Esegui tutti i test
 pytest -v
-
-# Test con coverage
-pytest --cov=app
-
-# Test specifico
-pytest tests/test_api.py -v
-pytest tests/test_models.py -v
 ```
+
+I test non richiedono servizi esterni: `tests/conftest.py` punta il
+`DATABASE_URL` su uno SQLite temporaneo prima di importare l'app.
+
+| File | Copre |
+|---|---|
+| `tests/test_models.py` | utility utente: nome visualizzato, modalità anonima, avatar, metodi di pagamento, generazione codici |
+| `tests/test_booking_rules.py` | conversioni orarie, regole delle 4 ore in fuso italiano, calcolo degli slot disponibili |
+| `tests/test_payment_states.py` | stati che occupano uno slot, stati di pagamento, pulizia dei checkout abbandonati |
+| `tests/test_review_token.py` | regressione sulla falla del token recensione |
+| `tests/test_api.py` | pagine pubbliche, endpoint protetti, protezione CSRF |
+| `tests/test_integration.py` | template email, finestra di cancellazione, presenza in call |
+
+Gli script diagnostici (accesso S3, applicazione manuale di migrazioni,
+ispezione del DB) stanno in `scripts/diagnostics/` e non sono test.
 
 ---
 
@@ -530,6 +671,17 @@ psql -U postgres -d ispiramy_db -f sql_update/migration_add_booking_postgres.sql
 | `migration_add_category_hierarchy` | Categorie gerarchiche |
 | `migration_add_is_verified` | Flag verifica profilo |
 | `migration_add_is_anonymous` | Modalità anonima |
+| `migration_add_reviews` | Recensioni post-consulenza |
+| `migration_add_disputes` | Contestazioni |
+| `migration_add_payment_hold` | Trattenuto 48h e rilascio pagamenti |
+| `migration_add_stripe_connect` | Onboarding consulenti su Stripe Connect |
+| `migration_add_paypal` | Pagamenti e payout PayPal |
+| `migration_add_booking_review_token` | Token monouso del link recensione |
+| `migration_add_missing_notification_types` | Tipi notifica usati dal codice ma mai censiti |
+
+> Su un database nuovo le migrazioni non servono: `create_db_and_tables()`
+> crea le tabelle dai modelli SQLModel all'avvio. Servono solo per far evolvere
+> un database già esistente.
 
 ---
 
@@ -548,6 +700,7 @@ Nella cartella `rules/`:
 | [CHAT_WIDGET_DOCS.md](rules/CHAT_WIDGET_DOCS.md) | Documentazione widget chat |
 | [AGORA_RECORDING_SETUP.md](rules/AGORA_RECORDING_SETUP.md) | Setup registrazione video |
 | [S3_SETUP.md](rules/S3_SETUP.md) | Configurazione AWS S3 |
+| [VIDEO_BRIEF_ISPIRAMY.md](rules/VIDEO_BRIEF_ISPIRAMY.md) | Brief del video promozionale e posizionamento |
 
 ---
 

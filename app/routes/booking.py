@@ -1006,7 +1006,21 @@ async def get_agora_token(booking_id: int, request: Request):
         # Verifica che entrambi abbiano joinato
         if not booking.client_joined_at or not booking.consultant_joined_at:
             raise HTTPException(status_code=403, detail="Entrambi i partecipanti devono aver cliccato 'Partecipa'")
-        
+
+        # La finestra della call va verificata anche qui, non solo dal browser:
+        # senza questo controllo il token si poteva ottenere (e rientrare nel
+        # canale) a consulenza finita, chiamando l'endpoint direttamente.
+        end_time_obj = datetime.strptime(booking.end_time, "%H:%M").time()
+        call_deadline = datetime.combine(booking.booking_date.date(), end_time_obj) + timedelta(minutes=5)
+        if now_italy_naive() >= call_deadline:
+            raise HTTPException(status_code=403, detail="Il tempo della consulenza è scaduto")
+
+        # Una volta lasciata la recensione la call è chiusa (stessa regola di
+        # /call-status, che il frontend usa per bloccare il rientro)
+        if session.exec(select(Review).where(Review.booking_id == booking_id)).first():
+            raise HTTPException(status_code=403, detail="La consulenza è stata chiusa con una recensione")
+
+
         # Genera il token Agora
         try:
             token_data = generate_booking_call_token(booking_id, current_user.id)

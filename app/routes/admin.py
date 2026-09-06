@@ -600,7 +600,10 @@ async def admin_users(request: Request):
 
 
 class UserTypeUpdateRequest(BaseModel):
-    user_type_id: int = Field(ge=1, le=10)
+    # Solo i tre ruoli che esistono davvero: 1=Utente, 2=Verificatore, 3=Amministratore.
+    # ge=1/le=10 lasciava assegnare ruoli inesistenti (es. 7), che require_admin
+    # avrebbe comunque trattato come >= 2.
+    user_type_id: int = Field(ge=1, le=3)
 
 
 @router.post("/api/users/{user_id}/type")
