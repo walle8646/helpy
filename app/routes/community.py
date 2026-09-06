@@ -4,6 +4,7 @@ from sqlmodel import select, func, or_, and_
 from sqlalchemy import cast, String
 from typing import Optional, List
 from datetime import datetime, timedelta
+import asyncio
 import os
 import json
 import base64
@@ -687,7 +688,8 @@ async def upload_community_image(
             file_extension = file.filename.split(".")[-1].lower() if file.filename else "jpg"
             s3_key = f"community-images/{current_user.id}_{timestamp}.{file_extension}"
             
-            s3_client.put_object(
+            await asyncio.to_thread(
+                s3_client.put_object,
                 Bucket=s3_bucket,
                 Key=s3_key,
                 Body=contents,

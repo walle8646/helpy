@@ -581,7 +581,8 @@ async def create_booking(
             if consultant.stripe_account_id and consultant.stripe_onboarding_complete:
                 logger.info(f"💰 Pagamento trattenuto: consulente {consultant.stripe_account_id} riceverà dopo 48h dalla fine consulenza")
 
-            checkout_session = create_checkout_session(
+            checkout_session = await asyncio.to_thread(
+                create_checkout_session,
                 amount=amount_cents,
                 currency='eur',
                 success_url=f"{app_url}/profile",
@@ -1255,8 +1256,8 @@ async def start_booking_recording(booking_id: int, request: Request):
         channel_name = f"booking_{booking_id}"
         recorder_token = generate_agora_token(channel_name, recorder_uid, ROLE_PUBLISHER, 7200)
         
-        # Avvia recording
-        result = start_recording(channel_name, recorder_uid, recorder_token)
+        # Avvia recording (chiamate HTTP ad Agora: fuori dall'event loop)
+        result = await asyncio.to_thread(start_recording, channel_name, recorder_uid, recorder_token)
         
         if not result:
             raise HTTPException(status_code=500, detail="Errore avvio registrazione")
@@ -1315,8 +1316,8 @@ async def start_recording_now(booking_id: int, request: Request):
             # Genera token per il recorder
             recorder_token = generate_agora_token(channel_name, recorder_uid, ROLE_PUBLISHER, 7200)
             
-            # Avvia registrazione
-            result = start_recording(channel_name, recorder_uid, recorder_token)
+            # Avvia registrazione (chiamate HTTP ad Agora: fuori dall'event loop)
+            result = await asyncio.to_thread(start_recording, channel_name, recorder_uid, recorder_token)
             
             if result:
                 now = datetime.utcnow()

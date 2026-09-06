@@ -5,20 +5,25 @@ Utilizza OpenAI GPT per analizzare profili utente e contenuti della community.
 import os
 import json
 import base64
-from openai import OpenAI
+from openai import AsyncOpenAI
 from app.logger_config import logger
 
 # Client OpenAI — richiede OPENAI_API_KEY nel .env
 _client = None
 
-def _get_client() -> OpenAI:
-    """Restituisce il client OpenAI, inizializzandolo al primo utilizzo"""
+def _get_client() -> AsyncOpenAI:
+    """Restituisce il client OpenAI asincrono, inizializzandolo al primo utilizzo.
+
+    Deve essere il client **asincrono**: queste funzioni sono attese da route
+    `async def`, e il client sincrono bloccherebbe l'event loop per l'intera
+    durata della chiamata (spesso secondi), congelando ogni altra richiesta.
+    """
     global _client
     if _client is None:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY non configurata. Aggiungi la chiave nelle variabili d'ambiente.")
-        _client = OpenAI(api_key=api_key)
+        _client = AsyncOpenAI(api_key=api_key)
     return _client
 
 
@@ -40,7 +45,7 @@ async def genera_aree_interesse(descrizione: str, professione: str = None) -> li
         if professione:
             prompt_context += f"\nProfessione: {professione}"
         
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -99,7 +104,7 @@ async def genera_tags(descrizione: str, aree_interesse: str = None, professione:
         if professione:
             prompt_context += f"\nProfessione: {professione}"
         
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -181,7 +186,7 @@ async def modera_immagine(image_base64: str, titolo: str, descrizione: str) -> d
         
         logger.info(f"🖼️ Avvio moderazione immagine - Titolo: {titolo[:50]}... - Base64 size: {len(image_base64)} chars")
         
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -317,7 +322,7 @@ async def valida_richiesta(titolo: str, descrizione: str) -> dict:
         
         logger.info(f"📝 Avvio validazione richiesta - Titolo: {titolo[:50]}...")
         
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -430,7 +435,7 @@ async def controlla_duplicato(titolo: str, descrizione: str, domande_precedenti:
         
         logger.info(f"🔍 Controllo duplicato per: '{titolo[:50]}...' vs {len(domande_precedenti)} domande precedenti")
         
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -524,7 +529,7 @@ async def valida_descrizione_consulenza(descrizione: str) -> dict:
     try:
         client = _get_client()
 
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -626,7 +631,7 @@ async def valida_profilo(descrizione: str, professione: str = None, aree_interes
         
         logger.info(f"👤 Avvio validazione profilo - Professione: {professione}")
         
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -778,7 +783,7 @@ async def modera_testo_chat(testo: str) -> dict:
         return {"approved": True, "reason": ""}
     try:
         client = _get_client()
-        resp = client.moderations.create(model="omni-moderation-latest", input=testo)
+        resp = await client.moderations.create(model="omni-moderation-latest", input=testo)
         result = resp.results[0]
         if result.flagged:
             attive = _categorie_attive(result)
@@ -800,7 +805,7 @@ async def modera_immagine_chat(image_data_url: str) -> dict:
         return {"approved": True, "reason": ""}
     try:
         client = _get_client()
-        resp = client.moderations.create(
+        resp = await client.moderations.create(
             model="omni-moderation-latest",
             input=[{"type": "image_url", "image_url": {"url": image_data_url}}],
         )

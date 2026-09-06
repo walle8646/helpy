@@ -1,6 +1,8 @@
 """
 Routes admin per la gestione dei contenuti social (bozze, approvazione, pubblicazione).
 """
+import asyncio
+
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlmodel import Session, select
@@ -45,7 +47,9 @@ async def admin_social(request: Request):
     accounts = {}
     try:
         from app.social.publisher import get_connected_accounts
-        accounts = get_connected_accounts()
+        # Chiamata HTTP sincrona: fuori dall'event loop, altrimenti l'apertura
+        # della dashboard blocca tutto il sito finché Post for Me non risponde.
+        accounts = await asyncio.to_thread(get_connected_accounts)
     except Exception as e:
         logger.warning(f"Admin social: impossibile leggere account Post for Me: {e}")
 
@@ -74,8 +78,8 @@ async def admin_social_generate(data: GenerateRequest, request: Request):
     try:
         from app.social.content_generator import generate_batch, save_packages_as_drafts
         limit = max(1, min(data.limit, 10))
-        packages = generate_batch(limit)
-        created = save_packages_as_drafts(packages)
+        packages = await asyncio.to_thread(generate_batch, limit)
+        created = await asyncio.to_thread(save_packages_as_drafts, packages)
         return {"ok": True, "message": f"Creati {created} draft da {len(packages)} domande"}
     except Exception as e:
         logger.error(f"Admin social: errore generazione: {e}", exc_info=True)
@@ -162,7 +166,7 @@ async def admin_social_generate_media(draft_id: int, request: Request):
 
     try:
         from app.social.image_generator import generate_carousel_for_draft
-        result = generate_carousel_for_draft(draft_id)
+        result = await asyncio.to_thread(generate_carousel_for_draft, draft_id)
         return JSONResponse(result, status_code=200 if result["ok"] else 400)
     except Exception as e:
         logger.error(f"Admin social: errore generazione grafica draft {draft_id}: {e}", exc_info=True)
@@ -177,7 +181,7 @@ async def admin_social_publish_now(draft_id: int, request: Request):
         return JSONResponse({"ok": False, "message": "Non autorizzato"}, status_code=403)
 
     from app.social.publisher import publish_draft
-    result = publish_draft(draft_id)
+    result = await asyncio.to_thread(publish_draft, draft_id)
     status_code = 200 if result["ok"] else 400
     return JSONResponse(result, status_code=status_code)
 
@@ -190,7 +194,7 @@ async def admin_social_refresh_results(request: Request):
         return JSONResponse({"ok": False, "message": "Non autorizzato"}, status_code=403)
 
     from app.social.publisher import check_publishing_results
-    check_publishing_results()
+    await asyncio.to_thread(check_publishing_results)
     return {"ok": True, "message": "Esiti aggiornati"}
 
 

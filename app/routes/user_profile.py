@@ -9,6 +9,7 @@ from app.utils.email import send_profile_verification_request
 from app.utils_user import has_payment_method
 from app.utils.ai_service import genera_aree_interesse, genera_tags, valida_profilo, modera_immagine
 from typing import Optional
+import asyncio
 import os
 import hashlib
 from datetime import datetime
@@ -618,8 +619,10 @@ async def upload_profile_picture(request: Request, file: UploadFile = File(...))
             s3_key = f"profile-pictures/{user.id}_{timestamp}.{file_extension}"
             
             logger.info(f"🔍 DEBUG - Uploading to S3: {s3_bucket}/{s3_key}")
-            # Upload su S3
-            s3_client.put_object(
+            # Upload su S3, fuori dall'event loop: boto3 è sincrono e su una
+            # rete lenta terrebbe fermo tutto il sito per l'intera durata.
+            await asyncio.to_thread(
+                s3_client.put_object,
                 Bucket=s3_bucket,
                 Key=s3_key,
                 Body=contents,
@@ -627,17 +630,17 @@ async def upload_profile_picture(request: Request, file: UploadFile = File(...))
                 CacheControl="max-age=31536000"  # Cache per 1 anno
             )
             logger.info(f"✅ File uploaded successfully to S3")
-            
+
             # Genera URL pubblico (o signed URL se bucket è privato)
             try:
                 # Prova a generare URL pubblico
                 s3_url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{s3_key}"
-                
+
                 # Verifica se il file è accessibile
                 try:
-                    s3_client.head_object(Bucket=s3_bucket, Key=s3_key)
+                    await asyncio.to_thread(s3_client.head_object, Bucket=s3_bucket, Key=s3_key)
                     logger.info(f"✅ File uploaded to S3: {s3_url}")
-                except:
+                except Exception:
                     # Se non è accessibile, genera signed URL
                     s3_url = s3_client.generate_presigned_url(
                         'get_object',

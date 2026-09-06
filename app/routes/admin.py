@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field
 from typing import Optional
+import asyncio
 import os
 
 from app.database import engine
@@ -807,8 +808,10 @@ async def admin_ai_analysis(dispute_id: int, request: Request):
         try:
             from app.utils.gemini_analysis import download_video_from_s3, analyze_dispute_video
 
-            # 1. Scarica video da S3
-            video_path = download_video_from_s3(booking.id)
+            # 1. Scarica video da S3.
+            # Download e analisi sono sincroni e possono durare minuti: eseguiti
+            # sull'event loop bloccherebbero ogni altra richiesta all'app.
+            video_path = await asyncio.to_thread(download_video_from_s3, booking.id)
 
             # 1b. Costruisci la trascrizione della chat testuale della call (con allegati)
             import json as _json
@@ -836,7 +839,8 @@ async def admin_ai_analysis(dispute_id: int, request: Request):
             chat_transcript = "\n".join(_lines)
 
             # 2. Analizza con Gemini (video + chat)
-            result = analyze_dispute_video(
+            result = await asyncio.to_thread(
+                analyze_dispute_video,
                 video_path=video_path,
                 booking_description=booking.description,
                 dispute_description=dispute.description,

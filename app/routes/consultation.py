@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from datetime import datetime, timedelta
 from typing import Optional
 from decimal import Decimal
+import asyncio
 import os
 
 from ..database import engine
@@ -417,7 +418,9 @@ async def confirm_booking(
             
             # Pagamento alla piattaforma — il trasferimento al consulente avviene dopo 48h
             
-            checkout_session = create_checkout_session(
+            # Chiamata HTTP a Stripe: fuori dall'event loop
+            checkout_session = await asyncio.to_thread(
+                create_checkout_session,
                 amount=amount_cents,
                 currency='eur',
                 success_url=f"{app_url}/profile",
