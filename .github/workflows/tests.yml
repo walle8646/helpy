@@ -1,0 +1,42 @@
+# Test automatici a ogni push e a ogni pull request.
+#
+# Lo staging si deploya da solo a ogni push su develop: senza questi controlli
+# un commit rotto arrivava online senza che niente lo fermasse. Per bloccare
+# anche il deploy, su Render impostare Auto-Deploy su "After CI Checks Pass".
+name: Test
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Stessa versione del Dockerfile (python:3.11-slim)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installa le dipendenze
+        run: pip install -r requirements.txt
+
+      # Nessun segreto: conftest.py punta il database su uno SQLite temporaneo
+      # e i servizi esterni (Stripe, OpenAI, Post for Me) sono simulati.
+      - name: Esegui i test
+        run: pytest -q -p no:warnings
