@@ -38,15 +38,40 @@ else:
     logger.warning("⚠️ Google OAuth non configurato: GOOGLE_CLIENT_ID o GOOGLE_CLIENT_SECRET mancanti")
 
 
+def callback_url(request: Request) -> str:
+    """URL di ritorno da comunicare a Google.
+
+    Deve coincidere carattere per carattere con uno degli "URI di reindirizzamento
+    autorizzati" della console Google, altrimenti Google risponde
+    `400 redirect_uri_mismatch`.
+
+    Ricavarlo dalla richiesta non funziona in produzione: Render chiude l'HTTPS
+    sul proprio proxy e inoltra all'app in HTTP, quindi `url_for` produceva
+    `http://…/auth/google/callback` — un indirizzo che Google non permette
+    nemmeno di registrare su un dominio pubblico. Si usa quindi BASE_URL, come
+    già fa il resto dell'app per i link nelle email e i redirect di Stripe.
+    """
+    base = os.getenv("BASE_URL", "").strip().rstrip("/")
+    if base:
+        return f"{base}/auth/google/callback"
+
+    # Senza BASE_URL (sviluppo locale) si ripiega sulla richiesta, correggendo lo
+    # schema se un proxy dichiara che il client era su HTTPS.
+    url = str(request.url_for("google_callback"))
+    if request.headers.get("x-forwarded-proto", "").lower() == "https" and url.startswith("http://"):
+        url = "https://" + url[len("http://"):]
+    return url
+
+
 @router.get("/auth/google")
 async def google_login(request: Request):
     """Redirect a Google per il login OAuth"""
     if not GOOGLE_CLIENT_ID:
         return RedirectResponse("/login", status_code=302)
-    
-    # Costruisci redirect_uri dinamicamente in base all'host della richiesta
-    redirect_uri = str(request.url_for("google_callback"))
-    
+
+    redirect_uri = callback_url(request)
+    logger.info(f"🔑 Google OAuth: redirect_uri inviato a Google = {redirect_uri}")
+
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -136,7 +161,19 @@ async def google_callback(request: Request):
             return RedirectResponse("/profile", status_code=302)
     
     except Exception as e:
-        logger.error(f"❌ Errore Google OAuth callback: {e}", exc_info=True)
+        # Caso tipico dopo il passaggio a BASE_URL: l'utente ha avviato il login
+        # su un dominio diverso (es. www.ispiramy.com) da quello di BASE_URL
+        # (ispiramy.com). Lo "state" OAuth sta nel cookie di sessione del primo
+        # dominio, che non viene inviato al secondo, e authlib rifiuta il ritorno.
+        if e.__class__.__name__ == "MismatchingStateError":
+            logger.error(
+                "❌ Google OAuth: state non corrispondente. Il login è partito da "
+                f"{request.headers.get('referer', 'un dominio sconosciuto')} ma il "
+                f"ritorno è su {request.url.netloc}: BASE_URL deve essere il dominio "
+                "che gli utenti usano davvero."
+            )
+        else:
+            logger.error(f"❌ Errore Google OAuth callback: {e}", exc_info=True)
         return RedirectResponse("/login", status_code=302)
 
 
