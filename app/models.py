@@ -488,6 +488,10 @@ class SocialDraft(SQLModel, table=True):
 
     # Tracking Post for Me
     postforme_post_id: Optional[str] = Field(default=None, index=True)
+    # Numero di ritentativi espliciti dopo un fallimento sul social. Entra
+    # nell'external_id: senza, un post rifiutato dalla piattaforma veniva
+    # riconosciuto come "già inviato" e non poteva più essere ripubblicato.
+    publish_attempt: int = Field(default=0)
     published_url: Optional[str] = Field(default=None, max_length=1000)
     error: Optional[str] = Field(default=None, max_length=2000)
 

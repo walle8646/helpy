@@ -15,6 +15,7 @@ from app.database import engine
 from app.models import SocialDraft
 from app.routes.admin import require_admin
 from app.logger_config import logger
+from app.social.publisher import PLATFORM_REQUIRES_MEDIA, parse_media_urls
 
 router = APIRouter(prefix="/admin")
 
@@ -115,7 +116,10 @@ async def admin_social_update_draft(draft_id: int, data: DraftUpdateRequest, req
         if data.caption is not None:
             draft.caption = data.caption[:5000]
         if data.media_urls is not None:
-            draft.media_urls = data.media_urls.strip()[:3000] or None
+            # Un URL per riga, qualunque cosa arrivi: ripara anche le bozze in
+            # cui gli URL erano finiti incollati da un vecchio salvataggio.
+            urls = parse_media_urls(data.media_urls)
+            draft.media_urls = "\n".join(urls)[:3000] or None
         if data.scheduled_at is not None:
             if data.scheduled_at.strip():
                 try:
@@ -154,6 +158,28 @@ async def admin_social_draft_status(draft_id: int, request: Request):
             return JSONResponse({"ok": False, "message": "Draft non trovato"}, status_code=404)
         if draft.status not in transitions[action]:
             return JSONResponse({"ok": False, "message": f"Transizione non permessa da '{draft.status}'"}, status_code=400)
+
+        # Approvare un post che non potrà mai partire serve solo a farlo
+        # fallire più tardi, magari in silenzio all'ora programmata.
+        if (action == "approve" and draft.platform in PLATFORM_REQUIRES_MEDIA
+                and not parse_media_urls(draft.media_urls)):
+            servono = "un video" if draft.platform == "tiktok" else "le immagini"
+            return JSONResponse({
+                "ok": False,
+                "message": f"Per {PLATFORM_LABELS.get(draft.platform, draft.platform)} servono {servono} prima di approvare",
+            }, status_code=400)
+
+        # Uscendo da 'failed' dopo che il post era arrivato al social, il
+        # prossimo invio deve essere un post NUOVO: si incrementa il tentativo
+        # (che cambia l'external_id) e si dimentica il post precedente.
+        # Senza questo il publisher lo riconosceva come "già inviato" e lo
+        # riportava in 'failed' con l'errore di prima, per sempre.
+        if draft.status == "failed" and draft.postforme_post_id:
+            draft.publish_attempt = (draft.publish_attempt or 0) + 1
+            draft.postforme_post_id = None
+            draft.published_url = None
+            logger.info(f"🔁 Social: draft {draft.id} riaperto per il tentativo {draft.publish_attempt}")
+
         draft.status = new_status
         if action == "approve":
             draft.error = None

@@ -126,11 +126,19 @@
     .draft-caption:focus { outline: none; border-color: #66bb6a; }
     .draft-fields { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
     .draft-fields label { font-size: .82rem; color: #666; font-weight: 600; }
-    .draft-fields input {
+    .draft-fields input, .draft-fields textarea {
         padding: 8px 10px; border: 2px solid #eee; border-radius: 8px; font-family: inherit; font-size: .88rem;
     }
-    .draft-fields input:focus { outline: none; border-color: #66bb6a; }
-    .media-input { flex: 1; min-width: 240px; }
+    .draft-fields input:focus, .draft-fields textarea:focus { outline: none; border-color: #66bb6a; }
+    /* Area di testo e non <input>: un campo a riga singola elimina gli a-capo
+       dal suo valore, e gli URL del carosello (uno per riga) venivano salvati
+       incollati in un'unica stringa non valida. */
+    .media-input {
+        flex: 1 1 100%; min-width: 240px; resize: vertical;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .8rem;
+        line-height: 1.5; white-space: pre; overflow-x: auto;
+    }
+    .draft-hint { font-size: .8rem; color: #8d6e00; background: #fff8e1; border-radius: 6px; padding: 6px 10px; margin-top: 8px; }
     .media-required { font-size: .78rem; color: #e65100; font-weight: 600; }
 
     /* Galleria anteprime carosello */
@@ -244,10 +252,13 @@
         <textarea class="draft-caption" id="caption-{{ d.id }}">{{ d.caption }}</textarea>
         <div class="draft-fields">
             <label>Media URL{% if d.platform in ('instagram','tiktok') %} <span class="media-required">(obbligatorio per {{ platform_labels.get(d.platform) }}{% if d.platform=='tiktok' %}: video{% endif %})</span>{% endif %}</label>
-            <input type="text" class="media-input" id="media-{{ d.id }}" placeholder="https://... (uno per riga, incolla URL pubblici)" value="{{ d.media_urls or '' }}">
+            <textarea class="media-input" id="media-{{ d.id }}" rows="{{ [((d.media_urls or '').splitlines()|length), 2]|max }}" placeholder="https://... (uno per riga, URL pubblici)">{{ d.media_urls or '' }}</textarea>
             <label>Programma</label>
             <input type="datetime-local" id="sched-{{ d.id }}" value="{{ d.scheduled_at.strftime('%Y-%m-%dT%H:%M') if d.scheduled_at else '' }}">
         </div>
+        {% if d.status == 'approved' and not d.scheduled_at %}
+        <div class="draft-hint">⏸ Non programmato: il job pubblica solo i post con una data. Questo esce solo premendo "Pubblica ora".</div>
+        {% endif %}
         {% else %}
         <div style="white-space: pre-wrap; font-size: .92rem; color: #444; line-height: 1.45;">{{ d.caption }}</div>
         {% endif %}
@@ -280,8 +291,10 @@
             {% if d.platform == 'instagram' and d.status in ('draft', 'approved', 'failed') %}
             <button class="btn btn-light" id="genmedia-{{ d.id }}" onclick="generateMedia({{ d.id }})"><i class="fas fa-image"></i> Genera grafica</button>
             {% endif %}
-            {% if d.status in ('draft', 'failed') %}
+            {% if d.status == 'draft' %}
             <button class="btn btn-primary" onclick="draftAction({{ d.id }}, 'approve')"><i class="fas fa-check"></i> Approva</button>
+            {% elif d.status == 'failed' %}
+            <button class="btn btn-primary" onclick="retryDraft({{ d.id }}, {{ 'true' if d.postforme_post_id else 'false' }})"><i class="fas fa-rotate-right"></i> Riprova</button>
             {% endif %}
             {% if d.status == 'approved' %}
             <button class="btn btn-primary" onclick="publishNow({{ d.id }})"><i class="fas fa-paper-plane"></i> Pubblica ora</button>
@@ -347,6 +360,22 @@ async function draftAction(id, action) {
     const r = await post(`/admin/social/drafts/${id}/status`, { action });
     toast(r.message, !r.ok);
     if (r.ok) setTimeout(() => location.reload(), 800);
+}
+
+async function retryDraft(id, raggiuntoLaPiattaforma) {
+    // Se il post era arrivato fino al social ed è fallito lì, ritentare vuol
+    // dire inviarne uno nuovo. Facebook a volte segnala un errore anche quando
+    // il post è uscito: meglio controllare prima di rischiare un doppione.
+    if (raggiuntoLaPiattaforma && !confirm(
+        'Il post era arrivato al social ed è stato rifiutato lì.
+
+' +
+        'Prima di ritentare controlla sulla pagina che non sia uscito comunque: ' +
+        'a volte il social segnala un errore anche quando pubblica.
+
+' +
+        'Ritentare con un nuovo invio?')) return;
+    await draftAction(id, 'approve');
 }
 
 async function generateMedia(id) {

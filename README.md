@@ -645,6 +645,8 @@ I test non richiedono servizi esterni: `tests/conftest.py` punta il
 | `tests/test_rate_limit.py` | finestra scorrevole, separazione per IP ed email, 429 |
 | `tests/test_message_limits.py` | conteggio messaggi, limiti da configurazione, frequenza di invio |
 | `tests/test_non_blocking.py` | guardia: nessuna chiamata lenta sull'event loop |
+| `tests/test_social_pipeline.py` | selezione delle domande per i contenuti social |
+| `tests/test_social_publisher.py` | media del carosello, ritento dei post falliti, requisiti di pubblicazione |
 | `tests/test_api.py` | pagine pubbliche, endpoint protetti, protezione CSRF |
 | `tests/test_integration.py` | template email, finestra di cancellazione, presenza in call |
 
@@ -688,6 +690,7 @@ psql -U postgres -d ispiramy_db -f sql_update/migration_add_booking_postgres.sql
 | `migration_add_booking_review_token` | Token monouso del link recensione |
 | `migration_add_missing_notification_types` | Tipi notifica usati dal codice ma mai censiti |
 | `migration_add_user_search_indexes` | Indici su `is_verified` e `category_id` per la ricerca consulenti |
+| `migration_add_social_publish_attempt` | Contatore dei ritentativi di pubblicazione dei post social |
 
 > Su un database nuovo le migrazioni non servono: `create_db_and_tables()`
 > crea le tabelle dai modelli SQLModel all'avvio. Servono solo per far evolvere

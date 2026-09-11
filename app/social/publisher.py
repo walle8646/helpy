@@ -7,6 +7,7 @@ imparata: Facebook può rispondere con errore ("reduce the amount of data") anch
 quando il post è uscito, quindi MAI ritentare alla cieca.
 """
 import os
+import re
 import json
 import urllib.request
 import urllib.parse
@@ -51,7 +52,32 @@ def get_connected_accounts() -> dict[str, dict]:
     return accounts
 
 
+# Separatori ammessi fra gli URL dei media. L'ultimo caso, "(?=https?://)",
+# recupera le bozze in cui gli URL sono finiti incollati in un'unica stringa:
+# succedeva a ogni salvataggio dalla dashboard, perche' il campo era un <input>
+# a riga singola che eliminava gli a-capo.
+_MEDIA_SPLIT = re.compile(r"[\s,;]+|(?=https?://)")
+
+
+def parse_media_urls(raw: Optional[str]) -> list[str]:
+    """Estrae gli URL dei media da un testo libero, nell'ordine in cui compaiono."""
+    if not raw:
+        return []
+    return [u for u in (p.strip() for p in _MEDIA_SPLIT.split(raw)) if u]
+
+
 def _external_id(draft: SocialDraft) -> str:
+    """ID stabile per un tentativo di pubblicazione.
+
+    Resta lo stesso finche' il tentativo e' in corso (e' cio' che impedisce i
+    doppioni se Post for Me risponde con errore a post gia' creato). Cambia solo
+    quando un amministratore ritenta esplicitamente un post fallito sul social.
+    Il tentativo 0 mantiene il formato originale, cosi' i post gia' inviati
+    restano riconoscibili.
+    """
+    attempt = getattr(draft, "publish_attempt", 0) or 0
+    if attempt:
+        return f"ispiramy-draft-{draft.id}-r{attempt}"
     return f"ispiramy-draft-{draft.id}"
 
 
@@ -76,7 +102,7 @@ def publish_draft(draft_id: int) -> dict:
             return {"ok": False, "message": f"Stato '{draft.status}' non pubblicabile (serve 'approved')"}
 
         # Vincoli piattaforma
-        media = [u.strip() for u in (draft.media_urls or "").splitlines() if u.strip()]
+        media = parse_media_urls(draft.media_urls)
         if draft.platform in PLATFORM_REQUIRES_MEDIA and not media:
             return {"ok": False, "message": f"{draft.platform} richiede almeno un media (aggiungi URL immagine/video)"}
 
@@ -164,6 +190,25 @@ def check_publishing_results() -> None:
         session.commit()
 
 
+def _segna_fallito(draft_id: int, messaggio: str) -> None:
+    """Porta in 'failed' un post programmato che non puo' partire.
+
+    Senza questo, un post con un requisito mancante (es. Instagram senza
+    immagini, account non collegato) restava 'approved' per sempre: il job lo
+    ritentava ogni 5 minuti e in dashboard non compariva alcun errore.
+    """
+    with Session(engine) as session:
+        draft = session.get(SocialDraft, draft_id)
+        if not draft or draft.status != "approved":
+            return
+        draft.status = "failed"
+        draft.error = f"Programmazione non eseguita: {messaggio}"[:2000]
+        draft.updated_at = datetime.utcnow()
+        session.add(draft)
+        session.commit()
+    logger.warning(f"Social publisher: draft {draft_id} programmato non pubblicabile: {messaggio}")
+
+
 def process_social_queue() -> None:
     """Job schedulato: pubblica i draft approvati la cui ora è arrivata e aggiorna gli esiti.
 
@@ -183,7 +228,9 @@ def process_social_queue() -> None:
             ).all()
             due_ids = [d.id for d in due]
         for draft_id in due_ids:
-            publish_draft(draft_id)
+            esito = publish_draft(draft_id)
+            if not esito.get("ok"):
+                _segna_fallito(draft_id, esito.get("message", "Pubblicazione non riuscita"))
         check_publishing_results()
     except Exception as e:
         logger.error(f"Social publisher: errore nel job process_social_queue: {e}", exc_info=True)
