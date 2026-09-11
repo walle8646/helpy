@@ -436,22 +436,47 @@
     
     /* ========== CHAT PANEL STYLES ========== */
     
+    /* Chat laterale come in Teams: occupa una colonna a destra per tutta
+       l'altezza e la call si restringe accanto, invece di un popup che copre
+       il volto dell'altra persona. */
+    :root {
+        --chat-width: 360px;
+    }
+
     .chat-panel {
         position: fixed;
-        right: 20px;
-        bottom: 110px;
-        width: 300px;
-        height: 400px;
-        background: rgba(20, 20, 40, 0.95);
-        border: 2px solid #43a047;
-        border-radius: 12px;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: var(--chat-width);
+        background: #14142b;
+        border-left: 1px solid rgba(67, 160, 71, 0.45);
         display: flex;
         flex-direction: column;
         z-index: 10000;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 8px 32px rgba(76, 175, 80, 0.2);
+        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
     }
-    
+
+    body.chat-open .call-container {
+        right: var(--chat-width);
+    }
+
+    /* I riquadri in sovrimpressione (condivisione schermo) seguono il bordo della call */
+    body.chat-open .video-grid.screen-sharing:not(.remote-sharing) #remotePlayer,
+    body.chat-open .video-grid.screen-sharing.remote-sharing #localPlayer {
+        right: calc(var(--chat-width) + 20px);
+    }
+
+    body.chat-open .toast-notification {
+        right: calc(var(--chat-width) + 30px);
+    }
+
+    @media (max-width: 1100px) {
+        :root {
+            --chat-width: 320px;
+        }
+    }
+
     .chat-header {
         padding: 12px 16px;
         border-bottom: 1px solid #43a047;
@@ -580,6 +605,137 @@
         color: #718096;
         font-size: 0.8rem;
         flex-shrink: 0;
+    }
+
+    .chat-attachment-open {
+        background: none;
+        border: none;
+        padding: 0;
+        color: #43a047;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .chat-attachment-open:hover {
+        color: #7cc974;
+        text-decoration: underline;
+    }
+
+    .chat-attachment-action {
+        background: none;
+        border: none;
+        color: #a0aec0;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 6px;
+        flex-shrink: 0;
+    }
+
+    .chat-attachment-action:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .chat-attachment-thumb {
+        display: block;
+        padding: 0;
+        border: 1px solid rgba(76, 175, 80, 0.3);
+        border-radius: 10px;
+        overflow: hidden;
+        background: #0f0f23;
+        cursor: zoom-in;
+        max-width: 220px;
+    }
+
+    .chat-attachment-thumb img {
+        display: block;
+        width: 100%;
+        max-height: 180px;
+        object-fit: cover;
+    }
+
+    /* Visualizzatore allegati (immagini, PDF, testo) sopra la call */
+    .attachment-viewer {
+        position: fixed;
+        inset: 0;
+        z-index: 10050;
+        background: rgba(8, 8, 20, 0.92);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .attachment-viewer[hidden] {
+        display: none;
+    }
+
+    .attachment-viewer-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .attachment-viewer-name {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: 600;
+    }
+
+    .attachment-viewer-bar a,
+    .attachment-viewer-bar button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: transparent;
+        color: #fff;
+        font: inherit;
+        font-size: 0.9rem;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .attachment-viewer-bar a:hover,
+    .attachment-viewer-bar button:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .attachment-viewer-body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+    }
+
+    .attachment-viewer-body img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 6px;
+    }
+
+    .attachment-viewer-body iframe {
+        width: 100%;
+        height: 100%;
+        max-width: 1000px;
+        border: none;
+        border-radius: 6px;
+        background: #fff;
     }
 
     .chat-input-area {
@@ -1247,15 +1403,37 @@
     
     /* ========== MOBILE RESPONSIVE ========== */
     @media (max-width: 768px) {
+        /* Su telefono la colonna laterale schiaccerebbe i video: la chat
+           occupa la metà bassa e video + comandi restano visibili sopra. */
         .chat-panel {
-            right: 0;
+            top: auto;
             left: 0;
-            bottom: 80px;
+            right: 0;
+            bottom: 0;
             width: 100%;
-            height: 50vh;
+            height: 55vh;
+            height: 55dvh;
+            border-left: none;
+            border-top: 1px solid rgba(67, 160, 71, 0.45);
             border-radius: 16px 16px 0 0;
         }
-        
+
+        body.chat-open .call-container {
+            right: 0;
+            bottom: 55vh;
+            bottom: 55dvh;
+            height: auto;
+        }
+
+        body.chat-open .video-grid.screen-sharing:not(.remote-sharing) #remotePlayer,
+        body.chat-open .video-grid.screen-sharing.remote-sharing #localPlayer {
+            right: 8px !important;
+        }
+
+        .attachment-viewer-bar .viewer-label {
+            display: none;
+        }
+
         .controls-bar {
             padding: 12px 8px;
             gap: 8px;
@@ -1473,6 +1651,23 @@
     </div>
 </div>
 
+<!-- Visualizzatore allegati della chat -->
+<div class="attachment-viewer" id="attachmentViewer" hidden role="dialog" aria-modal="true" aria-labelledby="attachmentViewerName">
+    <div class="attachment-viewer-bar">
+        <span class="attachment-viewer-name" id="attachmentViewerName"></span>
+        <a id="attachmentViewerNewTab" target="_blank" rel="noopener noreferrer" title="Apri in una nuova scheda">
+            <i class="fas fa-external-link-alt"></i><span class="viewer-label">Nuova scheda</span>
+        </a>
+        <a id="attachmentViewerDownload" target="_blank" rel="noopener noreferrer" title="Scarica">
+            <i class="fas fa-download"></i><span class="viewer-label">Scarica</span>
+        </a>
+        <button type="button" id="attachmentViewerClose" title="Chiudi">
+            <i class="fas fa-times"></i><span class="viewer-label">Chiudi</span>
+        </button>
+    </div>
+    <div class="attachment-viewer-body" id="attachmentViewerBody"></div>
+</div>
+
 <!-- Review Modal (solo per il cliente) -->
 {% if user.id == booking.client_user_id %}
 <div class="review-overlay" id="reviewOverlay">
@@ -1558,6 +1753,9 @@
     const bookingEndTime = `${bookingDate}T${bookingEndTimeStr}:00`; // Combina data + ora in ISO format
     const isClient = {{ 'true' if user.id == booking.client_user_id else 'false' }};
     let recordingRequested = {{ 'true' if booking.recording_requested else 'false' }};
+    // La call è già partita almeno una volta: chi rientra (ricarica, cambio
+    // scheda) ha già confermato la registrazione e non va interrogato di nuovo.
+    const callGiaAvviata = {{ 'true' if booking.call_started_at else 'false' }};
     let remoteUserName = "{{ remote_user_name|default('Partecipante', true) }}";
     
     let client = null;
@@ -2533,7 +2731,7 @@
             startScreenSharePolling();
 
             // ✅ Carica messaggi precedenti e avvia polling chat
-            loadChatMessages().then(setupAttachmentDownloads).catch(e => console.error('Chat load error:', e));
+            loadChatMessages().catch(e => console.error('Chat load error:', e));
             startChatPolling();
 
             // 🎬 Recording avviato in background (non blocca la UX della call)
@@ -2803,7 +3001,10 @@
     });
     
     // Leave call
-    async function leaveCall() {
+    // notifyServer=false quando la call passa a un'altra scheda dello stesso
+    // utente: l'utente resta in consulenza, quindi niente /leave (che fermerebbe
+    // anche la registrazione).
+    async function leaveCall({ notifyServer = true } = {}) {
         console.log('🔔 [LEAVE] leaveCall() called');
         
         // Stop screen share polling
@@ -2850,6 +3051,8 @@
             }
         }
         
+        if (!notifyServer) return;
+
         // Notify backend (fire-and-forget via sendBeacon)
         console.log(`🔔 [LEAVE] Notifying backend that user is leaving booking ${bookingId}...`);
         try {
@@ -3000,18 +3203,151 @@
         }
     }
 
-    // Initialize on page load - with recording confirmation for client
-    if (isClient) {
-        showRecordingConfirmation();
-    } else {
-        waitForClientThenStart();
+    // ========== UNA SOLA SCHEDA PER CALL ==========
+    // Aprire la stessa call in due schede significava due client Agora con lo
+    // stesso utente: audio doppio, e al cliente la conferma di registrazione a
+    // ogni apertura. Le schede dello stesso browser si parlano su un
+    // BroadcastChannel: quella nuova chiede se ce n'è già una attiva e, se sì,
+    // non entra in call finché l'utente non sceglie di spostarla qui.
+    const CALL_TAB_NAME = `ispiramy-call-${bookingId}`;
+    const CALL_TAB_ID = Math.random().toString(36).slice(2);
+    const REC_CONFIRMED_KEY = `ispiramy-rec-confirmed-${bookingId}`;
+    let callChannel = null;
+    let isActiveCallTab = false;   // questa scheda è quella che sta in call
+    try { window.name = CALL_TAB_NAME; } catch (e) {}  // il profilo la ritrova per nome
+    if ('BroadcastChannel' in window) {
+        try {
+            callChannel = new BroadcastChannel(CALL_TAB_NAME);
+            callChannel.onmessage = (ev) => {
+                const msg = ev.data || {};
+                if (msg.from === CALL_TAB_ID) return;
+                if (msg.type === 'ping' && isActiveCallTab) {
+                    callChannel.postMessage({ type: 'pong', from: CALL_TAB_ID });
+                } else if (msg.type === 'takeover' && isActiveCallTab) {
+                    cediCallAdAltraScheda();
+                }
+            };
+        } catch (e) { callChannel = null; }
     }
+
+    function cercaAltraSchedaAttiva(timeoutMs = 500) {
+        if (!callChannel) return Promise.resolve(false);
+        return new Promise(resolve => {
+            const onMsg = (ev) => {
+                if (ev.data && ev.data.type === 'pong' && ev.data.from !== CALL_TAB_ID) {
+                    clearTimeout(timer);
+                    callChannel.removeEventListener('message', onMsg);
+                    resolve(true);
+                }
+            };
+            const timer = setTimeout(() => {
+                callChannel.removeEventListener('message', onMsg);
+                resolve(false);
+            }, timeoutMs);
+            callChannel.addEventListener('message', onMsg);
+            callChannel.postMessage({ type: 'ping', from: CALL_TAB_ID });
+        });
+    }
+
+    function schermataCallAltrove({ id, icon, title, message, actions }) {
+        document.getElementById(id)?.remove();
+        const overlay = document.createElement('div');
+        overlay.id = id;
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:100000;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:16px;padding:32px;max-width:440px;width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);">
+                <div style="font-size:2.6rem;margin-bottom:12px;">${icon}</div>
+                <h3 style="margin:0 0 12px;font-size:1.2rem;color:#1a202c;">${title}</h3>
+                <p style="color:#555;font-size:0.95rem;line-height:1.5;margin:0 0 22px;">${message}</p>
+                <div class="call-altrove-azioni" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;"></div>
+            </div>`;
+        const box = overlay.querySelector('.call-altrove-azioni');
+        actions.forEach(({ label, primary, onClick }) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = label;
+            b.style.cssText = primary
+                ? 'padding:12px 24px;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;background:#2e7d32;color:#fff;'
+                : 'padding:12px 24px;border:2px solid #e0e0e0;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;background:#fff;color:#555;';
+            b.addEventListener('click', onClick);
+            box.appendChild(b);
+        });
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+
+    function chiudiScheda() {
+        window.close();
+        // window.close() funziona solo sulle schede aperte da script: altrimenti
+        // si torna al profilo.
+        setTimeout(() => { window.location.href = '/profile'; }, 300);
+    }
+
+    function mostraSchedaDuplicata() {
+        schermataCallAltrove({
+            id: 'duplicateTabOverlay',
+            icon: '🗂️',
+            title: 'Call già aperta in un\'altra scheda',
+            message: 'Stai già partecipando a questa consulenza da un\'altra scheda del browser. Puoi continuare lì oppure spostare la call in questa scheda.',
+            actions: [
+                { label: 'Sposta la call qui', primary: true, onClick: () => {
+                    callChannel.postMessage({ type: 'takeover', from: CALL_TAB_ID });
+                    document.getElementById('duplicateTabOverlay')?.remove();
+                    // Lascia all'altra scheda il tempo di uscire dal canale
+                    setTimeout(() => avviaCallInQuestaScheda({ dopoSpostamento: true }), 600);
+                } },
+                { label: 'Chiudi questa scheda', primary: false, onClick: chiudiScheda },
+            ],
+        });
+    }
+
+    async function cediCallAdAltraScheda() {
+        isActiveCallTab = false;
+        isLeavingCall = true;  // niente popup né /leave alla chiusura di questa scheda
+        try { await leaveCall({ notifyServer: false }); } catch (e) { console.warn('Uscita scheda:', e); }
+        schermataCallAltrove({
+            id: 'movedTabOverlay',
+            icon: '↪️',
+            title: 'Call spostata in un\'altra scheda',
+            message: 'La consulenza continua nell\'altra scheda. Questa puoi chiuderla.',
+            actions: [{ label: 'Chiudi questa scheda', primary: true, onClick: chiudiScheda }],
+        });
+    }
+
+    function registrazioneGiaConfermata() {
+        if (callGiaAvviata) return true;
+        try { return localStorage.getItem(REC_CONFIRMED_KEY) === '1'; } catch (e) { return false; }
+    }
+
+    function segnaRegistrazioneConfermata() {
+        try { localStorage.setItem(REC_CONFIRMED_KEY, '1'); } catch (e) {}
+    }
+
+    function avviaCallInQuestaScheda({ dopoSpostamento = false } = {}) {
+        isActiveCallTab = true;
+        if (!isClient) {
+            waitForClientThenStart();
+        } else if (dopoSpostamento || registrazioneGiaConfermata()) {
+            // Il cliente ha già risposto alla domanda sulla registrazione
+            startCallWithGesture(null, 'Rientra nella consulenza');
+        } else {
+            showRecordingConfirmation();
+        }
+    }
+
+    (async () => {
+        if (await cercaAltraSchedaAttiva()) {
+            mostraSchedaDuplicata();
+        } else {
+            avviaCallInQuestaScheda();
+        }
+    })();
     
     // Su mobile (soprattutto iOS) l'accesso a microfono/videocamera va richiesto
     // a partire da un'azione dell'utente: se initializeCall parte da un timer il
     // permesso può non venire mai chiesto e la pagina resta in "inizializzazione".
     // Quindi su mobile facciamo comparire un pulsante da toccare.
-    function startCallWithGesture(overlay) {
+    function startCallWithGesture(overlay, titolo = 'Il cliente è collegato') {
         if (overlay) overlay.remove();
         // Idempotente: due tick di polling sovrapposti creerebbero due gate, e il
         // secondo (quello visibile) resterebbe senza listener → blocco definitivo.
@@ -3026,7 +3362,7 @@
         gate.innerHTML = `
             <div style="background:#fff;border-radius:16px;padding:32px;max-width:420px;width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);">
                 <div style="font-size:2.6rem;margin-bottom:12px;">📞</div>
-                <h3 style="margin:0 0 12px;font-size:1.2rem;color:#1a202c;">Il cliente è collegato</h3>
+                <h3 style="margin:0 0 12px;font-size:1.2rem;color:#1a202c;">${titolo}</h3>
                 <p style="color:#555;font-size:0.95rem;line-height:1.5;margin:0 0 22px;">Tocca il pulsante per entrare nella consulenza e consentire l'accesso a microfono e videocamera.</p>
                 <button id="joinGateBtn" style="padding:14px 30px;border:none;border-radius:8px;font-weight:600;font-size:1rem;cursor:pointer;background:#2e7d32;color:#fff;">
                     <i class="fas fa-video"></i> Entra nella chiamata
@@ -3152,6 +3488,7 @@
         document.body.appendChild(overlay);
         
         document.getElementById('recordingConfirmYes').addEventListener('click', () => {
+            segnaRegistrazioneConfermata();
             overlay.remove();
             initializeCall();
         });
@@ -3173,6 +3510,7 @@
                 if (resp.ok) {
                     recordingRequested = newValue;
                     console.log('📹 recording_requested aggiornato a:', recordingRequested);
+                    segnaRegistrazioneConfermata();
                     overlay.remove();
                     initializeCall();
                 } else {
@@ -3195,22 +3533,26 @@
     loadChatMessages();
     
     // Toggle chat panel
-    chatUI.toggleBtn.addEventListener('click', () => {
-        if (chatUI.panel.style.display === 'none') {
-            chatUI.panel.style.display = 'flex';
-            chatUI.input.focus();
+    // La classe chat-open sul body fa spazio alla colonna della chat
+    function setChatOpen(open) {
+        chatUI.panel.style.display = open ? 'flex' : 'none';
+        document.body.classList.toggle('chat-open', open);
+        if (open) {
+            // Su telefono il focus apre la tastiera sopra la chat appena aperta
+            if (!IS_MOBILE) chatUI.input.focus();
+            chatUI.msgPanel.scrollTop = chatUI.msgPanel.scrollHeight;
             // Resetta i messaggi non letti quando la chat viene aperta
             chatUI.unreadCount = 0;
             updateChatBadge();
-        } else {
-            chatUI.panel.style.display = 'none';
         }
+    }
+
+    chatUI.toggleBtn.addEventListener('click', () => {
+        setChatOpen(chatUI.panel.style.display === 'none');
     });
-    
+
     // Chiudi chat panel
-    chatUI.closeBtn.addEventListener('click', () => {
-        chatUI.panel.style.display = 'none';
-    });
+    chatUI.closeBtn.addEventListener('click', () => setChatOpen(false));
     
     // Invia messaggio con bottone
     chatUI.sendBtn.addEventListener('click', sendChatMessage);
@@ -3225,8 +3567,10 @@
     
     // Cleanup on page unload (chiusura browser, tab, refresh)
     window.addEventListener('beforeunload', (e) => {
-        // Se l'utente ha cliccato "Termina chiamata", non mostrare popup
-        if (isLeavingCall) return;
+        // Se l'utente ha cliccato "Termina chiamata", non mostrare popup.
+        // Una scheda doppia (mai entrata o che ha ceduto la call) non deve
+        // mandare /leave: l'utente è ancora in call nell'altra scheda.
+        if (isLeavingCall || !isActiveCallTab) return;
         
         // Mostra popup di conferma
         e.preventDefault();
@@ -3336,32 +3680,127 @@
     
     // ========== CHAT FUNCTIONS ==========
     
-    /**
-     * Gestisce il download degli allegati tramite link S3 diretto
-     */
-    function setupAttachmentDownloads() {
-        document.addEventListener('click', function(e) {
-            // Trova l'elemento <a> più vicino (potrebbe essere cliccata l'icona interna)
-            const link = e.target.closest('.download-attachment');
-            if (link) {
-                e.preventDefault();
-                const url = link.getAttribute('data-url');
-                const name = link.getAttribute('data-name');
-                
-                if (url) {
-                    // Apri il link S3 in una nuova tab per il download
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.target = '_blank';
-                    a.rel = 'noopener noreferrer';
-                    a.download = name || '';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    console.log(`📥 Download avviato: ${name}`);
-                }
-            }
+    // Gli allegati si aprono passando dal server, che verifica che l'utente sia
+    // un partecipante e firma un link S3 temporaneo: "view" li mostra nel
+    // browser (immagini, PDF, testo), "download" li scarica. Prima c'era solo
+    // il link S3 diretto, salvato come "da scaricare": non si poteva guardare
+    // una foto senza scaricarla.
+    const ESTENSIONI_IMMAGINE = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    const ESTENSIONI_VISUALIZZABILI = [...ESTENSIONI_IMMAGINE, 'pdf', 'txt'];
+
+    function estensioneFile(nome) {
+        const parti = String(nome || '').toLowerCase().split('.');
+        return parti.length > 1 ? parti.pop() : '';
+    }
+
+    function urlAllegato(att, mode) {
+        return `/api/booking/${bookingId}/chat/attachment?mode=${mode}&url=${encodeURIComponent(att.url || '')}`;
+    }
+
+    function scaricaAllegato(url) {
+        // In una nuova scheda: il download non deve far scattare l'uscita dalla call
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
+    const attachmentViewer = {
+        root: document.getElementById('attachmentViewer'),
+        name: document.getElementById('attachmentViewerName'),
+        body: document.getElementById('attachmentViewerBody'),
+        newTab: document.getElementById('attachmentViewerNewTab'),
+        download: document.getElementById('attachmentViewerDownload'),
+        closeBtn: document.getElementById('attachmentViewerClose'),
+    };
+
+    function apriVisualizzatore(att) {
+        const nome = att.filename || 'file';
+        const viewUrl = urlAllegato(att, 'view');
+        attachmentViewer.name.textContent = nome;
+        attachmentViewer.newTab.href = viewUrl;
+        attachmentViewer.download.href = urlAllegato(att, 'download');
+        attachmentViewer.body.replaceChildren();
+        if (ESTENSIONI_IMMAGINE.includes(estensioneFile(nome))) {
+            const img = document.createElement('img');
+            img.src = viewUrl;
+            img.alt = nome;
+            attachmentViewer.body.appendChild(img);
+        } else {
+            const frame = document.createElement('iframe');
+            frame.src = viewUrl;
+            frame.title = nome;
+            attachmentViewer.body.appendChild(frame);
+        }
+        attachmentViewer.root.hidden = false;
+        attachmentViewer.closeBtn.focus();
+    }
+
+    function chiudiVisualizzatore() {
+        attachmentViewer.root.hidden = true;
+        attachmentViewer.body.replaceChildren();  // ferma il caricamento del PDF
+    }
+
+    attachmentViewer.closeBtn.addEventListener('click', chiudiVisualizzatore);
+    attachmentViewer.root.addEventListener('click', (e) => {
+        if (e.target === attachmentViewer.root || e.target === attachmentViewer.body) chiudiVisualizzatore();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !attachmentViewer.root.hidden) chiudiVisualizzatore();
+    });
+
+    function elementoAllegato(att) {
+        const nome = att.filename || 'file';
+        const ext = estensioneFile(nome);
+        const box = document.createElement('div');
+
+        if (ESTENSIONI_IMMAGINE.includes(ext)) {
+            const thumb = document.createElement('button');
+            thumb.type = 'button';
+            thumb.className = 'chat-attachment-thumb';
+            thumb.title = `Apri ${nome}`;
+            const img = document.createElement('img');
+            img.src = urlAllegato(att, 'view');
+            img.alt = nome;
+            img.loading = 'lazy';
+            img.addEventListener('load', () => {
+                chatUI.msgPanel.scrollTop = chatUI.msgPanel.scrollHeight;
+            }, { once: true });
+            thumb.appendChild(img);
+            thumb.addEventListener('click', () => apriVisualizzatore(att));
+            box.appendChild(thumb);
+        }
+
+        const riga = document.createElement('div');
+        riga.className = 'chat-attachment';
+        const icona = document.createElement('i');
+        icona.className = `fas ${getFileIcon(nome)}`;
+        const apri = document.createElement('button');
+        apri.type = 'button';
+        apri.className = 'chat-attachment-open';
+        apri.textContent = nome;
+        const visualizzabile = ESTENSIONI_VISUALIZZABILI.includes(ext);
+        apri.title = visualizzabile ? `Apri ${nome}` : `Scarica ${nome}`;
+        apri.addEventListener('click', () => {
+            if (visualizzabile) apriVisualizzatore(att);
+            else scaricaAllegato(urlAllegato(att, 'download'));
         });
+        const dimensione = document.createElement('span');
+        dimensione.className = 'attachment-size';
+        dimensione.textContent = formatFileSize(Number(att.file_size) || 0);
+        const scarica = document.createElement('button');
+        scarica.type = 'button';
+        scarica.className = 'chat-attachment-action';
+        scarica.title = `Scarica ${nome}`;
+        scarica.setAttribute('aria-label', `Scarica ${nome}`);
+        scarica.innerHTML = '<i class="fas fa-download"></i>';
+        scarica.addEventListener('click', () => scaricaAllegato(urlAllegato(att, 'download')));
+        riga.append(icona, apri, dimensione, scarica);
+        box.appendChild(riga);
+        return box;
     }
     
     /**
@@ -3380,39 +3819,25 @@
             messageDiv.setAttribute('data-temp-id', message.id);
         }
         
-        let html = `
-            <span class="chat-message-sender">${message.user_name}</span>
-            <span class="chat-message-text">${escapeHtml(message.message)}</span>
-        `;
-        
-        // Aggiungi allegati se presenti
-        if (message.attachments && message.attachments.length > 0) {
-            html += '<div class="chat-message-attachments">';
-            message.attachments.forEach(att => {
-                const filename = att.filename || 'file';
-                const fileUrl = att.url || '';
-                const fileIcon = getFileIcon(filename);
-                
-                html += `
-                    <div class="chat-attachment">
-                        <i class="fas ${fileIcon}"></i>
-                        <a class="download-attachment" data-url="${fileUrl}" data-name="${filename}" title="Scarica ${filename}">
-                            ${filename}
-                        </a>
-                        <span class="attachment-size">${formatFileSize(att.file_size || 0)}</span>
-                    </div>
-                `;
-            });
-            html += '</div>';
+        // Nome e testo vengono dall'altro partecipante: sempre escapati
+        let html = `<span class="chat-message-sender">${escapeHtml(message.user_name)}</span>`;
+        if (message.message) {
+            html += `<span class="chat-message-text">${escapeHtml(message.message)}</span>`;
         }
-        
         messageDiv.innerHTML = html;
+
+        // Allegati costruiti come nodi DOM (niente nomi file dentro innerHTML)
+        if (message.attachments && message.attachments.length > 0) {
+            const lista = document.createElement('div');
+            lista.className = 'chat-message-attachments';
+            message.attachments.forEach(att => lista.appendChild(elementoAllegato(att)));
+            messageDiv.appendChild(lista);
+        }
+
         chatUI.msgPanel.appendChild(messageDiv);
-        
+
         // Scrolla in basso
         chatUI.msgPanel.scrollTop = chatUI.msgPanel.scrollHeight;
-        
-        console.log(`✅ Messaggio visualizzato: ${message.user_name} - ${message.message}`);
     }
     
     /**
@@ -3575,7 +4000,7 @@
             '"': '&quot;',
             "'": '&#039;'
         };
-        return text.replace(/[&<>"']/g, m => map[m]);
+        return String(text ?? '').replace(/[&<>"']/g, m => map[m]);
     }
     
     /**

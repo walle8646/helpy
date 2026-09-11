@@ -676,8 +676,10 @@ async def get_upcoming_bookings(request: Request):
         raise HTTPException(status_code=401, detail="Non autenticato")
     
     with Session(engine) as session:
-        # Usa datetime.now() per l'ora locale
-        now = datetime.now()
+        # Ora italiana, come gli orari delle prenotazioni. datetime.now() è
+        # l'ora del server (UTC su Render): "mancano X minuti" risultava sfasato
+        # di 1-2 ore e il bottone per entrare compariva all'ora sbagliata.
+        now = now_italy_naive()
         
         # Query per prenotazioni confermate FUTURE e pagate (incluso 'held' per pagamenti in attesa di rilascio)
         statement = select(Booking).where(
@@ -715,8 +717,7 @@ async def get_upcoming_bookings(request: Request):
             if time_until < -booking.duration_minutes and not someone_in_call:
                 continue
             
-            print(f"DEBUG: booking_date={booking_date}, booking_datetime={booking_datetime}, now={now}, time_until={time_until}")
-            
+
             # Determina il ruolo dell'utente corrente
             is_client = booking.client_user_id == current_user.id
             role = 'client' if is_client else 'consultant'
@@ -738,6 +739,10 @@ async def get_upcoming_bookings(request: Request):
                 other_joined = True
                 can_start_call = True
             
+            recensione_lasciata = session.exec(
+                select(Review.id).where(Review.booking_id == booking.id)
+            ).first() is not None
+
             upcoming.append({
                 "id": booking.id,
                 "date": str(booking_date) if not isinstance(booking.booking_date, str) else booking.booking_date,
@@ -758,9 +763,11 @@ async def get_upcoming_bookings(request: Request):
                 "can_join": can_join,
                 "has_joined": has_joined,
                 "other_joined": other_joined,
-                "can_start_call": can_start_call
+                "can_start_call": can_start_call,
+                # La recensione chiude la consulenza: niente più "Entra in call"
+                "closed_by_review": recensione_lasciata,
             })
-            
+
             # LIMITE: Mostra massimo 3 appuntamenti
             if len(upcoming) >= 3:
                 break
@@ -1912,17 +1919,22 @@ async def get_call_status_extended(
         call_deadline = end_datetime + timedelta(minutes=5)
         
         # Stato della call
-        is_expired = now_italy >= call_deadline
+        # Una recensione lasciata chiude la consulenza (stessa regola di
+        # /call-status): il profilo non deve più proporre "Entra in call".
+        closed_by_review = session.exec(
+            select(Review.id).where(Review.booking_id == booking_id)
+        ).first() is not None
+
+        is_expired = now_italy >= call_deadline or closed_by_review
         call_has_started = booking.call_started_at is not None
         can_resume = call_has_started and not is_expired
         
         remaining_seconds = int((call_deadline - now_italy).total_seconds()) if not is_expired else 0
-        
-        print(f"📞 Call status extended - booking {booking_id}: started={call_has_started}, expired={is_expired}, can_resume={can_resume}")
-        
+
         return {
             "booking_id": booking_id,
             "is_expired": is_expired,
+            "closed_by_review": closed_by_review,
             "call_has_started": call_has_started,
             "can_resume": can_resume,
             "remaining_seconds": max(0, remaining_seconds),
@@ -1952,6 +1964,63 @@ def _get_chat_s3_client():
             region_name=s3_region
         )
     return _chat_s3_client
+
+
+# Estensioni che il browser può mostrare da sé, con il tipo con cui servirle.
+# Tutto il resto (Office, zip...) si può solo scaricare.
+_ALLEGATI_VISUALIZZABILI = {
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+    "gif": "image/gif", "webp": "image/webp",
+    "pdf": "application/pdf",
+    "txt": "text/plain; charset=utf-8",
+}
+
+
+def _nome_file_sicuro(nome: str, estensione: str) -> str:
+    """Nome ASCII senza caratteri speciali, usabile nella chiave S3 e negli header.
+
+    Un nome con accenti o virgolette ("fattura_è.pdf") finiva così com'era
+    nell'header Content-Disposition e l'upload falliva.
+    """
+    import re
+    import unicodedata
+
+    base = unicodedata.normalize("NFKD", nome or "").encode("ascii", "ignore").decode()
+    base = re.sub(r"[^A-Za-z0-9._-]+", "_", base).strip("._") or "file"
+    if not base.lower().endswith(f".{estensione}"):
+        base = f"{base}.{estensione}"
+    return base[-120:]
+
+
+def _chiave_allegato_chat(booking_id: int, url: str) -> Optional[str]:
+    """Chiave S3 dell'allegato, solo se appartiene alla chat di questo booking.
+
+    Gli allegati sono salvati nei messaggi come URL S3: accettiamo solo quelli
+    del nostro bucket e sotto call-attachments/<booking_id>/, così nessuno può
+    usare l'endpoint per leggere altri file del bucket o di altre consulenze.
+    """
+    from urllib.parse import unquote, urlparse
+
+    try:
+        parsed = urlparse(url or "")
+    except ValueError:
+        return None
+    bucket = os.getenv("S3_BUCKET_NAME", "ispiramy-images")
+    if parsed.scheme != "https" or not parsed.netloc.startswith(f"{bucket}.s3."):
+        return None
+    chiave = unquote(parsed.path.lstrip("/"))
+    prefisso = f"call-attachments/{booking_id}/"
+    resto = chiave[len(prefisso):]
+    if not chiave.startswith(prefisso) or not resto or "/" in resto or ".." in resto:
+        return None
+    return chiave
+
+
+def _nome_da_chiave(chiave: str) -> str:
+    """Nome file dalla chiave <user>_<data>_<ora>_<micro>_<nome>."""
+    ultimo = chiave.rsplit("/", 1)[-1]
+    parti = ultimo.split("_", 4)
+    return parti[4] if len(parti) == 5 else ultimo
 
 
 @router.post("/api/booking/{booking_id}/chat/upload-attachment")
@@ -2012,7 +2081,7 @@ async def upload_chat_attachment(
         s3_region = os.getenv("AWS_REGION", "eu-west-1")
         
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
-        safe_filename = file.filename.replace(' ', '_') if file.filename else f"file.{file_extension}"
+        safe_filename = _nome_file_sicuro(file.filename, file_extension)
         s3_key = f"call-attachments/{booking_id}/{current_user.id}_{timestamp}_{safe_filename}"
         
         # Determina il content-type per il download
@@ -2059,8 +2128,25 @@ async def send_call_message(
         
         body = await request.json()
         message_text = body.get("message", "").strip()
-        attachments_data = body.get("attachments", [])  # Lista di {url, filename, file_size, file_type}
-        
+        # Lista di {url, filename, file_size, file_type} restituiti da upload-attachment.
+        # Arriva dal browser: teniamo solo gli URL della chat di questo booking
+        # (niente link esterni o javascript: mostrati all'altro partecipante)
+        # e solo i campi attesi.
+        attachments_data = []
+        for att in body.get("attachments") or []:
+            if not isinstance(att, dict) or not _chiave_allegato_chat(booking_id, att.get("url")):
+                continue
+            try:
+                dimensione = max(0, int(att.get("file_size") or 0))
+            except (TypeError, ValueError):
+                dimensione = 0
+            attachments_data.append({
+                "url": att["url"],
+                "filename": str(att.get("filename") or "file")[:255],
+                "file_size": dimensione,
+                "file_type": str(att.get("file_type") or "")[:100],
+            })
+
         if not message_text and not attachments_data:
             raise HTTPException(status_code=400, detail="Messaggio o allegato richiesto")
 
@@ -2177,7 +2263,59 @@ async def get_call_messages(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Download allegati non più necessario: i file sono su S3 con URL diretti
+@router.get("/api/booking/{booking_id}/chat/attachment")
+async def open_call_attachment(
+    booking_id: int,
+    url: str,
+    mode: str = "view",
+    current_user: User = Depends(get_current_user)
+):
+    """Apre un allegato della chat: mode=view lo mostra nel browser, mode=download lo scarica.
+
+    I file sono stati caricati con "Content-Disposition: attachment", quindi il
+    link S3 diretto li scaricava sempre (una foto non si poteva guardare).
+    Qui si firma un link temporaneo che sovrascrive disposition e tipo.
+    """
+    from urllib.parse import quote
+
+    with Session(engine) as session:
+        booking = session.exec(
+            select(Booking.client_user_id, Booking.consultant_user_id)
+            .where(Booking.id == booking_id)
+        ).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking non trovato")
+    if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+        raise HTTPException(status_code=403, detail="Non autorizzato")
+
+    chiave = _chiave_allegato_chat(booking_id, url)
+    if not chiave:
+        raise HTTPException(status_code=404, detail="Allegato non trovato")
+
+    s3_client = _get_chat_s3_client()
+    if not s3_client:
+        raise HTTPException(status_code=503, detail="Servizio allegati non disponibile")
+
+    nome = _nome_da_chiave(chiave)
+    estensione = nome.rsplit(".", 1)[-1].lower() if "." in nome else ""
+    params = {"Bucket": os.getenv("S3_BUCKET_NAME", "ispiramy-images"), "Key": chiave}
+    if mode == "view" and estensione in _ALLEGATI_VISUALIZZABILI:
+        params["ResponseContentDisposition"] = "inline"
+        params["ResponseContentType"] = _ALLEGATI_VISUALIZZABILI[estensione]
+    else:
+        # I file caricati prima della sanificazione possono avere accenti o
+        # virgolette nel nome: nell'header va la versione ASCII, più quella UTF-8.
+        nome_ascii = _nome_file_sicuro(nome, estensione) if estensione else "file"
+        params["ResponseContentDisposition"] = (
+            f'attachment; filename="{nome_ascii}"; filename*=UTF-8\'\'{quote(nome)}'
+        )
+
+    try:
+        link = s3_client.generate_presigned_url("get_object", Params=params, ExpiresIn=300)
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"❌ Link allegato call non generato ({chiave}): {e}")
+        raise HTTPException(status_code=500, detail="Impossibile aprire l'allegato")
+    return RedirectResponse(url=link, status_code=302)
 
 
 # ========== AUTO RECORDING ENDPOINTS ==========

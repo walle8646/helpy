@@ -1367,6 +1367,26 @@
         openEditForm('full');
     }
 
+    // Il server rimanda qui chi prova a rientrare in una call già chiusa con
+    // la recensione. Se questa è la scheda aperta apposta per la call, la si
+    // chiude e l'avviso compare nel profilo da cui era partita.
+    if (urlParams.get('call_closed') === 'review') {
+        const avviso = 'Non puoi rientrare in call perché hai già rilasciato una recensione.';
+        history.replaceState(null, '', window.location.pathname);
+        let chiusa = false;
+        try {
+            if (window.name.startsWith('ispiramy-call-') && window.opener && !window.opener.closed
+                && typeof window.opener.showCallClosedNotice === 'function') {
+                window.opener.showCallClosedNotice(avviso);
+                window.opener.loadUpcomingAppointments?.();
+                window.opener.focus();
+                window.close();
+                chiusa = true;
+            }
+        } catch (e) {}
+        if (!chiusa) showCallClosedNotice(avviso);
+    }
+
     // Toggle "Altro" language field
     const langOtherCb = document.getElementById('langOtherCheckbox');
     if (langOtherCb) {
@@ -1768,7 +1788,14 @@
             refuseButtonHTML = `<button class="btn-refuse" onclick="openRefuseModal(${booking.id}, '${escapeJsString(otherUser.name)}')"><i class="fas fa-times-circle"></i> Rifiuta</button>`;
         }
         
-        if (timeUntilMinutes > 10) {
+        if (booking.closed_by_review) {
+            // Dopo la recensione la call non si riapre (il server rimanda al
+            // profilo): mostrare "Entra in call" apriva solo un duplicato del sito.
+            const testo = booking.role === 'client'
+                ? 'Hai già lasciato una recensione: non puoi più rientrare in questa call.'
+                : 'Il cliente ha lasciato la recensione: la consulenza è conclusa.';
+            statusHTML = `<div class="appointment-closed"><i class="fas fa-check-circle"></i><p>${testo}</p></div>`;
+        } else if (timeUntilMinutes > 10) {
             const hours = Math.floor(minutesUntil / 60);
             const mins = minutesUntil % 60;
             const timeText = hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
@@ -2213,11 +2240,33 @@
     }
     
     function startCall(bookingId) {
-        // Apri la consulenza in una nuova scheda così l'utente può continuare a navigare il sito
+        // La call si apre in una scheda con nome fisso (call.html si dà lo stesso
+        // nome): se è già aperta la si riporta in primo piano invece di aprirne
+        // un'altra. Con '_blank' ogni click creava una nuova scheda e l'utente
+        // si ritrovava due volte nella stessa call, con l'audio doppio.
         const callUrl = `/booking/call/${bookingId}`;
-        const w = window.open(callUrl, '_blank');
-        // Fallback se il browser blocca il popup (raro: è dentro un click utente)
-        if (!w) window.location.href = callUrl;
+        const w = window.open('', `ispiramy-call-${bookingId}`);
+        if (!w) { window.location.href = callUrl; return; }  // popup bloccato
+        let giaAperta = false;
+        try { giaAperta = w.location.pathname === callUrl; } catch (e) {}
+        if (giaAperta) {
+            w.focus();
+        } else {
+            w.location.href = callUrl;
+        }
+    }
+
+    // Chiede alle altre schede se questa call è già aperta (risponde call.html)
+    function callApertaAltrove(bookingId, timeoutMs = 400) {
+        if (!('BroadcastChannel' in window)) return Promise.resolve(false);
+        return new Promise(resolve => {
+            let ch;
+            try { ch = new BroadcastChannel(`ispiramy-call-${bookingId}`); } catch (e) { resolve(false); return; }
+            const fine = (esito) => { clearTimeout(timer); ch.close(); resolve(esito); };
+            const timer = setTimeout(() => fine(false), timeoutMs);
+            ch.onmessage = (ev) => { if (ev.data && ev.data.type === 'pong') fine(true); };
+            ch.postMessage({ type: 'ping', from: 'profile' });
+        });
     }
     
     async function updateCallButtonStatus(bookingId) {
@@ -2225,15 +2274,41 @@
             const response = await fetch(`/api/booking/${bookingId}/call-status-extended`);
             if (!response.ok) return;
             const callStatus = await response.json();
+            const btn = document.getElementById(`call-btn-${bookingId}`);
+            if (!btn) return;
+            if (callStatus.closed_by_review) {
+                // Recensione lasciata da un'altra scheda dopo il caricamento della lista
+                loadUpcomingAppointments();
+                return;
+            }
             if (callStatus.call_has_started && !callStatus.is_expired) {
-                const btn = document.getElementById(`call-btn-${bookingId}`);
-                if (btn) { btn.className = 'btn-resume-call'; btn.innerHTML = '<i class="fas fa-phone-alt"></i> Entra in Call'; }
+                btn.className = 'btn-resume-call';
+                btn.innerHTML = '<i class="fas fa-phone-alt"></i> Entra in Call';
+            }
+            if (await callApertaAltrove(bookingId)) {
+                btn.className = 'btn-resume-call';
+                btn.innerHTML = '<i class="fas fa-external-link-alt"></i> Torna alla call';
+                btn.title = 'La call è già aperta in un\'altra scheda';
             }
         } catch (error) {
             console.error(`Errore call status ${bookingId}:`, error);
         }
     }
     
+    function showCallClosedNotice(message) {
+        document.getElementById('callClosedNotice')?.remove();
+        const box = document.createElement('div');
+        box.id = 'callClosedNotice';
+        box.className = 'call-closed-notice';
+        box.setAttribute('role', 'status');
+        box.innerHTML = '<i class="fas fa-info-circle"></i><span></span><button type="button" aria-label="Chiudi">&times;</button>';
+        box.querySelector('span').textContent = message;
+        box.querySelector('button').addEventListener('click', () => box.remove());
+        document.body.appendChild(box);
+        setTimeout(() => box.remove(), 10000);
+    }
+    window.showCallClosedNotice = showCallClosedNotice;
+
     function showSuccess(message) {
         const toast = document.createElement('div');
         toast.className = 'success-message';
