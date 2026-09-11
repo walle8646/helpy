@@ -344,7 +344,7 @@ async def community_page(
             
             if current_user:
                 # Calcola inizio della giornata corrente (mezzanotte)
-                today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)  # come created_at
                 
                 logger.info(f"🔍 Checking questions for user {current_user.id} since {today_start}")
                 
@@ -470,7 +470,7 @@ async def api_ask_question(
         
         # ========== CONTROLLO LIMITE GIORNALIERO ==========
         with get_session() as session:
-            today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)  # come created_at
             user_today_questions = session.exec(
                 select(CommunityQuestion)
                 .where(
