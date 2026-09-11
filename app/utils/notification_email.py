@@ -234,11 +234,27 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
         return None
 
 
+# Chiavi il cui valore è già HTML costruito dal codice (con i dati utente al
+# suo interno già escapati). Tutte le altre sono testo e vanno escapate.
+_CHIAVI_HTML_FIDATE = {"reason_section"}
+
+
 def _fill(html: str, data: Dict[str, str]) -> str:
-    """Sostituisce i placeholder {key} con i valori. Rimuove i placeholder non forniti."""
-    import re
+    """Sostituisce i placeholder {key} con i valori. Rimuove i placeholder non forniti.
+
+    I valori vengono escapati: arrivano da nomi, commenti delle recensioni e
+    titoli scritti dagli utenti, e senza escaping chiunque poteva inserire
+    markup (link, immagini, testo camuffato) nelle email che la piattaforma
+    manda ad altri utenti. Vale anche per gli URL: dentro un href l'escaping
+    di & in &amp; è quello corretto.
+    """
+    from html import escape
+
     for key, value in data.items():
-        html = html.replace(f"{{{key}}}", str(value) if value is not None else "")
+        testo = "" if value is None else str(value)
+        if key not in _CHIAVI_HTML_FIDATE:
+            testo = escape(testo, quote=True)
+        html = html.replace(f"{{{key}}}", testo)
     # reason_section opzionale: se non fornito, rimuovilo
     html = html.replace("{reason_section}", "")
     return html

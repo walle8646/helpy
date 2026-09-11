@@ -5,6 +5,7 @@ from app.models import User
 from sqlmodel import select
 import time
 from typing import Optional
+from html import escape as html_escape
 from app.logger_config import logger
 from app.utils.email import generate_verification_code
 from app.utils.password import hash_password, verify_password
@@ -605,7 +606,7 @@ def send_reset_password_email(email: str, nome: str, reset_code: str) -> bool:
         f'{reset_code}</div>'
     )
     body = (
-        f"<p>Ciao <strong>{nome}</strong>,</p>"
+        f"<p>Ciao <strong>{html_escape(nome or '')}</strong>,</p>"
         "<p>Hai richiesto di reimpostare la tua password su Ispiramy. Ecco il codice di verifica:</p>"
         + code_box +
         '<div style="background:#fff8e1;border-left:4px solid #ffb300;padding:14px 18px;'
@@ -666,7 +667,7 @@ def send_verification_email(to_email: str, code: str, nome: str = "User") -> boo
             f'{code}</div>'
         )
         _body = (
-            f"<p>Ciao <strong>{nome}</strong>,</p>"
+            f"<p>Ciao <strong>{html_escape(nome or '')}</strong>,</p>"
             "<p>Grazie per esserti registrato su Ispiramy! Ecco il tuo codice di verifica:</p>"
             + _code_box +
             "<p>Inseriscilo nella pagina di registrazione per completare la verifica. "
