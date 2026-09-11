@@ -18,7 +18,14 @@ if "sqlite" in DATABASE_URL:
 engine = create_engine(
     DATABASE_URL,
     echo=False,  # Log SQL queries (metti False in produzione)
-    connect_args=connect_args
+    connect_args=connect_args,
+    # Verifica la connessione prima di usarla e la ricrea se è stata chiusa.
+    # Una connessione rimasta ferma nel pool (es. mentre l'utente paga su
+    # Stripe) può essere stata chiusa dal server o dalla rete: senza questo la
+    # prima query al ritorno falliva, e verify_token trattava l'errore come
+    # "utente non autenticato" — l'utente risultava sloggato.
+    pool_pre_ping=True,
+    pool_recycle=1800,
 )
 
 @contextmanager

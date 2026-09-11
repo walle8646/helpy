@@ -112,10 +112,21 @@ async def user_profile(request: Request):
                 }
             )
     
-    except Exception as e:
+    except Exception:
+        # Un errore nel costruire la pagina NON deve chiudere la sessione:
+        # prima qui si faceva request.session.clear(), e siccome Stripe
+        # rimanda proprio su /profile dopo il pagamento, qualunque intoppo
+        # (una query fallita, un dato mancante) sloggava l'utente appena
+        # prenotato. Si registra l'errore e si mostra una pagina d'errore.
         logger.exception("Error in profile")
-        request.session.clear()
-        return RedirectResponse("/login", status_code=307)
+        return HTMLResponse(
+            "<!doctype html><meta charset='utf-8'><title>Ispiramy</title>"
+            "<div style=\"font-family:system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 1rem;text-align:center;color:#1b3a24\">"
+            "<h1 style=\"font-size:1.4rem\">Non siamo riusciti a caricare il tuo profilo</h1>"
+            "<p>Sei ancora connesso. Riprova tra qualche secondo.</p>"
+            "<p><a href=\"/profile\" style=\"color:#2e7d32;font-weight:600\">Ricarica il profilo</a></p></div>",
+            status_code=500,
+        )
 
 @router.get("/api/profile/liked-questions")
 async def get_liked_questions(request: Request):
