@@ -12,6 +12,7 @@ from app.database import engine
 from app.models import Dispute, DisputeMessage, Booking
 from app.routes.auth import get_current_user
 from app.logger_config import logger
+from app.utils.orari import now_italy_naive
 
 router = APIRouter()
 
@@ -50,7 +51,7 @@ async def open_dispute(booking_id: int, data: DisputeRequest, request: Request):
             consultant_user_id=booking.consultant_user_id,
             description=data.description,
             status="open",
-            created_at=datetime.now(ITALY_TZ),
+            created_at=now_italy_naive(),
         )
         session.add(dispute)
         session.commit()

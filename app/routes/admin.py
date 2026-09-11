@@ -16,6 +16,7 @@ from app.database import engine
 from app.models import User, Booking, Dispute, DisputeMessage, Review, CommunityQuestion
 from app.routes.auth import verify_token
 from app.logger_config import logger
+from app.utils.orari import now_italy_naive
 
 router = APIRouter(prefix="/admin")
 
@@ -368,14 +369,14 @@ async def admin_send_dispute_message(dispute_id: int, data: DisputeMessageReques
             sender_user_id=admin_user.id,
             is_admin=True,
             message=data.message,
-            created_at=datetime.now(ITALY_TZ),
+            created_at=now_italy_naive(),
         )
         session.add(msg)
 
         # Se era "open", passa a "in_review" 
         if dispute.status == "open":
             dispute.status = "in_review"
-            dispute.updated_at = datetime.now(ITALY_TZ)
+            dispute.updated_at = now_italy_naive()
 
         session.commit()
 
@@ -400,7 +401,7 @@ async def admin_update_dispute_status(dispute_id: int, data: DisputeStatusReques
             raise HTTPException(status_code=404, detail="Contestazione non trovata")
 
         dispute.status = data.status
-        dispute.updated_at = datetime.now(ITALY_TZ)
+        dispute.updated_at = now_italy_naive()
         session.commit()
 
         logger.info(f"🔄 [admin] Contestazione #{dispute_id} aggiornata a '{data.status}' da admin {admin_user.id}")
@@ -455,7 +456,7 @@ async def admin_update_dispute_status(dispute_id: int, data: DisputeStatusReques
                                         if payout:
                                             payout_id = payout.get("batch_header", {}).get("payout_batch_id", "")
                                             booking.paypal_payout_id = payout_id
-                                            booking.payment_released_at = datetime.now(ITALY_TZ)
+                                            booking.payment_released_at = now_italy_naive()
                                             logger.info(f"💰 PayPal payout parziale €{transfer_amount/100:.2f} al consulente per booking {booking.id}")
                                             
                                             from app.utils.notification_service import send_notification
@@ -512,7 +513,7 @@ async def admin_update_dispute_status(dispute_id: int, data: DisputeStatusReques
                                             }
                                         )
                                         booking.stripe_transfer_id = transfer.id
-                                        booking.payment_released_at = datetime.now(ITALY_TZ)
+                                        booking.payment_released_at = now_italy_naive()
                                         logger.info(f"💰 Pagamento parziale €{transfer_amount/100:.2f} al consulente per booking {booking.id}")
                                         
                                         from app.utils.notification_service import send_notification
@@ -863,7 +864,7 @@ async def admin_ai_analysis(dispute_id: int, request: Request):
             dispute.ai_verdict = result["verdict"]
             dispute.ai_confidence = result["confidence"]
             dispute.ai_comment = result["comment"]
-            dispute.ai_analyzed_at = datetime.now(ITALY_TZ)
+            dispute.ai_analyzed_at = now_italy_naive()
             session.add(dispute)
             session.commit()
 

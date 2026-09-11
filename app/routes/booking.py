@@ -14,6 +14,7 @@ from app.utils.agora_recording import start_recording, stop_recording, get_recor
 from app.logger_config import logger
 from app.utils.stripe_config import create_checkout_session
 from app.utils_user import has_payment_method
+from app.utils.orari import iso_ora_italiana, now_italy_naive
 
 DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
 from app.utils.notification_service import send_notification
@@ -76,17 +77,6 @@ def mark_absent(booking_id: int, user_id: int) -> set:
         _call_presence.pop(booking_id, None)
         return set()
     return present
-
-def now_italy_naive() -> datetime:
-    """Ora corrente italiana come datetime naive.
-
-    Gli orari delle prenotazioni (booking_date + start_time/end_time) sono ora
-    locale italiana senza timezone: confrontarli con datetime.utcnow() sbaglia
-    di 1-2 ore a seconda dell'ora legale, e faceva passare per "4 ore prima"
-    quello che in realtà erano 2.
-    """
-    return datetime.now(ITALY_TZ).replace(tzinfo=None)
-
 
 def booking_start_datetime(booking: Booking) -> datetime:
     """Combina booking_date e start_time in un datetime naive (ora italiana)."""
@@ -1877,16 +1867,21 @@ async def mark_call_started(
         if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
             raise HTTPException(status_code=403, detail="Non autorizzato")
         
-        # Marca il momento in cui la call è stata avviata (se non già marcata)
+        # Marca il momento in cui la call è stata avviata (se non già marcata).
+        # Ora italiana SENZA fuso, come gli orari delle prenotazioni. Un valore
+        # con fuso finiva su PostgreSQL come timestamptz e, entrando in una
+        # colonna senza fuso, veniva convertito nel fuso della sessione (UTC su
+        # Render): si salvava 13:30 invece di 15:30 e al ricaricamento della
+        # pagina il cronometro della call saltava avanti di due ore.
         if booking.call_started_at is None:
-            booking.call_started_at = datetime.now(ITALY_TZ)
+            booking.call_started_at = now_italy_naive()
             session.add(booking)
             session.commit()
             print(f"📞 Call avviata per booking {booking_id} da utente {current_user.id}")
         
         return {
             "success": True,
-            "call_started_at": booking.call_started_at.isoformat() if booking.call_started_at else None
+            "call_started_at": iso_ora_italiana(booking.call_started_at)
         }
 
 
@@ -1931,7 +1926,7 @@ async def get_call_status_extended(
             "call_has_started": call_has_started,
             "can_resume": can_resume,
             "remaining_seconds": max(0, remaining_seconds),
-            "call_started_at": booking.call_started_at.isoformat() if booking.call_started_at else None
+            "call_started_at": iso_ora_italiana(booking.call_started_at)
         }
 
 

@@ -19,6 +19,7 @@ from sqlmodel import Session, select
 from app.database import engine, DATABASE_URL
 from app.models import Notification, Booking, User, Review, Dispute
 from app.logger_config import logger
+from app.utils.orari import now_italy_naive
 from app.utils.notification_service import send_notification
 import os
 
@@ -329,7 +330,7 @@ def release_booking_payment(booking_id: int):
                         payout_id = payout.get("batch_header", {}).get("payout_batch_id", "")
                         booking.paypal_payout_id = payout_id
                         booking.payment_status = "released"
-                        booking.payment_released_at = datetime.now(ITALY_TZ)
+                        booking.payment_released_at = now_italy_naive()
                         session.add(booking)
                         session.commit()
                         
@@ -371,7 +372,7 @@ def release_booking_payment(booking_id: int):
                     
                     booking.stripe_transfer_id = transfer.id
                     booking.payment_status = "released"
-                    booking.payment_released_at = datetime.now(ITALY_TZ)
+                    booking.payment_released_at = now_italy_naive()
                     session.add(booking)
                     session.commit()
                     
