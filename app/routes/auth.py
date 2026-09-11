@@ -10,7 +10,9 @@ from app.logger_config import logger
 from app.utils.email import generate_verification_code
 from app.utils.password import hash_password, verify_password
 from app.utils.rate_limit import clear_attempts, enforce_rate_limit
+from app.utils.orari import now_italy_naive
 import os
+import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -106,6 +108,9 @@ def get_current_user(request: Request) -> Optional[User]:
 # Requisito minimo sulla password. Volutamente basso ma non nullo: prima non
 # c'era alcun controllo e "1" era una password accettata.
 MIN_PASSWORD_LENGTH = 8
+
+# Validità del codice di verifica email: è quella scritta nell'email.
+VALIDITA_CODICE_VERIFICA = timedelta(minutes=15)
 
 
 def _password_troppo_debole(password: str) -> Optional[str]:
@@ -286,6 +291,7 @@ async def api_register(
                 else:
                     code = generate_verification_code()
                     existing.confirmation_code = code
+                    existing.confirmation_code_created_at = now_italy_naive()
                     session.add(existing)
                     session.commit()
                     
@@ -309,7 +315,8 @@ async def api_register(
                 nome=nome,
                 cognome=cognome,
                 confirmed=0,
-                confirmation_code=code
+                confirmation_code=code,
+                confirmation_code_created_at=now_italy_naive(),
             )
             
             session.add(new_user)
@@ -356,12 +363,24 @@ async def verify_email(
             if user.confirmed == 1:
                 return JSONResponse({"error": "Email già verificata"}, status_code=400)
             
-            if user.confirmation_code != code:
+            if not user.confirmation_code or not secrets.compare_digest(
+                    user.confirmation_code, (code or "").strip()):
                 logger.warning(f"❌ Invalid code for {email}")
                 return JSONResponse({"error": "Codice non valido"}, status_code=400)
-            
+
+            # Il codice scade davvero dopo 15 minuti, come dice l'email.
+            # Senza data di generazione (codici emessi prima di questa modifica)
+            # lo si tratta come scaduto: basta chiederne uno nuovo.
+            generato = user.confirmation_code_created_at
+            if generato is None or now_italy_naive() - generato > VALIDITA_CODICE_VERIFICA:
+                return JSONResponse({
+                    "error": "Il codice è scaduto. Richiedine uno nuovo.",
+                    "expired": True,
+                }, status_code=400)
+
             user.confirmed = 1
             user.confirmation_code = None
+            user.confirmation_code_created_at = None
             session.add(user)
             session.commit()
             
@@ -407,6 +426,7 @@ async def resend_verification(
             
             code = generate_verification_code()
             user.confirmation_code = code
+            user.confirmation_code_created_at = now_italy_naive()
             session.add(user)
             session.commit()
             

@@ -14,8 +14,20 @@ from app.logger_config import logger
 from app.scheduler import start_scheduler, shutdown_scheduler
 from app.utils.template_helpers import get_all_categories
 from app.utils_user import get_display_name, get_default_avatar
+from app.utils.rate_limit import RateLimitExceeded
 
 app = FastAPI(title="Ispiramy", version="1.0.0")
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Risponde al 429 sia con `detail` (standard FastAPI) sia con `error`,
+    che è il campo letto dalle pagine del sito."""
+    return JSONResponse(
+        {"error": exc.detail, "detail": exc.detail},
+        status_code=exc.status_code,
+        headers=exc.headers,
+    )
 
 
 # Middleware per aggiungere categorie globalmente ai template

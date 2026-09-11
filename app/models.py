@@ -57,6 +57,9 @@ class User(SQLModel, table=True):
     # Status
     confirmed: int = Field(default=0)
     confirmation_code: Optional[str] = None
+    # Quando è stato generato il codice: l'email dice "valido 15 minuti",
+    # ma senza questa data il codice valeva per sempre.
+    confirmation_code_created_at: Optional[datetime] = Field(default=None)
     is_verified: bool = Field(default=False, index=True)  # filtro principale della ricerca consulenti
     is_anonymous: bool = Field(default=False)  # Se True, mostra "Utente #ID" invece del nome
     genere: Optional[str] = Field(default=None)  # M=Maschio, F=Femmina, None=Non specificato

@@ -1515,8 +1515,14 @@
                 body: `content=${encodeURIComponent(content)}`
             });
             
-            if (!response.ok) throw new Error('Failed to send message');
-            
+            if (!response.ok) {
+                // Il server spiega il motivo (limite di messaggi raggiunto,
+                // invii troppo frequenti, messaggio troppo lungo): va mostrato,
+                // altrimenti l'utente non sa che per continuare deve prenotare.
+                const errore = await response.json().catch(() => ({}));
+                throw new Error(errore.error || errore.detail || 'Errore nell\'invio del messaggio');
+            }
+
             const data = await response.json();
             
             // Sostituisci messaggio temporaneo con quello reale dal server
@@ -1528,7 +1534,7 @@
             
         } catch (error) {
             console.error('Error sending message:', error);
-            alert('Errore nell\'invio del messaggio');
+            alert(error.message || 'Errore nell\'invio del messaggio');
             
             // Rimuovi messaggio temporaneo in caso di errore
             const tempMsgElement = chatMessages.querySelector(`[data-message-id="${tempMessage.id}"]`);

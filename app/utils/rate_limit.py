@@ -81,6 +81,17 @@ def check_rate_limit(
     return True, 0
 
 
+class RateLimitExceeded(HTTPException):
+    """429 con il messaggio anche nel campo `error`.
+
+    FastAPI serializza HTTPException come {"detail": ...}, ma le pagine del sito
+    (login, registrazione, reset, chat) leggono `data.error`: chi veniva
+    bloccato vedeva "Codice non valido" o "Errore durante il login" invece di
+    "Troppi tentativi, riprova fra N secondi". L'handler in main.py risponde
+    con entrambi i campi.
+    """
+
+
 def enforce_rate_limit(
     request: Request,
     scope: str,
@@ -93,7 +104,7 @@ def enforce_rate_limit(
     consentito, attesa = check_rate_limit(request, scope, limit, window_seconds, extra_key)
     if not consentito:
         logger.warning(f"⛔ Rate limit '{scope}' superato da {client_ip(request)}")
-        raise HTTPException(
+        raise RateLimitExceeded(
             status_code=429,
             detail=message.format(attesa=attesa),
             headers={"Retry-After": str(attesa)},

@@ -63,6 +63,7 @@ COLONNE_AGGIUNTE = [
     # (tabella, colonna, definizione SQL)                  migrazione
     ("booking", "review_token", "VARCHAR(64)"),             # migration_add_booking_review_token
     ("social_drafts", "publish_attempt", "INTEGER NOT NULL DEFAULT 0"),  # migration_add_social_publish_attempt
+    ("user", "confirmation_code_created_at", "TIMESTAMP"),     # migration_add_confirmation_code_created_at
 ]
 
 
