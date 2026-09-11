@@ -46,7 +46,8 @@ def create_checkout_session(
     cancel_url: str,
     metadata: dict = None,
     stripe_account_id: str = None,
-    application_fee_amount: int = None
+    application_fee_amount: int = None,
+    capture_manual: bool = False
 ):
     """
     Create a Stripe Checkout Session
@@ -59,6 +60,8 @@ def create_checkout_session(
         metadata: Additional data to store with the session
         stripe_account_id: Connected Account ID for destination charges
         application_fee_amount: Platform fee in cents
+        capture_manual: blocca l'importo senza incassarlo (il consulente deve
+            accettare la richiesta; si incassa con PaymentIntent.capture)
     
     Returns:
         Stripe Checkout Session object
@@ -105,6 +108,9 @@ def create_checkout_session(
                 },
             }
         
+        if capture_manual:
+            params.setdefault('payment_intent_data', {})['capture_method'] = 'manual'
+
         session = stripe.checkout.Session.create(**params)
         return session
     except Exception as e:

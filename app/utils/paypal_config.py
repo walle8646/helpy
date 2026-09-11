@@ -63,16 +63,21 @@ def _headers():
     }
 
 
-def create_order(amount: float, currency: str, return_url: str, cancel_url: str, metadata: dict = None):
+def create_order(amount: float, currency: str, return_url: str, cancel_url: str, metadata: dict = None,
+                 intent: str = "CAPTURE"):
     """
     Create a PayPal order. Returns the order dict with approval URL.
+
+    intent="AUTHORIZE" blocca l'importo senza incassarlo: si usa quando il
+    consulente deve accettare la richiesta (authorize_order al ritorno da
+    PayPal, poi capture_authorization o void_authorization).
     """
     headers = _headers()
     if not headers:
         return None
 
     body = {
-        "intent": "CAPTURE",
+        "intent": intent,
         "purchase_units": [{
             "amount": {
                 "currency_code": currency.upper(),
@@ -125,6 +130,65 @@ def capture_order(order_id: str):
     except Exception as e:
         logger.error(f"❌ Errore cattura PayPal order {order_id}: {e}")
         return None
+
+
+def authorize_order(order_id: str):
+    """Autorizza un ordine approvato con intent AUTHORIZE. Ritorna la risposta di PayPal."""
+    headers = _headers()
+    if not headers:
+        return None
+    try:
+        resp = requests.post(
+            f"{_get_base_url()}/v2/checkout/orders/{order_id}/authorize",
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        logger.info(f"✅ PayPal order {order_id} autorizzato")
+        return resp.json()
+    except Exception as e:
+        logger.error(f"❌ Errore autorizzazione PayPal order {order_id}: {e}")
+        return None
+
+
+def capture_authorization(authorization_id: str):
+    """Incassa per intero un importo autorizzato. Ritorna la capture (id, status)."""
+    headers = _headers()
+    if not headers:
+        return None
+    try:
+        resp = requests.post(
+            f"{_get_base_url()}/v2/payments/authorizations/{authorization_id}/capture",
+            json={},
+            headers={**headers, "Prefer": "return=representation"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        logger.info(f"✅ PayPal autorizzazione {authorization_id} incassata: {data.get('id')}")
+        return data
+    except Exception as e:
+        logger.error(f"❌ Errore incasso PayPal autorizzazione {authorization_id}: {e}")
+        return None
+
+
+def void_authorization(authorization_id: str) -> bool:
+    """Annulla un'autorizzazione: l'importo bloccato torna disponibile al cliente."""
+    headers = _headers()
+    if not headers:
+        return False
+    try:
+        resp = requests.post(
+            f"{_get_base_url()}/v2/payments/authorizations/{authorization_id}/void",
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        logger.info(f"✅ PayPal autorizzazione {authorization_id} annullata")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Errore annullamento PayPal autorizzazione {authorization_id}: {e}")
+        return False
 
 
 def refund_capture(capture_id: str, amount: float = None, currency: str = "EUR"):

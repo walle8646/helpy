@@ -32,6 +32,25 @@ def schema_database():
     create_db_and_tables()
 
 
+@pytest.fixture(autouse=True)
+def pulisci_notifiche_orfane():
+    """Toglie le notifiche rimaste a utenti cancellati dai test.
+
+    SQLite riusa gli id: una notifica lasciata a un utente cancellato finiva
+    all'utente creato dal test successivo con lo stesso id. Da quando tutti i
+    tipi di notifica sono inseriti all'avvio, ogni test che passa da
+    send_notification ne lascia qualcuna.
+    """
+    yield
+    from sqlalchemy import text
+    from app.database import engine
+
+    with engine.begin() as conn:
+        conn.execute(text(
+            'DELETE FROM notifications WHERE user_id NOT IN (SELECT id FROM "user")'
+        ))
+
+
 @pytest.fixture(scope="session")
 def client():
     """TestClient con gli hook di startup/shutdown eseguiti (crea le tabelle)."""

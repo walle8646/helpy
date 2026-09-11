@@ -632,8 +632,21 @@ def start_scheduler():
         misfire_grace_time=600,
     )
 
+    # Job periodico: annulla le richieste di consulenza a cui il consulente non
+    # ha risposto entro la scadenza (e sblocca l'importo del cliente)
+    from app.utils.booking_requests import scadi_richieste_senza_risposta
+    scheduler.add_job(
+        scadi_richieste_senza_risposta,
+        trigger=IntervalTrigger(minutes=5),
+        id="scadi_richieste_senza_risposta",
+        replace_existing=True,
+        misfire_grace_time=300,
+    )
+
     # Recovery: processa booking rimasti bloccati durante il downtime
     recover_stuck_bookings()
+    # Recovery: richieste scadute mentre il server era giù
+    scadi_richieste_senza_risposta()
     # Recovery: libera subito gli slot rimasti appesi durante il downtime
     release_expired_pending_payments()
     # Recovery: ferma eventuali recording orfani rimasti dal downtime

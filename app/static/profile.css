@@ -836,6 +836,53 @@ input[type="checkbox"] {
     padding: 0 0.25rem;
 }
 
+/* Richiesta di consulenza da accettare / in attesa di conferma */
+.appointment-request {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 0.75rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    color: #7c4a03;
+}
+
+.appointment-request i {
+    font-size: 1.25rem;
+    margin-top: 0.1rem;
+    flex-shrink: 0;
+}
+
+.appointment-request p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.btn-accept {
+    background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-accept:hover {
+    box-shadow: 0 6px 18px rgba(46, 125, 50, 0.35);
+}
+
+.btn-accept:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }

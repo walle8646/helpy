@@ -14,6 +14,7 @@ from app.models import Booking, ConsultationOffer, User, Notification
 from app.utils.stripe_config import construct_webhook_event
 from app.logger_config import logger
 from app.scheduler import schedule_booking_reminders, schedule_payment_release, schedule_noshow_check
+from app.utils.booking_requests import metti_in_attesa, programma_job_consulenza
 from app.utils.notification_service import send_notification
 
 router = APIRouter()
@@ -127,17 +128,7 @@ def _after_booking_confirmed(db_session, booking):
         action_url="/profile#bookings"
     )
 
-    start_dt = datetime.strptime(f"{booking_date_str} {booking.start_time}", "%Y-%m-%d %H:%M").replace(tzinfo=ITALY_TZ)
-    end_dt = datetime.strptime(f"{booking_date_str} {booking.end_time}", "%Y-%m-%d %H:%M").replace(tzinfo=ITALY_TZ)
-
-    schedule_booking_reminders(
-        booking_id=booking.id,
-        booking_datetime=start_dt,
-        client_id=booking.client_user_id,
-        consultant_id=booking.consultant_user_id
-    )
-    schedule_payment_release(booking.id, end_dt)
-    schedule_noshow_check(booking.id, end_dt)
+    programma_job_consulenza(booking)
     logger.info(f"📅 Notifiche e job schedulati per booking {booking.id}")
 
 
@@ -179,6 +170,16 @@ async def handle_direct_booking(session_id, payment_intent_id, metadata, amount_
                 existing_booking = None
 
         if existing_booking:
+            if existing_booking.status == "pending_payment" and existing_booking.acceptance_deadline:
+                # Consulente che conferma a mano: l'importo e' solo autorizzato
+                # (capture manuale) e la prenotazione aspetta la sua risposta.
+                existing_booking.payment_method = "stripe"
+                existing_booking.stripe_checkout_session_id = session_id
+                existing_booking.stripe_payment_intent_id = payment_intent_id
+                existing_booking.recording_requested = recording_requested
+                metti_in_attesa(db_session, existing_booking)
+                return
+
             if existing_booking.status == "pending_payment":
                 existing_booking.status = "confirmed"
                 existing_booking.payment_status = "held"

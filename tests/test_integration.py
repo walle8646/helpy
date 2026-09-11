@@ -29,11 +29,15 @@ class TestTemplateEmail:
             "review_url": "https://example.test/review/x", "rating": "5",
             "comment": "ottimo", "author_name": "Mario", "contact_name": "Anna",
             "question_title": "titolo", "contact_date": "oggi", "reviewer_name": "Mario",
+            "deadline": "12/09 alle 15:30", "topic": "Contratto d'affitto",
         }
         import re
-        for nome in ["booking_confirmed.html", "reminder_1h.html", "reminder_10min.html",
-                     "community_contact.html", "booking_refused.html", "review_request.html",
-                     "review_reminder.html", "review_received.html"]:
+        from app.utils.notification_types import NOTIFICATION_TYPES
+        # Tutti i template dei tipi inseriti all'avvio, non un elenco a parte
+        # che si dimentica di aggiornare
+        configurati = {tpl for *_, tpl in NOTIFICATION_TYPES if tpl}
+        assert {"booking_request.html", "booking_accepted.html", "booking_request_expired.html"} <= configurati
+        for nome in sorted(configurati):
             html = generate_email_html(nome, dati)
             assert html, f"template {nome} non generato"
             # Nessun segnaposto {qualcosa} deve restare non sostituito

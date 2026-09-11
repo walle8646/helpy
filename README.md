@@ -690,6 +690,7 @@ psql -U postgres -d ispiramy_db -f sql_update/migration_add_booking_postgres.sql
 | `migration_add_user_search_indexes` | Indici su `is_verified` e `category_id` per la ricerca consulenti |
 | `migration_add_social_publish_attempt` | Contatore dei ritentativi di pubblicazione dei post social |
 | `migration_add_confirmation_code_created_at` | Data di generazione del codice di verifica email (scade dopo 15 minuti) |
+| `migration_add_booking_acceptance` | Richieste di consulenza da accettare: conferma automatica per consulente, stati e tipi notifica |
 
 > Su un database nuovo le migrazioni non servono: `create_db_and_tables()`
 > crea le tabelle dai modelli SQLModel all'avvio. Servono solo per far evolvere

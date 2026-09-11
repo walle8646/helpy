@@ -52,6 +52,10 @@ def create_db_and_tables():
     
     SQLModel.metadata.create_all(engine)
     ensure_added_columns()
+    ensure_check_constraints()
+
+    from app.utils.notification_types import ensure_notification_types
+    ensure_notification_types()
 
 
 # Colonne aggiunte ai modelli DOPO che le tabelle esistevano già in produzione.
@@ -71,7 +75,65 @@ COLONNE_AGGIUNTE = [
     ("booking", "review_token", "VARCHAR(64)"),             # migration_add_booking_review_token
     ("social_drafts", "publish_attempt", "INTEGER NOT NULL DEFAULT 0"),  # migration_add_social_publish_attempt
     ("user", "confirmation_code_created_at", "TIMESTAMP"),     # migration_add_confirmation_code_created_at
+    ("user", "auto_accept_bookings", "BOOLEAN NOT NULL DEFAULT TRUE"),  # migration_add_booking_acceptance
+    ("booking", "acceptance_deadline", "TIMESTAMP"),         # migration_add_booking_acceptance
+    ("booking", "paypal_authorization_id", "VARCHAR(64)"),   # migration_add_booking_acceptance
 ]
+
+
+# Valori ammessi dai CHECK sulla tabella booking in PostgreSQL (creati dalle
+# migrazioni in sql_update/). Un valore nuovo nel codice ma non nel vincolo fa
+# fallire ogni UPDATE che lo usa: il vincolo va allineato insieme al codice.
+VINCOLI_BOOKING = {
+    "chk_booking_status": ("status", [
+        "pending", "pending_payment", "awaiting_acceptance", "confirmed",
+        "completed", "cancelled", "no_show",
+    ]),
+    "chk_payment_status": ("payment_status", [
+        "pending", "authorized", "held", "paid", "released", "refunded",
+        "partially_refunded", "voided", "failed",
+    ]),
+}
+
+
+def ensure_check_constraints(eng=None) -> list[str]:
+    """Allinea i CHECK di booking ai valori usati dal codice (solo PostgreSQL).
+
+    Tocca solo i vincoli che esistono già e a cui manca qualche valore. Il
+    vincolo nuovo è aggiunto NOT VALID: vale per le scritture da qui in poi e
+    non ricontrolla le righe esistenti, quindi non può fallire su dati vecchi.
+    Ritorna i nomi dei vincoli aggiornati.
+    """
+    from sqlalchemy import text
+
+    eng = eng or engine
+    if eng.dialect.name != "postgresql":
+        return []
+
+    aggiornati = []
+    for nome, (colonna, valori) in VINCOLI_BOOKING.items():
+        try:
+            with eng.begin() as conn:
+                definizione = conn.execute(text(
+                    "SELECT pg_get_constraintdef(c.oid) FROM pg_constraint c "
+                    "JOIN pg_class t ON t.oid = c.conrelid "
+                    "WHERE t.relname = 'booking' AND c.conname = :nome"
+                ), {"nome": nome}).scalar()
+                if definizione is None or all(f"'{v}'" in definizione for v in valori):
+                    continue
+                elenco = ", ".join(f"'{v}'" for v in valori)
+                conn.execute(text(f"ALTER TABLE booking DROP CONSTRAINT {nome}"))
+                conn.execute(text(
+                    f"ALTER TABLE booking ADD CONSTRAINT {nome} CHECK ({colonna} IN ({elenco})) NOT VALID"
+                ))
+            aggiornati.append(nome)
+            logger.warning(f"🛠️ Schema: vincolo {nome} aggiornato con i nuovi valori")
+        except Exception as e:  # noqa: BLE001
+            logger.error(
+                f"❌ Schema: impossibile aggiornare il vincolo {nome} ({e}). "
+                "Applicare a mano sql_update/migration_add_booking_acceptance_postgres.sql."
+            )
+    return aggiornati
 
 
 def ensure_added_columns(eng=None) -> list[str]:

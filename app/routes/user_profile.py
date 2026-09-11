@@ -773,6 +773,35 @@ async def set_anonymous_mode(request: Request):
             status_code=500
         )
 
+@router.post("/api/user/set-auto-accept")
+async def set_auto_accept_bookings(request: Request):
+    """Conferma automatica delle prenotazioni (consulente).
+
+    Con la conferma automatica spenta ogni prenotazione diretta diventa una
+    richiesta da accettare o rifiutare. Si salva subito, senza passare dal
+    form del profilo (che rivalida tutto il profilo con l'AI).
+    """
+    user = verify_token(request)
+    if not user:
+        return JSONResponse({"error": "Non autenticato"}, status_code=401)
+
+    body = await request.json()
+    valore = body.get("auto_accept_bookings")
+    if not isinstance(valore, bool):
+        return JSONResponse({"error": "Valore non valido"}, status_code=400)
+
+    with get_session() as session:
+        db_user = session.get(User, user.id)
+        if not db_user:
+            return JSONResponse({"error": "Utente non trovato"}, status_code=404)
+        db_user.auto_accept_bookings = valore
+        session.add(db_user)
+        session.commit()
+
+    logger.info(f"📩 User {user.id} conferma automatica prenotazioni: {valore}")
+    return JSONResponse({"success": True, "auto_accept_bookings": valore})
+
+
 @router.get("/api/category-requests")
 async def get_category_requests(request: Request):
     """Ritorna le richieste della comunità della categoria dell'utente"""

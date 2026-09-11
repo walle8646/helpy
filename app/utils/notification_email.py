@@ -73,6 +73,17 @@ def send_notification_email(
         return False
 
 
+# Testo sul pagamento nell'email di rifiuto, se il chiamante non ne passa uno
+NOTA_RIMBORSO = (
+    "se hai pagato, riceverai il rimborso entro 5-10 giorni lavorativi "
+    "sul metodo di pagamento utilizzato."
+)
+NOTA_BLOCCO_ANNULLATO = (
+    "non ti è stato addebitato nulla. L'importo era solo bloccato e il blocco è stato "
+    "annullato: a seconda della banca può restare visibile qualche giorno sull'estratto conto."
+)
+
+
 # URL pubblico del logo per le email (PNG su S3 — gli email client non rendono bene gli SVG)
 EMAIL_LOGO_URL = "https://ispiramy-images.s3.eu-north-1.amazonaws.com/logo-email.png"
 
@@ -194,10 +205,47 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
                 + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}") + row("👤 Consulente:", "{consultant_name}"), RED)
                 + "{reason_section}"
                 + '<div style="background:#e8f5e9;border-left:4px solid #43a047;border-radius:6px;padding:14px 18px;margin:20px 0;">'
-                  "<p style='margin:0;'><strong>💰 Rimborso:</strong> se hai pagato, riceverai il rimborso entro 5-10 giorni lavorativi sul metodo di pagamento utilizzato.</p></div>"
+                  "<p style='margin:0;'><strong>💰 Pagamento:</strong> {refund_note}</p></div>"
                 + "<p>Non demordere! Puoi cercare altri consulenti disponibili nel nostro catalogo.</p>"
             )
+            data = {"refund_note": NOTA_RIMBORSO, **data}
             return _fill(_branded_email("⚠️", "Consulenza Rifiutata", RED, RED_D, body, "Cerca altri Consulenti", "{action_url}"), data)
+
+        if template_name == 'booking_request.html':
+            body = (
+                "<p>Ciao <strong>{consultant_name}</strong>,</p>"
+                "<p><strong>{client_name}</strong> ti ha chiesto una consulenza. Hai scelto di confermare a mano le prenotazioni: "
+                "la consulenza si fa solo se la accetti.</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}") + row("⏱️ Durata:", "{duration} minuti")
+                               + row("📝 Argomento:", "{topic}"), AMBER)
+                + '<div style="background:#fff8e1;border-left:4px solid #f39c12;border-radius:6px;padding:14px 18px;margin:20px 0;">'
+                  "<p style='margin:0;'><strong>⏳ Rispondi entro il {deadline}.</strong> Il pagamento del cliente è bloccato e "
+                  "viene incassato solo quando accetti. Se rifiuti o non rispondi in tempo, il blocco viene annullato.</p></div>"
+            )
+            return _fill(_branded_email("📩", "Nuova richiesta di consulenza", AMBER, AMBER_D, body, "Accetta o rifiuta", "{action_url}"), data)
+
+        if template_name == 'booking_accepted.html':
+            body = (
+                "<p>Ciao <strong>{client_name}</strong>,</p>"
+                "<p><strong>{consultant_name}</strong> ha accettato la tua richiesta: la consulenza è confermata.</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}") + row("⏱️ Durata:", "{duration} minuti"), GREEN)
+                + "<p>L'importo che era bloccato è stato ora addebitato. Riceverai un promemoria prima dell'inizio: "
+                  "entra in call dal tuo profilo all'orario stabilito.</p>"
+            )
+            return _fill(_branded_email("✅", "Consulenza confermata", GREEN, GREEN_D, body, "Vai alle tue consulenze", "{action_url}"), data)
+
+        if template_name == 'booking_request_expired.html':
+            body = (
+                "<p>Ciao <strong>{client_name}</strong>,</p>"
+                "<p><strong>{consultant_name}</strong> non ha risposto in tempo alla tua richiesta di consulenza, "
+                "che quindi è stata annullata.</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}"), AMBER)
+                + '<div style="background:#e8f5e9;border-left:4px solid #43a047;border-radius:6px;padding:14px 18px;margin:20px 0;">'
+                  "<p style='margin:0;'><strong>💰 Nessun addebito:</strong> l'importo era solo bloccato e il blocco è stato annullato. "
+                  "A seconda della banca può restare visibile qualche giorno sull'estratto conto.</p></div>"
+                + "<p>Puoi prenotare con un altro consulente disponibile.</p>"
+            )
+            return _fill(_branded_email("⌛", "Richiesta non confermata", AMBER, AMBER_D, body, "Cerca un consulente", "{action_url}"), data)
 
         if template_name == 'review_request.html':
             body = (

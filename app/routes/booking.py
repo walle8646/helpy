@@ -15,6 +15,10 @@ from app.logger_config import logger
 from app.utils.stripe_config import create_checkout_session
 from app.utils_user import has_payment_method
 from app.utils.orari import iso_ora_italiana, now_italy_naive
+from app.utils.booking_requests import (
+    RichiestaNonValida, accetta_richiesta, annulla_blocco, richiede_accettazione, scadenza_risposta,
+)
+from app.utils.notification_email import NOTA_BLOCCO_ANNULLATO, NOTA_RIMBORSO
 
 DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
 from app.utils.notification_service import send_notification
@@ -32,7 +36,12 @@ ITALY_TZ = ZoneInfo("Europe/Rome")
 # prima di mandare l'utente al checkout: senza di essa nella lista, due clienti
 # potevano superare entrambi il controllo anti-doppia-prenotazione e pagare
 # lo stesso orario.
-BLOCKING_BOOKING_STATUSES = ['pending', 'pending_payment', 'confirmed']
+# 'awaiting_acceptance' e' la richiesta pagata (importo bloccato) che il
+# consulente deve ancora accettare: lo slot resta suo finche' non risponde.
+BLOCKING_BOOKING_STATUSES = ['pending', 'pending_payment', 'awaiting_acceptance', 'confirmed']
+
+# Stati in cui la call non si puo' aprire
+STATI_SENZA_CALL = {'pending_payment', 'awaiting_acceptance', 'cancelled'}
 
 # Dopo quanto una prenotazione mai pagata smette di occupare lo slot
 PENDING_PAYMENT_TTL_MINUTES = 35
@@ -297,6 +306,7 @@ async def booking_page(
             "stripe_available": bool(getattr(consultant, 'stripe_onboarding_complete', False)),
             "paypal_available": _is_paypal_available() and bool(getattr(consultant, 'paypal_email', None)),
             "consultant_has_payment": has_payment_method(consultant),
+            "requires_acceptance": richiede_accettazione(consultant),
             "client_questions": client_questions
         })
 
@@ -536,6 +546,10 @@ async def create_booking(
         booking_datetime_full = datetime.strptime(f"{booking_date_str} {start_time}", '%Y-%m-%d %H:%M')
         end_datetime_full = datetime.strptime(f"{booking_date_str} {end_time}", '%Y-%m-%d %H:%M')
 
+        # Consulente che conferma a mano: la scadenza valorizzata segna la
+        # prenotazione come richiesta (ricalcolata quando arriva il pagamento).
+        con_accettazione = richiede_accettazione(consultant)
+
         pending_booking = Booking(
             client_user_id=current_user.id,
             consultant_user_id=consultant_id,
@@ -549,6 +563,7 @@ async def create_booking(
             payment_status="pending",
             payment_method="stripe",
             payment_held_until=end_datetime_full + timedelta(hours=48),
+            acceptance_deadline=scadenza_risposta(booking_datetime_full) if con_accettazione else None,
             client_notes=client_notes or "Prenotazione diretta",
             description=description,
             community_question_id=int(community_question_id) if community_question_id else None,
@@ -591,8 +606,10 @@ async def create_booking(
                     'description': description,
                     'community_question_id': str(community_question_id) if community_question_id else '',
                     'price': f"{float(price):.2f}",  # prezzo totale, non la tariffa oraria
-                    'recording_requested': str(recording_requested).lower()  # 👈 Valore inviato a Stripe
+                    'recording_requested': str(recording_requested).lower(),  # 👈 Valore inviato a Stripe
+                    'requires_acceptance': 'true' if con_accettazione else 'false',
                 },
+                capture_manual=con_accettazione,
             )
 
             pending_booking.stripe_checkout_session_id = checkout_session.id
@@ -681,11 +698,14 @@ async def get_upcoming_bookings(request: Request):
         # di 1-2 ore e il bottone per entrare compariva all'ora sbagliata.
         now = now_italy_naive()
         
-        # Query per prenotazioni confermate FUTURE e pagate (incluso 'held' per pagamenti in attesa di rilascio)
+        # Prenotazioni FUTURE confermate e pagate (incluso 'held' per pagamenti in
+        # attesa di rilascio), piu' le richieste con importo bloccato che il
+        # consulente deve ancora accettare.
+        confermate = Booking.status.in_(['confirmed', 'pending']) & Booking.payment_status.in_(PAID_PAYMENT_STATUSES)
+        in_attesa = (Booking.status == 'awaiting_acceptance') & (Booking.payment_status == 'authorized')
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
-            Booking.status.in_(['confirmed', 'pending']),
-            Booking.payment_status.in_(PAID_PAYMENT_STATUSES),
+            confermate | in_attesa,
             Booking.booking_date >= now.date()
         ).order_by(Booking.booking_date, Booking.start_time)
         
@@ -766,6 +786,12 @@ async def get_upcoming_bookings(request: Request):
                 "can_start_call": can_start_call,
                 # La recensione chiude la consulenza: niente più "Entra in call"
                 "closed_by_review": recensione_lasciata,
+                "awaiting_acceptance": booking.status == 'awaiting_acceptance',
+                "acceptance_deadline": iso_ora_italiana(booking.acceptance_deadline),
+                "acceptance_expired": bool(
+                    booking.status == 'awaiting_acceptance'
+                    and booking.acceptance_deadline and now >= booking.acceptance_deadline
+                ),
             })
 
             # LIMITE: Mostra massimo 3 appuntamenti
@@ -886,6 +912,9 @@ async def join_booking(booking_id: int, request: Request):
             if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
                 raise HTTPException(status_code=403, detail="Non autorizzato")
 
+            if booking.status in STATI_SENZA_CALL:
+                raise HTTPException(status_code=403, detail="Questa consulenza non è confermata")
+
             # Determina il ruolo e salva il timestamp
             is_client = booking.client_user_id == current_user.id
             now = now_italy_naive()
@@ -1005,6 +1034,9 @@ async def get_agora_token(booking_id: int, request: Request):
         if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
             raise HTTPException(status_code=403, detail="Non autorizzato")
         
+        if booking.status in STATI_SENZA_CALL:
+            raise HTTPException(status_code=403, detail="Questa consulenza non è confermata")
+
         # Verifica che entrambi abbiano joinato
         if not booking.client_joined_at or not booking.consultant_joined_at:
             raise HTTPException(status_code=403, detail="Entrambi i partecipanti devono aver cliccato 'Partecipa'")
@@ -1099,6 +1131,9 @@ async def call_page(booking_id: int, request: Request):
         if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
             raise HTTPException(status_code=403, detail="Non autorizzato")
 
+        if booking.status in STATI_SENZA_CALL:
+            return RedirectResponse(url="/profile", status_code=303)
+
         # Se è già stata lasciata una recensione, la consulenza è conclusa:
         # non è più possibile rientrare nella call (nemmeno entro la fascia oraria).
         existing_review = session.exec(
@@ -1163,7 +1198,9 @@ async def cancel_booking(
         # il rifiuto del consulente. Senza questo controllo il cliente poteva
         # cancellare (e farsi rimborsare per intero) anche a consulenza avvenuta,
         # nei 15 minuti prima che il job no-show la marcasse come completed.
-        if not DEBUG_MODE:
+        # Una richiesta non ancora accettata non e' stata addebitata: si puo'
+        # ritirare finche' il consulente non risponde.
+        if not DEBUG_MODE and booking.status != 'awaiting_acceptance':
             hours_left = hours_until_booking(booking)
             if hours_left < 4:
                 if hours_left < 0:
@@ -1179,6 +1216,13 @@ async def cancel_booking(
         booking.cancellation_reason = reason
         booking.updated_at = datetime.utcnow()
         
+        # Importo solo bloccato (richiesta non accettata): si annulla il blocco
+        if booking.payment_status == 'authorized':
+            if annulla_blocco(booking):
+                booking.payment_status = "voided"
+            else:
+                logger.error(f"❌ Blocco non annullato per booking {booking_id}: da annullare a mano")
+
         # Rimborsa se il pagamento è stato effettuato
         if booking.payment_status in ('paid', 'held'):
             if booking.payment_method == "paypal" and booking.paypal_capture_id:
@@ -1238,6 +1282,9 @@ async def start_booking_recording(booking_id: int, request: Request):
         if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
             raise HTTPException(status_code=403, detail="Non autorizzato")
         
+        if booking.status in STATI_SENZA_CALL:
+            raise HTTPException(status_code=403, detail="Questa consulenza non è confermata")
+
         # Verifica che entrambi abbiano joinato
         if not booking.client_joined_at or not booking.consultant_joined_at:
             raise HTTPException(status_code=400, detail="Entrambi gli utenti devono essere presenti")
@@ -1528,11 +1575,14 @@ async def refuse_booking(booking_id: int, request: Request):
             raise HTTPException(status_code=403, detail="Solo il consulente può rifiutare la prenotazione")
         
         # Verifica che lo stato sia refusabile
-        if booking.status not in ['pending', 'confirmed']:
+        if booking.status not in ['pending', 'confirmed', 'awaiting_acceptance']:
             raise HTTPException(status_code=400, detail="Non puoi rifiutare una prenotazione in questo stato")
-        
-        # ✅ Validazione: annullamento max 4 ore prima dell'inizio
-        if hours_until_booking(booking) < 4:
+
+        # ✅ Validazione: annullamento max 4 ore prima dell'inizio. Una richiesta
+        # ancora da accettare si rifiuta fino alla sua scadenza (che cade
+        # comunque almeno 2 ore prima dell'inizio).
+        richiesta = booking.status == 'awaiting_acceptance'
+        if not richiesta and hours_until_booking(booking) < 4:
             raise HTTPException(status_code=400, detail="Puoi annullare la consulenza solo fino a 4 ore prima dell'inizio")
         
         # ✅ 1. Cambia lo stato
@@ -1542,7 +1592,14 @@ async def refuse_booking(booking_id: int, request: Request):
         booking.cancelled_at = datetime.utcnow()
         session.add(booking)
         
-        # ✅ 2. Rimborsa se il pagamento è avvenuto
+        # ✅ 2. Importo solo bloccato: si annulla il blocco, niente da rimborsare
+        if booking.payment_status == 'authorized':
+            if annulla_blocco(booking):
+                booking.payment_status = "voided"
+            else:
+                logger.error(f"❌ Blocco non annullato per booking {booking_id}: da annullare a mano")
+
+        # ✅ 2b. Rimborsa se il pagamento è avvenuto
         if booking.payment_status in ('paid', 'held'):
             if booking.payment_method == "paypal" and booking.paypal_capture_id:
                 try:
@@ -1621,6 +1678,7 @@ async def refuse_booking(booking_id: int, request: Request):
                     'date': booking.booking_date.strftime('%d/%m/%Y'),
                     'time': booking.start_time,
                     'reason_section': reason_section,
+                    'refund_note': NOTA_BLOCCO_ANNULLATO if booking.payment_status == 'voided' else NOTA_RIMBORSO,
                     'action_url': f"{os.getenv('BASE_URL', 'http://localhost:8080')}/profile#bookings"
                 },
                 related_booking_id=booking_id,
@@ -1631,8 +1689,28 @@ async def refuse_booking(booking_id: int, request: Request):
             "success": True,
             "message": "Consulenza rifiutata con successo",
             "booking_id": booking_id,
-            "refunded": booking.payment_status == "refunded"
+            "refunded": booking.payment_status in ("refunded", "voided")
         }
+
+
+@router.post("/api/booking/{booking_id}/accept")
+async def accept_booking(booking_id: int, request: Request):
+    """Il consulente accetta una richiesta di consulenza: si incassa l'importo bloccato."""
+    current_user = get_current_user(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Non autenticato")
+
+    # Stesso lock di /join: due click su "Accetta" non devono incassare due volte
+    async with get_booking_lock(booking_id):
+        with Session(engine) as session:
+            booking = session.get(Booking, booking_id)
+            if not booking:
+                raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+            try:
+                await asyncio.to_thread(accetta_richiesta, session, booking, current_user.id)
+            except RichiestaNonValida as e:
+                raise HTTPException(status_code=e.status_code, detail=e.messaggio)
+            return {"success": True, "booking_id": booking_id, "status": booking.status}
 
 
 # ========== SCREEN SHARE STATE TRACKING ==========

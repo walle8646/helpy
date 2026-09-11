@@ -138,45 +138,8 @@ CATEGORIES_SUB = {
     ],
 }
 
-NOTIFICATION_TYPES = [
-    ("community_contact", "Nuovo messaggio dalla community",
-     "Quando ricevi un messaggio o contatto", True, True,
-     "💬 Hai un nuovo messaggio su Ispiramy", "community_contact.html"),
-    ("booking_confirmed", "Prenotazione confermata",
-     "Quando una prenotazione viene confermata", True, True,
-     "✅ Prenotazione confermata", "booking_confirmed.html"),
-    ("booking_refused", "Prenotazione rifiutata",
-     "Quando una prenotazione viene rifiutata", True, True,
-     "❌ Prenotazione rifiutata", "booking_refused.html"),
-    # NB: i nomi template devono combaciare con quelli gestiti in
-    # notification_email.generate_email_html, altrimenti l'email non parte.
-    ("reminder_1h", "Promemoria 1 ora prima",
-     "Promemoria 1 ora prima della consulenza", True, True,
-     "⏰ La tua consulenza è tra 1 ora", "reminder_1h.html"),
-    ("reminder_10min", "Promemoria 10 minuti prima",
-     "Promemoria 10 minuti prima della consulenza", True, False,
-     "⏰ La tua consulenza è tra 10 minuti", "reminder_10min.html"),
-    ("review_request", "Richiesta recensione",
-     "Email per votare la consulenza", False, True,
-     "Lascia una recensione su Ispiramy", "review_request.html"),
-    ("review_received", "Recensione ricevuta",
-     "Notifica al consulente quando riceve una recensione", True, True,
-     "Hai ricevuto una recensione su Ispiramy", "review_received.html"),
-    ("review_reminder", "Promemoria recensione",
-     "Sollecito 24h dopo se la recensione non è stata lasciata", False, True,
-     "Non dimenticare la recensione", "review_reminder.html"),
-    # Tipi usati dallo scheduler: senza queste righe send_notification scarta
-    # la notifica in silenzio e il consulente non sa nemmeno di essere stato pagato.
-    ("payment_released", "Pagamento rilasciato",
-     "Il compenso della consulenza è stato trasferito al consulente", True, False,
-     None, None),
-    ("payment_hold", "Pagamento sospeso",
-     "Il pagamento resta bloccato per una contestazione in corso", True, False,
-     None, None),
-    ("booking_noshow", "Assenza alla consulenza",
-     "Uno dei partecipanti non si è presentato", True, False,
-     None, None),
-]
+# L'elenco dei tipi di notifica sta in app/utils/notification_types.py ed è
+# inserito all'avvio dell'app (create_db_and_tables): una sola fonte.
 
 
 def seed_user_types(conn) -> None:
@@ -237,13 +200,17 @@ def seed_category_hierarchy(conn) -> None:
 
 
 def seed_notification_types(conn) -> None:
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from app.utils.notification_types import NOTIFICATION_TYPES
+
     with conn.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM notification_types")
-        if cur.fetchone()[0] > 0:
-            print("   ℹ️ notification_types già popolata.")
-            return
+        cur.execute("SELECT type_key FROM notification_types")
+        esistenti = {r[0] for r in cur.fetchall()}
         now = datetime.utcnow()
+        nuovi = 0
         for (key, name, desc, in_app, send_email, subj, tpl) in NOTIFICATION_TYPES:
+            if key in esistenti:
+                continue
             cur.execute(
                 "INSERT INTO notification_types "
                 "(type_key, name, description, in_app, send_email, email_subject, "
@@ -251,7 +218,8 @@ def seed_notification_types(conn) -> None:
                 "VALUES (%s,%s,%s,%s,%s,%s,%s,true,%s,%s)",
                 (key, name, desc, in_app, send_email, subj, tpl, now, now),
             )
-    print(f"   ✅ notification_types popolata ({len(NOTIFICATION_TYPES)} tipi).")
+            nuovi += 1
+    print(f"   ✅ notification_types: {nuovi} tipi aggiunti ({len(NOTIFICATION_TYPES)} previsti).")
 
 
 # Limiti della chat, letti a runtime da app/routes/messages.py.

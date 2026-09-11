@@ -64,6 +64,10 @@ class User(SQLModel, table=True):
     is_anonymous: bool = Field(default=False)  # Se True, mostra "Utente #ID" invece del nome
     genere: Optional[str] = Field(default=None)  # M=Maschio, F=Femmina, None=Non specificato
     notify_category_requests: bool = Field(default=True)  # 🔔 Ricevi notifiche per richieste in categoria
+    # Conferma automatica delle prenotazioni dirette. Se False il consulente
+    # riceve una richiesta da accettare o rifiutare: il pagamento del cliente
+    # viene solo autorizzato e incassato all'accettazione.
+    auto_accept_bookings: bool = Field(default=True)
     user_type_id: int = Field(default=1)  # 1=Utente, 2=Verificatore, 3=Amministratore
     languages: Optional[str] = Field(default=None)  # JSON array: '["it","en","fr"]'
     
@@ -236,9 +240,9 @@ class Booking(SQLModel, table=True):
     end_time: str    # Formato "HH:MM"
     duration_minutes: int  # 60, 90, 120 (minimo 1 ora)
     
-    status: str = Field(default="pending")  # pending, confirmed, completed, cancelled, no_show
+    status: str = Field(default="pending")  # pending_payment, awaiting_acceptance, confirmed, completed, cancelled, no_show
     price: Optional[Decimal] = None
-    payment_status: str = Field(default="pending")  # pending, held, paid, released, refunded, partially_refunded, failed
+    payment_status: str = Field(default="pending")  # pending, authorized, held, paid, released, refunded, partially_refunded, voided, failed
     payment_method: Optional[str] = None
     transaction_id: Optional[str] = None
     
@@ -249,6 +253,11 @@ class Booking(SQLModel, table=True):
     # PayPal payment fields
     paypal_order_id: Optional[str] = None  # PayPal Order ID
     paypal_capture_id: Optional[str] = None  # PayPal Capture ID (dopo cattura pagamento)
+    paypal_authorization_id: Optional[str] = None  # PayPal Authorization ID (richiesta da accettare)
+
+    # Richiesta da accettare: entro quando il consulente deve rispondere (ora
+    # italiana, senza fuso). Valorizzata solo se il consulente conferma a mano.
+    acceptance_deadline: Optional[datetime] = None
     paypal_payout_id: Optional[str] = None  # PayPal Payout Batch ID (dopo rilascio fondi)
     
     # Transfer differito (48h hold)

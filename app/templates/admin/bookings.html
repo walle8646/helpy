@@ -300,6 +300,8 @@
                 {% if b.status == 'completed' %}Completata
                 {% elif b.status == 'confirmed' %}Confermata
                 {% elif b.status == 'pending' %}In attesa
+                {% elif b.status == 'awaiting_acceptance' %}Da accettare
+                {% elif b.status == 'pending_payment' %}Pagamento in corso
                 {% elif b.status == 'cancelled' %}Cancellata
                 {% elif b.status == 'no_show' %}No show
                 {% else %}{{ b.status }}{% endif %}
@@ -308,6 +310,10 @@
             <span class="payment-badge payment-{{ b.payment_status }}">
                 {% if b.payment_status == 'paid' %}Pagato
                 {% elif b.payment_status == 'pending' %}Non pagato
+                {% elif b.payment_status == 'authorized' %}Bloccato, non incassato
+                {% elif b.payment_status == 'held' %}Incassato, in attesa di rilascio
+                {% elif b.payment_status == 'released' %}Trasferito al consulente
+                {% elif b.payment_status == 'voided' %}Blocco annullato
                 {% elif b.payment_status == 'refunded' %}Rimborsato
                 {% elif b.payment_status == 'failed' %}Fallito
                 {% else %}{{ b.payment_status }}{% endif %}

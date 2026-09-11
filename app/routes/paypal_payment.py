@@ -13,7 +13,8 @@ import json
 
 from app.database import engine
 from app.models import Booking, User, ConsultationOffer
-from app.utils.paypal_config import create_order, capture_order, is_configured
+from app.utils.paypal_config import authorize_order, create_order, capture_order, is_configured
+from app.utils.booking_requests import metti_in_attesa, richiede_accettazione, scadenza_risposta
 from app.routes.auth import verify_token
 from app.logger_config import logger
 from app.utils.notification_service import send_notification
@@ -23,6 +24,9 @@ from app.scheduler import schedule_booking_reminders, schedule_payment_release, 
 router = APIRouter()
 ITALY_TZ = ZoneInfo("Europe/Rome")
 DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
+
+
+from app.routes.booking import BLOCKING_BOOKING_STATUSES  # noqa: E402
 
 
 def get_current_user(request: Request):
@@ -99,7 +103,7 @@ async def create_booking_paypal(request: Request):
             .where(func.date(Booking.booking_date) == booking_date_str)
             .where(Booking.consultant_user_id == consultant_id)
             .where(Booking.start_time == start_time)
-            .where(Booking.status.in_(['pending', 'confirmed', 'pending_payment']))
+            .where(Booking.status.in_(BLOCKING_BOOKING_STATUSES))
         ).first()
         if existing:
             raise HTTPException(status_code=409, detail="Questo slot è già stato prenotato")
@@ -118,7 +122,11 @@ async def create_booking_paypal(request: Request):
         booking_dt = datetime.strptime(f"{booking_date_str} {start_time}", "%Y-%m-%d %H:%M")
         end_dt = datetime.strptime(f"{booking_date_str} {end_time}", "%Y-%m-%d %H:%M")
         held_until = end_dt + timedelta(hours=48)
-        
+
+        # Consulente che conferma a mano: l'ordine PayPal blocca l'importo
+        # (intent AUTHORIZE) e si incassa solo quando accetta.
+        con_accettazione = richiede_accettazione(consultant)
+
         # Crea booking in stato pending_payment
         new_booking = Booking(
             client_user_id=current_user.id,
@@ -133,6 +141,7 @@ async def create_booking_paypal(request: Request):
             payment_status="pending",
             payment_method="paypal",
             payment_held_until=held_until,
+            acceptance_deadline=scadenza_risposta(booking_dt) if con_accettazione else None,
             client_notes=client_notes or "Prenotazione diretta",
             description=description,
             community_question_id=int(community_question_id) if community_question_id else None,
@@ -149,7 +158,8 @@ async def create_booking_paypal(request: Request):
             currency="EUR",
             return_url=f"{app_url}/booking/paypal/capture?booking_id={new_booking.id}",
             cancel_url=f"{app_url}/booking/paypal/cancel?booking_id={new_booking.id}",
-            metadata={"booking_id": new_booking.id, "booking_type": "direct"}
+            metadata={"booking_id": new_booking.id, "booking_type": "direct"},
+            intent="AUTHORIZE" if con_accettazione else "CAPTURE",
         )
         
         if not order:
@@ -316,7 +326,10 @@ async def paypal_capture(request: Request):
         
         if not booking.paypal_order_id:
             return RedirectResponse("/profile?error=paypal_no_order", status_code=302)
-        
+
+        if booking.acceptance_deadline:
+            return _autorizza_richiesta(session, booking)
+
         # Cattura il pagamento
         capture_data = capture_order(booking.paypal_order_id)
         if not capture_data or capture_data.get("status") != "COMPLETED":
@@ -414,6 +427,32 @@ async def paypal_capture(request: Request):
         
         logger.info(f"✅ PayPal booking {booking.id} confermato, capture {capture_id}")
         
+    return RedirectResponse("/profile", status_code=302)
+
+
+def _autorizza_richiesta(session, booking):
+    """Ritorno da PayPal per un consulente che conferma a mano: si blocca l'importo senza incassarlo."""
+    dati = authorize_order(booking.paypal_order_id)
+    autorizzazione = None
+    try:
+        autorizzazione = dati["purchase_units"][0]["payments"]["authorizations"][0]
+    except (KeyError, IndexError, TypeError):
+        pass
+    if not dati or dati.get("status") != "COMPLETED" or not autorizzazione:
+        logger.error(f"❌ PayPal autorizzazione fallita per booking {booking.id}: {dati}")
+        return RedirectResponse("/profile?error=paypal_capture_failed", status_code=302)
+
+    try:
+        importo = float(autorizzazione.get("amount", {}).get("value"))
+    except (TypeError, ValueError):
+        importo = None
+    atteso = float(booking.price) if booking.price is not None else None
+    if importo is None or (atteso is not None and abs(importo - atteso) > 0.01):
+        logger.error(f"❌ PayPal booking {booking.id}: autorizzati {importo} € ma il prezzo e' {atteso} €")
+        return RedirectResponse("/profile?error=paypal_importo_non_corrispondente", status_code=302)
+
+    booking.paypal_authorization_id = autorizzazione.get("id")
+    metti_in_attesa(session, booking)
     return RedirectResponse("/profile", status_code=302)
 
 

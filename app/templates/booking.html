@@ -779,6 +779,14 @@
             </p>
         </div>
         
+        {% if requires_acceptance %}
+        <!-- Il consulente conferma a mano: il cliente deve saperlo prima di pagare -->
+        <div style="background: #fff8e1; border: 1px solid #f5c26b; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.9rem; line-height: 1.5; color: #7c4a03;">
+            <strong><i class="fas fa-user-check"></i> Questo consulente conferma le prenotazioni a mano.</strong><br>
+            Al pagamento l'importo viene solo bloccato e ti viene addebitato quando accetta. Risponde entro 24 ore (e comunque entro 2 ore dall'inizio): se rifiuta o non risponde, il blocco si annulla.
+        </div>
+        {% endif %}
+
         <!-- Scelta metodo di pagamento -->
         <div style="background: #f8f9fa; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; border: 1px solid #e0e0e0;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
@@ -802,13 +810,14 @@
         </div>
         
         <button class="btn-book" id="confirmBookingBtn" disabled>
-            <i class="fas fa-calendar-check"></i> Conferma Prenotazione
+            <i class="fas fa-calendar-check"></i> {{ 'Invia richiesta' if requires_acceptance else 'Conferma Prenotazione' }}
         </button>
     </div>
 </div>
 
 <script>
     window.DEBUG_MODE = {{ debug_mode|default(false)|tojson }};
+    const ETICHETTA_CONFERMA = {{ ('Invia richiesta' if requires_acceptance else 'Conferma Prenotazione')|tojson }};
     const consultantId = {{ consultant.id }};
     const pricePerHour = {{ consultant.prezzo_consulenza or 0 }};
     
@@ -1297,7 +1306,7 @@
                     document.getElementById('descriptionError').style.display = 'block';
                     document.getElementById('consultationDescription').focus();
                     this.disabled = false;
-                    this.innerHTML = '<i class="fas fa-calendar-check"></i> Conferma Prenotazione';
+                    this.innerHTML = '<i class="fas fa-calendar-check"></i> ' + ETICHETTA_CONFERMA;
                     return;
                 }
             } catch (e) {
@@ -1347,13 +1356,13 @@
             } else {
                 alert('❌ Errore: ' + (data.detail || 'Impossibile completare la prenotazione'));
                 this.disabled = false;
-                this.innerHTML = '<i class="fas fa-calendar-check"></i> Conferma Prenotazione';
+                this.innerHTML = '<i class="fas fa-calendar-check"></i> ' + ETICHETTA_CONFERMA;
             }
         } catch (error) {
             console.error('Errore:', error);
             alert('❌ Errore di rete. Riprova.');
             this.disabled = false;
-            this.innerHTML = '<i class="fas fa-calendar-check"></i> Conferma Prenotazione';
+            this.innerHTML = '<i class="fas fa-calendar-check"></i> ' + ETICHETTA_CONFERMA;
         }
     });
     
