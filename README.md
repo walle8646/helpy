@@ -191,15 +191,13 @@ ispiramy/
 │   ├── database.py               # Configurazione engine DB e session manager
 │   ├── logger_config.py          # Configurazione Loguru per il logging
 │   ├── scheduler.py              # APScheduler — notifiche programmate (promemoria)
-│   ├── mail_confirmation.py      # Invio email conferma registrazione (SMTP)
-│   ├── utils_user.py             # Utility utente: hash MD5, codice conferma, display name
+│   ├── utils_user.py             # Utility utente: nome visualizzato, avatar, metodo di pagamento
 │   │
 │   ├── routes/                   # Endpoint API e pagine HTML
 │   │   ├── home.py               # Homepage con consulenti in evidenza
 │   │   ├── auth.py               # Login, registrazione, conferma email, reset password
 │   │   ├── user_profile.py       # Profilo personale, upload foto, aggiornamento dati
 │   │   ├── public_profile.py     # Profilo pubblico di un utente (/user/{id})
-│   │   ├── user_register.py      # Registrazione alternativa (endpoint semplificato)
 │   │   ├── consultants.py        # Pagina consulenti con ricerca intelligente e filtri
 │   │   ├── messages.py           # Messaggistica: conversazioni, chat, invio messaggi
 │   │   ├── community.py          # Community Q&A: domande, like, contatti, follow
@@ -215,16 +213,17 @@ ispiramy/
 │   │   ├── admin.py              # Pannello amministrazione
 │   │   ├── admin_social.py       # Dashboard contenuti social
 │   │   ├── pages.py              # Pagine statiche (about, faq, privacy…)
-│   │   ├── notifications.py      # API notifiche in-app
-│   │   └── api.py                # Router API base (prefisso /api)
+│   │   └── notifications.py      # API notifiche in-app
 │   │
 │   ├── utils/                    # Utility e servizi
 │   │   ├── agora_token.py        # Generazione token Agora RTC per video call
 │   │   ├── agora_recording.py    # Agora Cloud Recording: start, stop, gestione S3
 │   │   ├── stripe_config.py      # Configurazione Stripe: checkout session, webhook
 │   │   ├── email.py              # Invio email verifica e notifiche (SendGrid API)
-│   │   ├── notification_manager.py   # Gestore centralizzato notifiche (v1)
-│   │   ├── notification_service.py   # Servizio notifiche centralizzato (v2)
+│   │   ├── password.py           # Hashing bcrypt e migrazione dagli hash MD5
+│   │   ├── rate_limit.py         # Limiti di frequenza su login, registrazione, messaggi
+│   │   ├── orari.py              # Convenzione unica per gli orari salvati (ora italiana)
+│   │   ├── notification_service.py   # Invio notifiche in-app ed email (unico punto)
 │   │   ├── notification_email.py     # Template email per notifiche (HTML inline)
 │   │   ├── email_backend.py          # Selezione backend email (Resend/SendGrid/SMTP)
 │   │   ├── ai_service.py             # OpenAI: moderazione, tag, validazione contenuti
@@ -269,7 +268,6 @@ ispiramy/
 ├── sql_update/                   # Migrazioni SQL (variante sqlite + postgres)
 ├── tests/                        # Test automatizzati (pytest)
 ├── scripts/                      # Bootstrap DB locale, generatori, diagnostica
-├── setup_file/                   # Script di setup iniziale (storici)
 ├── uploads/                      # File caricati (locale)
 │
 ├── Dockerfile                    # Immagine Docker (Python 3.11-slim)

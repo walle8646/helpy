@@ -1287,8 +1287,9 @@
                         window.openChat(relatedUserId, relatedUserName, relatedUserAvatar || null);
                     } else {
                         // Fallback: vai alla pagina messaggi
-                        console.warn('⚠️ window.openChat non trovata, redirect a /messages');
-                        window.location.href = actionUrl || '/messages';
+                        // /messages non esiste (404): la pagina messaggi è /messaggi
+                        console.warn('⚠️ window.openChat non trovata, redirect a /messaggi');
+                        window.location.href = actionUrl || (relatedUserId ? `/messaggi/${relatedUserId}` : '/messaggi');
                     }
                 } else if (actionUrl && actionUrl !== '#') {
                     // Per altre notifiche, usa il redirect normale

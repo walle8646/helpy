@@ -440,42 +440,6 @@ async def resend_verification(
         logger.error(f"Error resending code: {e}", exc_info=True)
         return JSONResponse({"error": "Errore. Riprova."}, status_code=500)
 
-@router.post("/register")
-async def register(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-    nome: str = Form(...),
-    cognome: str = Form(None)  # ✅ AGGIUNGI cognome
-):
-    """Registrazione con form HTML (redirect)"""
-    with get_session() as session:
-        existing = session.exec(select(User).where(User.email == email)).first()
-        
-        if existing:
-            return request.app.state.templates.TemplateResponse(
-                "register.html",
-                {"request": request, "error": "Email già registrata"}
-            )
-        
-        password_hash = hash_password(password)
-        
-        # ✅ AGGIUNGI cognome
-        new_user = User(
-            email=email,
-            password_md5=password_hash,
-            nome=nome,
-            cognome=cognome,  # ✅ AGGIUNGI questo
-            confirmed=0,
-        )
-        
-        session.add(new_user)
-        session.commit()
-        
-        logger.info(f"✅ New user registered (HTML): {email}")
-        
-        return RedirectResponse("/login?registered=true", status_code=302)
-
 @router.get("/logout")
 async def logout(request: Request):
     """Logout utente"""

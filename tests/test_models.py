@@ -7,11 +7,9 @@ from datetime import datetime
 
 from app.models import Booking, User
 from app.utils_user import (
-    gen_code6,
     get_default_avatar,
     get_display_name,
     has_payment_method,
-    hash_md5,
 )
 from app.utils.email import generate_verification_code
 
@@ -64,10 +62,9 @@ class TestMetodoPagamento:
 
 class TestCodici:
     def test_lunghezza_e_cifre(self):
-        for fn in (gen_code6, generate_verification_code):
-            code = fn()
-            assert len(code) == 6
-            assert code.isdigit()
+        code = generate_verification_code()
+        assert len(code) == 6
+        assert code.isdigit()
 
     def test_non_sono_costanti(self):
         # Non prova la qualità crittografica, ma intercetta un generatore rotto
@@ -91,10 +88,3 @@ class TestBookingDefaults:
         # Il token recensione nasce vuoto: viene valorizzato solo all'invio
         # dell'email, ed è quello che autorizza a recensire senza login.
         assert b.review_token is None
-
-
-class TestHashPassword:
-    def test_deterministico(self):
-        assert hash_md5("segreto") == hash_md5("segreto")
-        assert hash_md5("segreto") != hash_md5("segreto2")
-        assert len(hash_md5("segreto")) == 32

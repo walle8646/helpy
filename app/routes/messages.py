@@ -11,7 +11,8 @@ import os
 # ✅ Importa funzioni autenticazione da auth.py
 from app.routes.auth import verify_token
 from app.utils_user import has_payment_method, get_display_name
-from app.utils.notification_manager import send_notification
+from app.utils.notification_service import send_notification
+from app.utils.orari import now_italy_naive
 from app.utils.rate_limit import enforce_rate_limit
 
 router = APIRouter()
@@ -515,20 +516,24 @@ async def send_message(
                     sender_name = get_display_name(current_user)
                     recipient_name = get_display_name(other_user, include_full_name=False)
                     
+                    # Il link porta dritto alla conversazione. Prima puntava a
+                    # /messages, che non esiste: sia la campanella sia il
+                    # bottone "Apri Chat" dell'email finivano su un 404.
+                    percorso_chat = f"/messaggi/{current_user.id}"
                     notification_sent = send_notification(
-                        notification_type_key='community_contact',
-                        recipient_user_id=other_user.id,
-                        recipient_email=other_user.email,
-                        recipient_name=recipient_name,
+                        user_id=other_user.id,
+                        type_key='community_contact',
+                        title="Nuovo messaggio",
+                        message=f"{sender_name} vuole contattarti!",
                         template_data={
                             'author_name': recipient_name,
                             'contact_name': sender_name,
                             'question_title': f'Nuovo messaggio da {sender_name}',
-                            'contact_date': datetime.now().strftime('%d/%m/%Y alle %H:%M'),
-                            'action_url': f"{base_url}/messages"
+                            'contact_date': now_italy_naive().strftime('%d/%m/%Y alle %H:%M'),
+                            'action_url': f"{base_url}{percorso_chat}",
                         },
                         related_user_id=current_user.id,
-                        action_url=f"{base_url}/messages"
+                        action_url=percorso_chat,
                     )
                     
                     if notification_sent:

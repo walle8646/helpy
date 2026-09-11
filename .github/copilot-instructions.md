@@ -34,10 +34,9 @@ if not user:
 ```
 
 ### Notification System
-Two notification modules exist — use the one matching the importing file's convention:
-- `app/utils/notification_service.py` — `send_notification(user_id, type_key, title, message, ...)` — used by `booking.py`, `stripe_webhook.py`, `scheduler.py`
-- `app/utils/notification_manager.py` — `send_notification(notification_type_key, recipient_user_id, recipient_email, ...)` — used by `messages.py`
-Both check `notification_types` DB table for in-app/email flags before sending.
+Use `app/utils/notification_service.py` — `send_notification(user_id, type_key, title, message, template_data=..., action_url=...)`. It is the only notification module.
+It checks the `notification_types` DB table for in-app/email flags: a `type_key` missing from that table is silently dropped, so every new type needs a row (see `scripts/bootstrap_local_db.py` and a migration in `sql_update/`).
+Email templates live in `app/utils/notification_email.py`; `_fill()` HTML-escapes every value except `reason_section`.
 
 ### Conversation Normalization
 Conversations always store `user1_id < user2_id`. Use `get_or_create_conversation(session, user1_id, user2_id)` from `messages.py` which handles the ordering.
@@ -53,19 +52,20 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 # Run with Docker
 docker compose up --build
 
-# Run tests
+# Run tests (CI runs the same on every push: .github/workflows/tests.yml)
 pytest -v
 ```
 The app auto-creates all tables on startup via `SQLModel.metadata.create_all()` in `database.py`.
 
 ## Database Migrations
 No Alembic — migrations are **manual SQL files** in `sql_update/`. Each migration has separate SQLite and PostgreSQL variants (suffix `_postgres.sql`). When adding a new column or table, create both variants.
+When adding a column to an EXISTING table, also add it to `COLONNE_AGGIUNTE` in `app/database.py`: `create_all()` does not add columns, and staging auto-deploys on every push to develop, so a missing column breaks every query on that table.
 
 ## Conventions
 - **Logging**: Use `from app.logger_config import logger` (Loguru), not stdlib `logging`. Some files import `from loguru import logger` directly — both work.
 - **Route files**: Create router with `router = APIRouter()`, include in `main.py` with `app.include_router()`
 - **Templates**: Render via `request.app.state.templates.TemplateResponse("name.html", {"request": request, ...})`
-- **Timezone**: Use `ZoneInfo("Europe/Rome")` for all datetime operations (Italian timezone)
+- **Timezone**: DB datetime columns hold naive Italian time. Store `now_italy_naive()` from `app/utils/orari.py`, never `datetime.now(ITALY_TZ)` (PostgreSQL converts tz-aware values to the session timezone, UTC on Render). Send times to the browser with `iso_ora_italiana()`.
 - **User display**: Use `get_display_name(user)` from `utils_user.py` — respects anonymous mode
-- **Passwords**: Hashed with MD5 via `hash_md5()` in `utils_user.py`
+- **Passwords**: bcrypt via `hash_password()` / `verify_password()` in `app/utils/password.py`. Never MD5: legacy MD5 hashes are migrated to bcrypt on first successful login.
 - **External services** (Stripe, Agora, S3, SendGrid): All configured via environment variables, gracefully degrade if credentials are missing
