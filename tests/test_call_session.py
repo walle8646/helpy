@@ -10,6 +10,7 @@
 """
 import secrets
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -251,3 +252,29 @@ class TestInvioAllegati:
             "message": "", "attachments": [{"url": "https://evil.example/x.jpg"}],
         })
         assert r.status_code == 400
+
+
+class TestTokenDellaCall:
+    """Il token si ottiene solo quando entrambi hanno premuto "Partecipa".
+
+    Chi apriva la call per primo vedeva "Impossibile avviare la chiamata:
+    Failed to get Agora token", un messaggio che non diceva nulla. Il motivo
+    vero arriva dal server e la pagina ora aspetta l'altra persona.
+    """
+
+    def test_se_l_altro_non_e_entrato_il_motivo_e_esplicito(self, cliente_in_call):
+        client, ids = cliente_in_call
+        with Session(engine) as s:
+            b = s.get(Booking, ids["booking"])
+            b.consultant_joined_at = None
+            s.add(b)
+            s.commit()
+
+        r = client.get(f"/api/booking/{ids['booking']}/agora-token")
+        assert r.status_code == 403
+        assert "Entrambi" in r.json()["detail"], "la pagina riconosce l'attesa da questo testo"
+
+    def test_la_pagina_aspetta_invece_di_fallire(self):
+        pagina = (Path(__file__).resolve().parent.parent / "app" / "templates" / "call.html").read_text(encoding="utf-8-sig")
+        assert "throw new Error('Failed to get Agora token')" not in pagina
+        assert "In attesa che ${remoteUserName} entri nella chiamata" in pagina

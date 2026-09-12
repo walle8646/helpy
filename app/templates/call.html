@@ -2548,6 +2548,29 @@
 
     // Initialize Agora
     let callInitInProgress = false;
+    // Il token per entrare nel canale si ottiene solo quando ENTRAMBI hanno
+    // premuto "Partecipa". Chi arriva per primo prima vedeva la schermata
+    // "Impossibile avviare la chiamata: Failed to get Agora token": ora aspetta
+    // l'altro, e se c'e' un problema vero mostra il motivo vero.
+    async function ottieniTokenAgora() {
+        const attesaMassima = Date.now() + 15 * 60 * 1000;
+        for (;;) {
+            const risposta = await fetchWithTimeout(`/api/booking/${bookingId}/agora-token`, {}, 15000);
+            if (risposta.ok) return risposta.json();
+
+            const dettaglio = await risposta.json().then(d => d.detail || d.error).catch(() => null);
+            const mancaLAltro = risposta.status === 403 && /Entrambi/i.test(dettaglio || '');
+            if (!mancaLAltro || Date.now() > attesaMassima) {
+                throw new Error(dettaglio || `il server ha risposto con un errore (${risposta.status})`);
+            }
+
+            // Ripetuto a ogni giro: rimette in moto anche il watchdog, che
+            // altrimenti scambierebbe l'attesa per un blocco.
+            setLoadingStep(`In attesa che ${remoteUserName} entri nella chiamata...`, 120000);
+            await new Promise(r => setTimeout(r, 3000));
+        }
+    }
+
     async function initializeCall() {
         if (callInitInProgress) {
             console.warn('⚠️ initializeCall già in corso - richiesta ignorata');
@@ -2619,13 +2642,8 @@
 
             // Get Agora token from backend
             setLoadingStep('Preparazione della sala...');
-            const response = await fetchWithTimeout(`/api/booking/${bookingId}/agora-token`, {}, 15000);
-            if (!response.ok) {
-                throw new Error('Failed to get Agora token');
-            }
-
-            const data = await response.json();
-            console.log('Agora credentials:', data);
+            const data = await ottieniTokenAgora();
+            console.log('Agora credentials ricevute');
 
             // Aggiorna il nome del partecipante remoto dalla risposta API
             if (data.other_user && data.other_user.name) {
@@ -2780,7 +2798,7 @@
             } else {
                 message = 'Si è verificato un errore durante l\'avvio della chiamata.<br><br>' +
                           '<span style="opacity:.7; font-size:.85rem;">Dettaglio: ' +
-                          String(error.message || error) + '</span>';
+                          escapeHtml(String(error.message || error)) + '</span>';
             }
             showLoadingError(message);
         } finally {
