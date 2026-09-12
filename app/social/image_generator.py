@@ -18,7 +18,7 @@ from typing import Optional
 
 import boto3
 from PIL import Image, ImageDraw, ImageFont
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.database import engine
 from app.models import SocialDraft
@@ -138,8 +138,13 @@ def _ai_illustration(topic: str) -> Optional[Image.Image]:
         return None
 
 
-def _cover(hook: str, topic: str, use_ai: bool = True) -> Image.Image:
-    """Slide di copertina: illustrazione (AI o flat) + hook grande."""
+def _cover(hook: str, topic: str, use_ai: bool = True, swipe: bool = True) -> Image.Image:
+    """Slide di copertina: illustrazione (AI o flat) + hook grande.
+
+    Con swipe=False l'immagine e' pensata per stare da sola (Facebook,
+    LinkedIn): al posto di "Scorri" ci va la chiamata al sito, perche' non
+    c'e' nessuna seconda slide da scorrere.
+    """
     img = Image.new("RGB", (W, H), GREEN_BG)
     draw = ImageDraw.Draw(img)
     _decorations(img)
@@ -172,11 +177,12 @@ def _cover(hook: str, topic: str, use_ai: bool = True) -> Image.Image:
         hook_font = _font("Poppins-Bold.ttf", hook_font.size - 6)
     _draw_wrapped(draw, hook, hook_font, W - 160, 80, y_text, TEXT_DARK, align_center=True)
 
-    swipe_font = _font("Poppins-SemiBold.ttf", 36)
-    swipe = "Scorri  »"  # » al posto di →: Poppins non ha il glifo freccia
-    sw = draw.textlength(swipe, font=swipe_font)
+    cta_font = _font("Poppins-SemiBold.ttf", 36)
+    # » al posto di →: Poppins non ha il glifo freccia
+    cta = "Scorri  »" if swipe else "Trova il tuo esperto  »"
+    sw = draw.textlength(cta, font=cta_font)
     draw.rounded_rectangle([(W - sw) / 2 - 34, H - 210, (W + sw) / 2 + 34, H - 130], radius=40, fill=GREEN)
-    draw.text(((W - sw) / 2, H - 196), swipe, font=swipe_font, fill=WHITE)
+    draw.text(((W - sw) / 2, H - 196), cta, font=cta_font, fill=WHITE)
 
     _footer(draw)
     return img
@@ -254,6 +260,104 @@ def _upload_png(img: Image.Image, key: str) -> str:
     if public_base:
         return f"{public_base.rstrip('/')}/{key}"
     return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+
+
+def _hook_del_draft(session: Session, draft: SocialDraft) -> str:
+    """Il testo da mettere in grande sull'immagine.
+
+    Facebook e LinkedIn non hanno hook e slide in extra_content: il generatore
+    di contenuti li salva solo per Instagram. Il titolo buono pero' c'e' lo
+    stesso, perche' i draft della stessa domanda nascono insieme: si riusa
+    l'hook del fratello Instagram, e se manca si ripiega sul titolo della
+    domanda o sulla prima frase della caption.
+    """
+    def _da_extra(valore: Optional[str]) -> str:
+        try:
+            extra = json.loads(valore or "{}")
+        except json.JSONDecodeError:
+            return ""
+        hook = (extra.get("hook") or "").strip()
+        if hook:
+            return hook
+        slides = [s for s in (extra.get("carousel_slides") or []) if s and s.strip()]
+        return slides[0].strip() if slides else ""
+
+    proprio = _da_extra(draft.extra_content)
+    if proprio:
+        return proprio
+
+    if draft.source_question_id:
+        fratelli = session.exec(
+            select(SocialDraft)
+            .where(SocialDraft.source_question_id == draft.source_question_id)
+            .where(SocialDraft.id != draft.id)
+        ).all()
+        for fratello in fratelli:
+            hook = _da_extra(fratello.extra_content)
+            if hook:
+                return hook
+
+    if (draft.source_title or "").strip():
+        return draft.source_title.strip()
+
+    # Ultima spiaggia: la prima frase della caption, senza hashtag
+    testo = " ".join(
+        p for p in (draft.caption or "").replace("\n", " ").split() if not p.startswith("#")
+    )
+    for fine in (". ", "! ", "? "):
+        if fine in testo:
+            testo = testo.split(fine)[0] + fine.strip()
+            break
+    return testo[:120].strip()
+
+
+def generate_image_for_draft(draft_id: int, use_ai_cover: bool = True) -> dict:
+    """Genera una singola immagine brand per un draft (Facebook, LinkedIn).
+
+    Fuori da Instagram il post e' un testo con una sola immagine a corredo:
+    niente carosello, e al posto di "Scorri" la chiamata al sito.
+    """
+    with Session(engine) as session:
+        draft = session.get(SocialDraft, draft_id)
+        if not draft:
+            return {"ok": False, "message": "Draft non trovato"}
+        if draft.status in ("published", "publishing"):
+            return {"ok": False, "message": "Draft già pubblicato"}
+
+        hook = _hook_del_draft(session, draft)
+        if not hook:
+            return {"ok": False, "message": "Questo draft non ha un testo da mettere sull'immagine"}
+
+        topic = draft.source_title or hook
+        logger.info(f"🖼️ Genero immagine singola per draft {draft.id} ({draft.platform})...")
+
+        img = _cover(hook, topic, use_ai=use_ai_cover, swipe=False)
+        stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        url = _upload_png(img, f"social/draft-{draft.id}/{stamp}-post.png")
+
+        draft.media_urls = url
+        draft.updated_at = datetime.utcnow()
+        session.add(draft)
+        session.commit()
+        logger.info(f"✅ Immagine draft {draft.id} su S3")
+        return {"ok": True, "message": "Immagine generata", "urls": [url]}
+
+
+def generate_media_for_draft(draft_id: int, use_ai_cover: bool = True) -> dict:
+    """Genera la grafica giusta per la piattaforma del draft.
+
+    Instagram vuole il carosello (e' nato per quello), le altre piattaforme
+    una sola immagine.
+    """
+    with Session(engine) as session:
+        draft = session.get(SocialDraft, draft_id)
+        if not draft:
+            return {"ok": False, "message": "Draft non trovato"}
+        piattaforma = draft.platform
+
+    if piattaforma == "instagram":
+        return generate_carousel_for_draft(draft_id, use_ai_cover=use_ai_cover)
+    return generate_image_for_draft(draft_id, use_ai_cover=use_ai_cover)
 
 
 def generate_carousel_for_draft(draft_id: int, use_ai_cover: bool = True) -> dict:

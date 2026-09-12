@@ -288,7 +288,7 @@
             {% if d.status in ('draft', 'approved', 'failed', 'rejected') %}
             <button class="btn btn-light" onclick="saveDraft({{ d.id }})"><i class="fas fa-floppy-disk"></i> Salva</button>
             {% endif %}
-            {% if d.platform == 'instagram' and d.status in ('draft', 'approved', 'failed') %}
+            {% if d.platform in ('instagram', 'facebook', 'linkedin') and d.status in ('draft', 'approved', 'failed') %}
             <button class="btn btn-light" id="genmedia-{{ d.id }}" onclick="generateMedia({{ d.id }})"><i class="fas fa-image"></i> Genera grafica</button>
             {% endif %}
             {% if d.status == 'draft' %}

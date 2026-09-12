@@ -25,6 +25,8 @@ CHIAMATE_BLOCCANTI = {
     "analyze_dispute_video",
     "download_video_from_s3",
     "generate_carousel_for_draft",
+    "generate_image_for_draft",
+    "generate_media_for_draft",
     "generate_batch",
     "publish_draft",
     "check_publishing_results",

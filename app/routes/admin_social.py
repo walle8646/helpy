@@ -202,14 +202,17 @@ async def admin_social_draft_status(draft_id: int, request: Request):
 
 @router.post("/social/drafts/{draft_id}/generate-media")
 async def admin_social_generate_media(draft_id: int, request: Request):
-    """Genera il carosello brand (Pillow + illustrazione AI) e compila media_urls."""
+    """Genera la grafica brand (Pillow + illustrazione AI) e compila media_urls.
+
+    Carosello su Instagram, immagine singola sulle altre piattaforme.
+    """
     admin_user = require_admin(request)
     if not admin_user:
         return JSONResponse({"ok": False, "message": "Non autorizzato"}, status_code=403)
 
     try:
-        from app.social.image_generator import generate_carousel_for_draft
-        result = await asyncio.to_thread(generate_carousel_for_draft, draft_id)
+        from app.social.image_generator import generate_media_for_draft
+        result = await asyncio.to_thread(generate_media_for_draft, draft_id)
         return JSONResponse(result, status_code=200 if result["ok"] else 400)
     except Exception as e:
         logger.error(f"Admin social: errore generazione grafica draft {draft_id}: {e}", exc_info=True)
