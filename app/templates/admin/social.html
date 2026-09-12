@@ -259,6 +259,9 @@
         {% if d.status == 'approved' and not d.scheduled_at %}
         <div class="draft-hint">⏸ Non programmato: il job pubblica solo i post con una data. Questo esce solo premendo "Pubblica ora".</div>
         {% endif %}
+        {% if d.status in ('draft', 'rejected') and d.scheduled_at %}
+        <div class="draft-hint">⏸ La data c'è ma il post non è approvato: il job pubblica solo i post in stato "approved". Premi "Approva" o resterà fermo.</div>
+        {% endif %}
         {% else %}
         <div style="white-space: pre-wrap; font-size: .92rem; color: #444; line-height: 1.45;">{{ d.caption }}</div>
         {% endif %}

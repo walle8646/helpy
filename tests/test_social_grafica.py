@@ -111,6 +111,38 @@ def test_instagram_passa_dal_carosello(monkeypatch, pulizia):
     assert chiamate == [ig]
 
 
+def test_la_coda_ignora_i_draft_non_approvati(monkeypatch, pulizia):
+    """Una data su un draft non approvato non pubblica niente: va detto nella pagina."""
+    from datetime import datetime, timedelta
+    from app.social import publisher
+
+    pubblicati = []
+    monkeypatch.setattr(publisher, "publish_draft",
+                        lambda draft_id: pubblicati.append(draft_id) or {"ok": True})
+    monkeypatch.setattr(publisher, "check_publishing_results", lambda: None)
+
+    ieri = datetime.now() - timedelta(days=1)
+    fermo = _draft(pulizia, "facebook", titolo="Non approvato", stato="draft")
+    pronto = _draft(pulizia, "facebook", titolo="Approvato", stato="approved")
+    with Session(engine) as s:
+        for draft_id in (fermo, pronto):
+            d = s.get(SocialDraft, draft_id)
+            d.scheduled_at = ieri
+            s.add(d)
+        s.commit()
+
+    publisher.process_social_queue()
+    assert pronto in pubblicati
+    assert fermo not in pubblicati
+
+    import io
+    import os
+    percorso = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "app", "templates", "admin", "social.html")
+    html = io.open(percorso, encoding="utf-8").read()
+    assert "non è approvato" in html, "manca l'avviso per i draft programmati ma non approvati"
+
+
 def test_il_bottone_genera_grafica_c_e_anche_per_facebook():
     """La regola sta nel template: senza il bottone la funzione non serve a nulla."""
     import io
