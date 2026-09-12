@@ -187,6 +187,11 @@ async def consultants_page(
                     and_(User.paypal_email.isnot(None), User.paypal_email != ""),
                 ),
             )
+
+            # Un consulente non deve trovare se stesso fra i consulenti: non
+            # puo' prenotare con se stesso, e vedersi nell'elenco confonde.
+            if current_user:
+                query_stmt = query_stmt.where(User.id != current_user.id)
             
             # ========== FILTRO CATEGORIA ==========
             if category:

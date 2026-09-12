@@ -27,6 +27,9 @@ async def home(request: Request):
                 .order_by(User.consulenze_vendute.desc())
                 .limit(4)
             )
+            # Chi ha fatto accesso non si vede fra i consulenti in evidenza
+            if current_user:
+                featured_consultants_query = featured_consultants_query.where(User.id != current_user.id)
             featured_users = session.exec(featured_consultants_query).all()
             
             # ✅ Crea struttura dati come nel template (con categoria)
