@@ -24,9 +24,9 @@ from app.utils.orari import now_italy_naive
 ITALY_TZ = ZoneInfo("Europe/Rome")
 
 ORE_PER_RISPONDERE = 24
-# Il consulente deve rispondere entro 2 ore dall'inizio: il cliente deve
-# sapere per tempo se la consulenza si fa.
-MARGINE_PRIMA_DELL_INIZIO = timedelta(hours=2)
+# Il consulente deve rispondere al piu' tardi un'ora prima dell'inizio: dopo,
+# la richiesta viene rifiutata da sola e il cliente e' libero di cercare altro.
+MARGINE_PRIMA_DELL_INIZIO = timedelta(hours=1)
 # Mai meno di così per rispondere (conta solo con prenotazioni molto vicine)
 TEMPO_MINIMO_PER_RISPONDERE = timedelta(minutes=30)
 # Il job di scadenza lascia passare qualche minuto dopo la scadenza: un
@@ -49,7 +49,7 @@ def richiede_accettazione(consulente) -> bool:
 
 
 def scadenza_risposta(inizio: datetime, adesso: Optional[datetime] = None) -> datetime:
-    """Entro quando il consulente deve rispondere: 24 ore, e comunque 2 ore prima dell'inizio."""
+    """Entro quando il consulente deve rispondere: 24 ore, e comunque un'ora prima dell'inizio."""
     adesso = adesso or now_italy_naive()
     scadenza = min(adesso + timedelta(hours=ORE_PER_RISPONDERE), inizio - MARGINE_PRIMA_DELL_INIZIO)
     if scadenza < adesso + TEMPO_MINIMO_PER_RISPONDERE:

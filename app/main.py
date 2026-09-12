@@ -174,6 +174,12 @@ def statico(percorso: str) -> str:
 
 templates.env.globals['statico'] = statico
 
+# Le regole di preavviso servono anche al JavaScript delle pagine: un solo
+# valore, definito in app/utils/orari.py.
+from app.utils.orari import ORE_LIMITE_ANNULLAMENTO, ORE_PREAVVISO_PRENOTAZIONE
+templates.env.globals['ore_preavviso'] = ORE_PREAVVISO_PRENOTAZIONE
+templates.env.globals['ore_limite_annullamento'] = ORE_LIMITE_ANNULLAMENTO
+
 # Filtro per parsing JSON (usato per le immagini community)
 import json as _json
 def _parse_json(value):

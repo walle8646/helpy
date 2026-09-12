@@ -10,6 +10,7 @@ import logging
 from app.database import engine
 from app.models import User, AvailabilityBlock
 from app.routes.auth import verify_token
+from app.utils.orari import ORE_PREAVVISO_PRENOTAZIONE
 
 import os
 
@@ -117,12 +118,12 @@ async def save_availability(
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
         blocks_data = json.loads(blocks)
         
-        # ✅ Validazione: le fasce per oggi devono iniziare almeno 4 ore nel futuro
+        # ✅ Validazione: le fasce per oggi devono rispettare il preavviso minimo
         now_italy = datetime.now(ITALY_TZ)
         today_italy = now_italy.date()
         
         if target_date == today_italy and not DEBUG_MODE:
-            min_start = now_italy + timedelta(hours=4)
+            min_start = now_italy + timedelta(hours=ORE_PREAVVISO_PRENOTAZIONE)
             min_start_minutes = min_start.hour * 60 + min_start.minute
             
             for block_data in blocks_data:
@@ -139,7 +140,7 @@ async def save_availability(
                         status_code=400,
                         content={
                             "success": False,
-                            "message": f"Per oggi le fasce orarie devono iniziare dopo le {min_time_formatted} (almeno 4 ore da adesso)"
+                            "message": f"Per oggi le fasce orarie devono iniziare dopo le {min_time_formatted} (almeno {ORE_PREAVVISO_PRENOTAZIONE} ore da adesso)"
                         }
                     )
         elif target_date < today_italy and not DEBUG_MODE:
@@ -254,7 +255,7 @@ async def copy_availability(
                 today_italy = now_italy.date()
                 min_start_minutes = None
                 if target_date == today_italy and not DEBUG_MODE:
-                    min_start = now_italy + timedelta(hours=4)
+                    min_start = now_italy + timedelta(hours=ORE_PREAVVISO_PRENOTAZIONE)
                     min_start_minutes = min_start.hour * 60 + min_start.minute
                 elif target_date < today_italy and not DEBUG_MODE:
                     continue  # Salta date passate
@@ -272,7 +273,7 @@ async def copy_availability(
                 
                 # Copia blocchi
                 for source_block in source_blocks:
-                    # Se è oggi, verifica vincolo 4 ore
+                    # Se è oggi, verifica il preavviso minimo
                     if min_start_minutes is not None:
                         src_start = format_time_field(source_block.start_time)
                         if src_start:
@@ -298,7 +299,7 @@ async def copy_availability(
             
             msg = f"Disponibilità copiata in {len(target_dates_list)} giorni ({copied_count} blocchi totali)"
             if skipped_count > 0:
-                msg += f". {skipped_count} blocco/i esclusi perché troppo vicini all'orario attuale (min. 4 ore)"
+                msg += f". {skipped_count} blocco/i esclusi perché troppo vicini all'orario attuale (min. {ORE_PREAVVISO_PRENOTAZIONE} ore)"
             
             return JSONResponse({
                 "success": True,

@@ -14,7 +14,9 @@ from app.utils.agora_recording import start_recording, stop_recording, get_recor
 from app.logger_config import logger
 from app.utils.stripe_config import create_checkout_session
 from app.utils_user import has_payment_method
-from app.utils.orari import iso_ora_italiana, now_italy_naive
+from app.utils.orari import (
+    ORE_LIMITE_ANNULLAMENTO, ORE_PREAVVISO_PRENOTAZIONE, iso_ora_italiana, now_italy_naive,
+)
 from app.utils.booking_requests import (
     RichiestaNonValida, accetta_richiesta, annulla_blocco, avvisa_annullamento,
     richiede_accettazione, scadenza_risposta,
@@ -167,24 +169,24 @@ def calculate_available_slots(
     today = now_italy.date()
     target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     
-    # Calcola il minimo datetime: 4 ore nel futuro dal momento attuale
+    # Calcola il minimo datetime: il preavviso minimo dal momento attuale
     if DEBUG_MODE:
         current_time_minutes = 0
     else:
-        min_datetime = now_italy + timedelta(hours=4)
-        
+        min_datetime = now_italy + timedelta(hours=ORE_PREAVVISO_PRENOTAZIONE)
+
         # Se il minimo datetime è dopo il target_date (cioè il target_date è nel passato rispetto al limite),
         # allora non ci sono slot disponibili per questa data
         if target_date < min_datetime.date():
-            print(f"🕐 Data {target_date} è prima del limite di 4 ore ({min_datetime.date()}), nessuno slot disponibile")
+            print(f"🕐 Data {target_date} è prima del preavviso minimo ({min_datetime.date()}), nessuno slot disponibile")
             return []
-        
+
         # Calcola i minuti da inizio giornata per il minimo time
         if min_datetime.date() == target_date:
-            # Il limite di 4 ore cade nello stesso giorno della prenotazione
+            # Il limite cade nello stesso giorno della prenotazione
             current_time_minutes = min_datetime.hour * 60 + min_datetime.minute
         else:
-            # Il limite di 4 ore cade in un giorno precedente (target_date è dopo il limite)
+            # Il limite cade in un giorno precedente (target_date è dopo il limite)
             # Quindi nessun limite per questo giorno (può iniziare da 00:00)
             current_time_minutes = 0
     
@@ -195,13 +197,13 @@ def calculate_available_slots(
         block_start = parse_time_to_minutes(block.start_time)
         block_end = parse_time_to_minutes(block.end_time)
         
-        # Calcola il minimo di tempo richiesto (4 ore dal momento attuale)
+        # Minimo di tempo richiesto: il preavviso dal momento attuale
         min_start_time = current_time_minutes if current_time_minutes is not None else 0
-        
+
         if block_end <= min_start_time:
-            # Tutto il blocco è nel passato o entro il limite di 4 ore, saltalo
+            # Tutto il blocco è nel passato o dentro il preavviso, saltalo
             continue
-        # Aggiorna il block_start se parte del blocco è nel passato/entro 4 ore
+        # Aggiorna il block_start se parte del blocco è nel passato o dentro il preavviso
         if block_start < min_start_time:
             # Arrotonda al prossimo slot di 30 minuti
             block_start = ((min_start_time + 29) // 30) * 30
@@ -519,14 +521,17 @@ async def create_booking(
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato data non valido")
         
-        # ✅ Validazione: prenotazione almeno 4 ore nel futuro
+        # ✅ Validazione: prenotazione con il preavviso minimo
         if not DEBUG_MODE:
             # Combina data + ora di inizio (entrambi in ora italiana)
             booking_datetime = datetime.strptime(f"{booking_date_str} {start_time}", '%Y-%m-%d %H:%M')
             time_until_booking = (booking_datetime - now_italy_naive()).total_seconds() / 3600  # in ore
 
-            if time_until_booking < 4:
-                raise HTTPException(status_code=400, detail="La consulenza deve essere prenotata almeno 4 ore nel futuro")
+            if time_until_booking < ORE_PREAVVISO_PRENOTAZIONE:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"La consulenza deve essere prenotata almeno {ORE_PREAVVISO_PRENOTAZIONE} ore nel futuro",
+                )
         
         # Verifica che lo slot sia ancora disponibile (prevenzione double booking)
         if slot_gia_prenotato(session, consultant_id, booking_date_str, start_time):
@@ -1233,19 +1238,19 @@ async def cancel_booking(
         if booking.status in ['completed', 'cancelled', 'no_show']:
             raise HTTPException(status_code=400, detail="Non puoi cancellare questa prenotazione")
 
-        # ⛔ Finestra di cancellazione: fino a 4 ore prima dell'inizio, come per
-        # il rifiuto del consulente. Senza questo controllo il cliente poteva
-        # cancellare (e farsi rimborsare per intero) anche a consulenza avvenuta,
-        # nei 15 minuti prima che il job no-show la marcasse come completed.
+        # ⛔ Finestra di cancellazione, come per il rifiuto del consulente. Senza
+        # questo controllo il cliente poteva cancellare (e farsi rimborsare per
+        # intero) anche a consulenza avvenuta, nei 15 minuti prima che il job
+        # no-show la marcasse come completed.
         # Una richiesta non ancora accettata non e' stata addebitata: si puo'
         # ritirare finche' il consulente non risponde.
         if not DEBUG_MODE and booking.status != 'awaiting_acceptance':
             hours_left = hours_until_booking(booking)
-            if hours_left < 4:
+            if hours_left < ORE_LIMITE_ANNULLAMENTO:
                 if hours_left < 0:
                     detail = "La consulenza è già iniziata: non può più essere annullata. Se c'è stato un problema, apri una contestazione."
                 else:
-                    detail = "Puoi annullare la consulenza solo fino a 4 ore prima dell'inizio."
+                    detail = f"Puoi annullare la consulenza solo fino a {ORE_LIMITE_ANNULLAMENTO} ore prima dell'inizio."
                 raise HTTPException(status_code=400, detail=detail)
 
         # Aggiorna lo stato
@@ -1625,12 +1630,14 @@ async def refuse_booking(booking_id: int, request: Request):
         if booking.status not in ['pending', 'confirmed', 'awaiting_acceptance']:
             raise HTTPException(status_code=400, detail="Non puoi rifiutare una prenotazione in questo stato")
 
-        # ✅ Validazione: annullamento max 4 ore prima dell'inizio. Una richiesta
-        # ancora da accettare si rifiuta fino alla sua scadenza (che cade
-        # comunque almeno 2 ore prima dell'inizio).
+        # ✅ Validazione: annullamento entro la finestra. Una richiesta ancora da
+        # accettare si rifiuta fino alla sua scadenza (un'ora prima dell'inizio).
         richiesta = booking.status == 'awaiting_acceptance'
-        if not richiesta and hours_until_booking(booking) < 4:
-            raise HTTPException(status_code=400, detail="Puoi annullare la consulenza solo fino a 4 ore prima dell'inizio")
+        if not richiesta and hours_until_booking(booking) < ORE_LIMITE_ANNULLAMENTO:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Puoi annullare la consulenza solo fino a {ORE_LIMITE_ANNULLAMENTO} ore prima dell'inizio",
+            )
         
         # ✅ 1. Cambia lo stato
         booking.status = "cancelled"

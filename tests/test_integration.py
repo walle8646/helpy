@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from app.database import engine
 from app.models import Booking, User
 from app.routes.booking import hours_until_booking, now_italy_naive
+from app.utils.orari import ORE_LIMITE_ANNULLAMENTO
 from app.utils.notification_email import generate_email_html
 
 
@@ -104,11 +105,11 @@ class TestFinestraDiCancellazione:
         finally:
             self._pulisci(ids)
 
-    def test_consulenza_tra_due_ore_e_fuori_finestra(self):
-        ids = self._crea_booking(2)
+    def test_consulenza_a_ridosso_e_fuori_finestra(self):
+        ids = self._crea_booking(1)
         try:
             with Session(engine) as s:
-                assert hours_until_booking(s.get(Booking, ids[0])) < 4
+                assert hours_until_booking(s.get(Booking, ids[0])) < ORE_LIMITE_ANNULLAMENTO
         finally:
             self._pulisci(ids)
 
@@ -116,7 +117,7 @@ class TestFinestraDiCancellazione:
         ids = self._crea_booking(6)
         try:
             with Session(engine) as s:
-                assert hours_until_booking(s.get(Booking, ids[0])) >= 4
+                assert hours_until_booking(s.get(Booking, ids[0])) >= ORE_LIMITE_ANNULLAMENTO
         finally:
             self._pulisci(ids)
 

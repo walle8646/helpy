@@ -948,7 +948,9 @@ function renderCalendar() {
     }
 }
 
-// Calcola l'orario minimo consentito (4 ore da adesso) — vale solo per oggi
+// Orario minimo consentito per oggi: il preavviso con cui i clienti possono
+// prenotare (app/utils/orari.py), non un numero scritto qui.
+const ORE_PREAVVISO = {{ ore_preavviso }};
 function getMinStartTime() {
     if (window.DEBUG_MODE) return null;
     if (!selectedDate) return null;
@@ -1114,11 +1116,11 @@ function calculateEndTime(startTime, minutes) {
 }
 
 function updateBlock(index, field, value) {
-    // Se si modifica start_time per oggi, verifica vincolo 4 ore
+    // Se si modifica start_time per oggi, verifica il preavviso minimo
     if (field === 'start_time') {
         const minTime = getMinStartTime();
         if (minTime && value < minTime) {
-            alert(`⚠️ Per oggi l'orario di inizio deve essere almeno ${minTime} (4 ore da adesso)`);
+            alert(`⚠️ Per oggi l'orario di inizio deve essere almeno ${minTime} (${ORE_PREAVVISO} ore da adesso)`);
             renderTimeBlocks(); // ripristina valore precedente
             return;
         }
@@ -1188,12 +1190,12 @@ async function saveAvailability() {
         }
     }
 
-    // ✅ Valida vincolo 4 ore per oggi
+    // ✅ Valida il preavviso minimo per oggi
     const minTime = getMinStartTime();
     if (minTime) {
         for (let i = 0; i < timeBlocks.length; i++) {
             if (timeBlocks[i].start_time < minTime) {
-                alert(`⚠️ Blocco ${i + 1}: Per oggi l'orario di inizio deve essere almeno ${minTime} (4 ore da adesso)`);
+                alert(`⚠️ Blocco ${i + 1}: Per oggi l'orario di inizio deve essere almeno ${minTime} (${ORE_PREAVVISO} ore da adesso)`);
                 return;
             }
         }

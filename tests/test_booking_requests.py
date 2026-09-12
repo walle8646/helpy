@@ -135,13 +135,20 @@ class TestScadenza:
         adesso = datetime(2026, 9, 11, 9, 0)
         assert scadenza_risposta(datetime(2026, 9, 20, 10, 0), adesso) == datetime(2026, 9, 12, 9, 0)
 
-    def test_prenotazione_vicina_due_ore_prima_dell_inizio(self):
+    def test_prenotazione_vicina_un_ora_prima_dell_inizio(self):
+        """Il consulente ha tempo al massimo fino a un'ora prima dell'inizio:
+        dopo, la richiesta viene rifiutata da sola."""
         adesso = datetime(2026, 9, 11, 9, 0)
-        assert scadenza_risposta(datetime(2026, 9, 11, 15, 0), adesso) == datetime(2026, 9, 11, 13, 0)
+        assert scadenza_risposta(datetime(2026, 9, 11, 15, 0), adesso) == datetime(2026, 9, 11, 14, 0)
+
+    def test_prenotazione_col_preavviso_minimo(self):
+        """Prenotata con due ore di preavviso: al consulente resta un'ora."""
+        adesso = datetime(2026, 9, 11, 9, 0)
+        assert scadenza_risposta(datetime(2026, 9, 11, 11, 0), adesso) == datetime(2026, 9, 11, 10, 0)
 
     def test_mai_meno_di_mezz_ora_e_mai_dopo_l_inizio(self):
         adesso = datetime(2026, 9, 11, 9, 0)
-        assert scadenza_risposta(datetime(2026, 9, 11, 10, 0), adesso) == datetime(2026, 9, 11, 9, 30)
+        assert scadenza_risposta(datetime(2026, 9, 11, 9, 45), adesso) == datetime(2026, 9, 11, 9, 30)
         assert scadenza_risposta(datetime(2026, 9, 11, 9, 20), adesso) == datetime(2026, 9, 11, 9, 20)
 
     def test_la_richiesta_occupa_lo_slot(self):
@@ -412,3 +419,37 @@ class TestProfilo:
         assert r.status_code == 200
         assert "conferma le prenotazioni a mano" in r.text
         assert "Invia richiesta" in r.text
+
+
+class TestPreavviso:
+    """Due ore per prenotare, e al consulente resta tempo fino a un'ora prima."""
+
+    def _prenota(self, csrf_client, persone, ore_da_ora):
+        inizio = now_italy_naive() + timedelta(hours=ore_da_ora)
+        return csrf_client.post("/api/booking/create", json={
+            "consultant_user_id": persone.consulente,
+            "booking_date": inizio.strftime("%Y-%m-%d"),
+            "start_time": inizio.strftime("%H:%M"),
+            "end_time": (inizio + timedelta(hours=1)).strftime("%H:%M"),
+            "duration_minutes": 60, "price": 60, "description": "Serve aiuto",
+        })
+
+    def test_due_ore_e_mezza_prima_si_puo_prenotare(self, persone, csrf_client, monkeypatch):
+        monkeypatch.setattr(booking_routes, "create_checkout_session",
+                            lambda **kw: SimpleNamespace(id="cs_preavviso", url="https://checkout.test"))
+        _login(csrf_client, persone.email_cliente, persone.password)
+        assert self._prenota(csrf_client, persone, 2.5).status_code == 200
+
+    def test_un_ora_prima_e_troppo_tardi(self, persone, csrf_client, monkeypatch):
+        monkeypatch.setattr(booking_routes, "create_checkout_session",
+                            lambda **kw: pytest.fail("non si deve arrivare al pagamento"))
+        _login(csrf_client, persone.email_cliente, persone.password)
+        r = self._prenota(csrf_client, persone, 1)
+        assert r.status_code == 400
+        assert "2 ore" in r.json()["detail"]
+
+    def test_la_scadenza_cade_sempre_almeno_un_ora_prima(self, persone):
+        inizio = now_italy_naive() + timedelta(hours=2, minutes=30)
+        scadenza = scadenza_risposta(inizio)
+        assert scadenza <= inizio - timedelta(hours=1)
+        assert scadenza > now_italy_naive()

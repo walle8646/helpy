@@ -16,6 +16,19 @@ from zoneinfo import ZoneInfo
 
 ITALY_TZ = ZoneInfo("Europe/Rome")
 
+# ===== Regole di preavviso delle consulenze =====
+# Erano scritte a mano in cinque punti diversi (calcolo degli slot, creazione
+# della prenotazione su Stripe e su PayPal, annullamento, rifiuto) piu' tre nei
+# template: cambiarle significava trovarle tutte.
+
+# Quanto prima va prenotata una consulenza: gli slot piu' vicini di cosi' non
+# compaiono nemmeno nel calendario.
+ORE_PREAVVISO_PRENOTAZIONE = 2
+
+# Fino a quando cliente e consulente possono annullare una consulenza gia'
+# confermata (dopo, chi non si presenta viene gestito dal controllo assenze).
+ORE_LIMITE_ANNULLAMENTO = 2
+
 
 def now_italy_naive() -> datetime:
     """Ora corrente italiana, senza fuso: il valore da salvare nel database."""

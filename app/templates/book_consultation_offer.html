@@ -988,7 +988,7 @@ function generateTimeSlots(blocks, duration) {
             const slotEndHour = Math.floor(slotEndMinutes / 60);
             const slotEndMin = slotEndMinutes % 60;
             
-            // Controlla se questa fascia è almeno 4 ore nel futuro
+            // Controlla se questa fascia rispetta il preavviso minimo
             const blockDate = block.date;
             if (blockDate) {
                 // Crea la data/ora dello slot in modo corretto
@@ -998,10 +998,10 @@ function generateTimeSlots(blocks, duration) {
                 const millisecondsUntilSlot = slotDateTime - now;
                 const hoursUntilSlot = millisecondsUntilSlot / (1000 * 60 * 60);
                 
-                const isValid = DEBUG_MODE || hoursUntilSlot >= 4;
+                const isValid = DEBUG_MODE || hoursUntilSlot >= {{ ore_preavviso }};
                 console.log(`Slot ${blockDate} ${slotStartHour}:${String(slotStartMin).padStart(2, '0')} (${slotDateTime.toString()}) - Ore: ${hoursUntilSlot.toFixed(2)} - Mostra: ${isValid}`);
                 
-                // Se la fascia è almeno 4 ore nel futuro, la mostriamo
+                // Se la fascia rispetta il preavviso, la mostriamo
                 if (isValid) {
                     slots.push({
                         start_time: `${String(slotStartHour).padStart(2, '0')}:${String(slotStartMin).padStart(2, '0')}`,

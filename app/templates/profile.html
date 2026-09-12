@@ -954,7 +954,7 @@
                                        style="margin-right: 10px; width: 20px; height: 20px; flex-shrink: 0;">
                                 <span>
                                     <strong>✅ Conferma automatica delle prenotazioni</strong><br>
-                                    <small style="color: #666;">Attiva: chi paga prenota subito. Disattiva: ogni prenotazione diventa una richiesta da accettare o rifiutare entro 24 ore (e comunque entro 2 ore dall'inizio). Al cliente l'importo viene solo bloccato e addebitato quando accetti; se rifiuti o non rispondi il blocco si annulla.</small>
+                                    <small style="color: #666;">Attiva: chi paga prenota subito. Disattiva: ogni prenotazione diventa una richiesta da accettare o rifiutare entro 24 ore, e comunque entro un'ora dall'inizio: se non rispondi in tempo la richiesta viene rifiutata da sola. Al cliente l'importo viene solo bloccato e addebitato quando accetti; se rifiuti o non rispondi il blocco si annulla.</small>
                                     <small id="autoAcceptStatus" style="display: block; margin-top: 4px;" aria-live="polite"></small>
                                 </span>
                             </label>
@@ -1860,6 +1860,7 @@
         
         const now = new Date();
         const timeUntilMinutes = Math.floor((date - now) / 60000);
+        const minutiLimiteAnnullamento = {{ ore_limite_annullamento }} * 60;
         
         let endDate = new Date(date);
         try {
@@ -1875,7 +1876,7 @@
         
         // Bottone Rifiuta
         let refuseButtonHTML = '';
-        if (booking.role === 'consultant' && booking.status && booking.status !== 'completed' && booking.status !== 'cancelled' && booking.status !== 'no_show' && timeUntilMinutes > -10 && timeUntilMinutes >= 240) {
+        if (booking.role === 'consultant' && booking.status && booking.status !== 'completed' && booking.status !== 'cancelled' && booking.status !== 'no_show' && timeUntilMinutes > -10 && timeUntilMinutes >= minutiLimiteAnnullamento) {
             refuseButtonHTML = `<button class="btn-refuse" onclick="openRefuseModal(${booking.id}, '${escapeJsString(otherUser.name)}')"><i class="fas fa-times-circle"></i> Rifiuta</button>`;
         }
         

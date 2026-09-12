@@ -21,6 +21,7 @@ from app.routes.auth import verify_token
 from app.logger_config import logger
 from app.utils.notification_service import send_notification
 from app.utils_user import has_payment_method
+from app.utils.orari import ORE_PREAVVISO_PRENOTAZIONE
 from app.scheduler import schedule_booking_reminders, schedule_payment_release, schedule_noshow_check
 
 router = APIRouter()
@@ -97,8 +98,11 @@ async def create_booking_paypal(request: Request):
             # rendeva il vincolo di 4 ore un vincolo di 2 ore in ora legale.
             now_italy = datetime.now(ITALY_TZ).replace(tzinfo=None)
             time_until = (booking_datetime - now_italy).total_seconds() / 3600
-            if time_until < 4:
-                raise HTTPException(status_code=400, detail="La consulenza deve essere prenotata almeno 4 ore nel futuro")
+            if time_until < ORE_PREAVVISO_PRENOTAZIONE:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"La consulenza deve essere prenotata almeno {ORE_PREAVVISO_PRENOTAZIONE} ore nel futuro",
+                )
         
         existing = session.exec(
             select(Booking)
