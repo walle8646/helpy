@@ -121,3 +121,28 @@ class TestCacheDeiFileStatici:
         from app.main import statico
 
         assert statico("non-esiste.css") == "/static/non-esiste.css"
+
+
+class TestLarghezzaColonnaPassword:
+    """L'hash bcrypt non entrava nella colonna, pensata per MD5.
+
+    Su PostgreSQL password_md5 era VARCHAR(32) (32 = lunghezza di un MD5):
+    salvare un hash bcrypt, che di caratteri ne ha 60, faceva fallire la query
+    e l'utente vedeva "Il server ha risposto con un errore (500)". SQLite non
+    applica la lunghezza dichiarata, quindi in sviluppo e nei test tutto
+    sembrava funzionare.
+    """
+
+    def test_l_hash_bcrypt_e_piu_lungo_di_un_md5(self):
+        assert len(hash_password("password-di-prova")) > 32
+
+    def test_la_colonna_e_prevista_abbastanza_larga(self):
+        from app.database import COLONNE_DA_ALLARGARE
+
+        misure = {(t, c): minimo for t, c, minimo in COLONNE_DA_ALLARGARE}
+        assert misure[("user", "password_md5")] >= len(hash_password("x")) * 2
+
+    def test_su_sqlite_non_tocca_niente(self):
+        from app.database import ensure_column_widths
+
+        assert ensure_column_widths() == []

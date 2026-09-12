@@ -52,6 +52,7 @@ def create_db_and_tables():
     
     SQLModel.metadata.create_all(engine)
     ensure_added_columns()
+    ensure_column_widths()
     ensure_check_constraints()
 
     from app.utils.notification_types import ensure_notification_types
@@ -94,6 +95,60 @@ VINCOLI_BOOKING = {
         "partially_refunded", "voided", "failed",
     ]),
 }
+
+
+# Colonne troppo corte per i valori che il codice ci scrive oggi.
+# (tabella, colonna, lunghezza minima richiesta)
+#
+# password_md5 nasceva come hash MD5, 32 caratteri. Da quando le password sono
+# protette con bcrypt l'hash e' lungo 60: su PostgreSQL l'UPDATE falliva con
+# "value too long", quindi reset password e registrazione rispondevano 500.
+# SQLite non applica la lunghezza, percio' in sviluppo e nei test non si vedeva.
+COLONNE_DA_ALLARGARE = [
+    ("user", "password_md5", 255),      # migration_widen_password_hash
+    # 'awaiting_acceptance' e' lungo 19 e la colonna e' VARCHAR(20): ci sta per
+    # un pelo. Meglio dare spazio prima che uno stato nuovo rompa le prenotazioni.
+    ("booking", "status", 30),          # migration_widen_password_hash
+    ("booking", "payment_status", 30),  # migration_widen_password_hash
+]
+
+
+def ensure_column_widths(eng=None) -> list[str]:
+    """Allarga le colonne di COLONNE_DA_ALLARGARE troppo corte (solo PostgreSQL).
+
+    Idempotente: guarda la lunghezza dichiarata e agisce solo se serve.
+    Allargare un VARCHAR non riscrive la tabella ed e' immediato.
+    """
+    from sqlalchemy import text
+
+    eng = eng or engine
+    if eng.dialect.name != "postgresql":
+        return []
+
+    allargate = []
+    for tabella, colonna, minimo in COLONNE_DA_ALLARGARE:
+        try:
+            with eng.begin() as conn:
+                lunghezza = conn.execute(text(
+                    "SELECT character_maximum_length FROM information_schema.columns "
+                    "WHERE table_name = :tabella AND column_name = :colonna"
+                ), {"tabella": tabella, "colonna": colonna}).scalar()
+                if lunghezza is None or lunghezza >= minimo:
+                    continue  # colonna assente, senza limite, o gia' abbastanza larga
+                conn.execute(text(
+                    f'ALTER TABLE "{tabella}" ALTER COLUMN {colonna} TYPE VARCHAR({minimo})'
+                ))
+            allargate.append(f"{tabella}.{colonna}")
+            logger.warning(
+                f"🛠️ Schema: colonna {tabella}.{colonna} allargata a {minimo} caratteri "
+                f"(era {lunghezza}, troppo corta per l'hash bcrypt)"
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.error(
+                f"❌ Schema: impossibile allargare {tabella}.{colonna} ({e}). "
+                "Applicare a mano sql_update/migration_widen_password_hash_postgres.sql."
+            )
+    return allargate
 
 
 def ensure_check_constraints(eng=None) -> list[str]:
