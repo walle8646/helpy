@@ -14,7 +14,9 @@ import json
 from app.database import engine
 from app.models import Booking, User, ConsultationOffer
 from app.utils.paypal_config import authorize_order, create_order, capture_order, is_configured
-from app.utils.booking_requests import metti_in_attesa, richiede_accettazione, scadenza_risposta
+from app.utils.booking_requests import (
+    conferma_consulenza, metti_in_attesa, richiede_accettazione, scadenza_risposta,
+)
 from app.routes.auth import verify_token
 from app.logger_config import logger
 from app.utils.notification_service import send_notification
@@ -26,7 +28,7 @@ ITALY_TZ = ZoneInfo("Europe/Rome")
 DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
 
 
-from app.routes.booking import BLOCKING_BOOKING_STATUSES  # noqa: E402
+from app.routes.booking import BLOCKING_BOOKING_STATUSES, slot_gia_prenotato  # noqa: E402
 
 
 def get_current_user(request: Request):
@@ -239,7 +241,10 @@ async def create_consultation_paypal(offer_id: int, request: Request):
         consultant = session.get(User, offer.consultant_user_id)
         if not has_payment_method(consultant):
             raise HTTPException(status_code=400, detail="Il consulente non ha configurato un metodo di pagamento. Non è possibile prenotare.")
-        
+
+        if slot_gia_prenotato(session, offer.consultant_user_id, selected_date, start_time):
+            raise HTTPException(status_code=409, detail="Questo slot è già stato prenotato")
+
         booking_dt = datetime.strptime(f"{selected_date} {start_time}", "%Y-%m-%d %H:%M")
         end_dt = datetime.strptime(f"{selected_date} {end_time}", "%Y-%m-%d %H:%M")
         held_until = end_dt + timedelta(hours=48)
@@ -382,49 +387,8 @@ async def paypal_capture(request: Request):
         
         session.commit()
         
-        # Notifica al consulente
-        client = session.get(User, booking.client_user_id)
-        consultant = session.get(User, booking.consultant_user_id)
-        client_name = f"{client.nome} {client.cognome}" if client and client.nome else "Un utente"
-        consultant_name = f"{consultant.nome} {consultant.cognome}" if consultant and consultant.nome else "Il consulente"
-        
-        booking_date_str = booking.booking_date.strftime('%Y-%m-%d') if isinstance(booking.booking_date, datetime) else str(booking.booking_date)
-        
-        send_notification(
-            user_id=booking.consultant_user_id,
-            type_key='booking_confirmed',
-            title="Nuova Prenotazione!",
-            message=f"{client_name} ha prenotato una consulenza per il {booking_date_str} alle {booking.start_time}",
-            template_data={
-                'consultant_name': consultant_name,
-                'client_name': client_name,
-                'date': booking_date_str,
-                'time': booking.start_time,
-                'duration': str(booking.duration_minutes),
-                'action_url': f"{os.getenv('BASE_URL', 'http://localhost:8080')}/profile#bookings"
-            },
-            related_booking_id=booking.id,
-            related_user_id=booking.client_user_id,
-            action_url="/profile#bookings"
-        )
-        
-        # Schedula reminders, payment release, no-show check
-        start_dt_naive = datetime.strptime(f"{booking_date_str} {booking.start_time}", "%Y-%m-%d %H:%M")
-        booking_datetime_tz = start_dt_naive.replace(tzinfo=ITALY_TZ)
-        
-        end_dt_naive = datetime.strptime(f"{booking_date_str} {booking.end_time}", "%Y-%m-%d %H:%M")
-        end_datetime_tz = end_dt_naive.replace(tzinfo=ITALY_TZ)
-        
-        schedule_booking_reminders(
-            booking_id=booking.id,
-            booking_datetime=booking_datetime_tz,
-            client_id=booking.client_user_id,
-            consultant_id=booking.consultant_user_id
-        )
-        
-        schedule_payment_release(booking.id, end_datetime_tz)
-        schedule_noshow_check(booking.id, end_datetime_tz)
-        
+        # Notifiche a consulente e cliente + promemoria, no-show e rilascio a 48h
+        conferma_consulenza(session, booking)
         logger.info(f"✅ PayPal booking {booking.id} confermato, capture {capture_id}")
         
     return RedirectResponse("/profile", status_code=302)

@@ -1999,7 +1999,7 @@
             const container = document.getElementById('history-list');
             
             if (bookings.length === 0) {
-                container.innerHTML = '<p style="color:#999;padding:20px 0;">Nessun appuntamento passato.</p>';
+                container.innerHTML = '<p style="color:#999;padding:20px 0;">Nessuna consulenza passata o annullata.</p>';
                 return;
             }
             
@@ -2022,11 +2022,30 @@
                 const statusMap = {
                     'completed': '<span style="color:#2e7d32;font-size:0.8rem;"><i class="fas fa-check-circle"></i> Completata</span>',
                     'cancelled': '<span style="color:#dc3545;font-size:0.8rem;"><i class="fas fa-times-circle"></i> Annullata</span>',
+                    'awaiting_acceptance': '<span style="color:#b45309;font-size:0.8rem;"><i class="fas fa-inbox"></i> Da confermare</span>',
                     'no_show': '<span style="color:#f59e0b;font-size:0.8rem;"><i class="fas fa-exclamation-circle"></i> Non presentato</span>',
                     'confirmed': '<span style="color:#6b7280;font-size:0.8rem;"><i class="fas fa-clock"></i> Confermata</span>',
                     'pending': '<span style="color:#6b7280;font-size:0.8rem;"><i class="fas fa-hourglass-half"></i> In attesa</span>'
                 };
                 const statusHTML = statusMap[b.status] || '';
+
+                // Consulenza annullata: chi l'ha annullata, perché e che fine ha fatto il pagamento
+                let cancelHTML = '';
+                if (b.status === 'cancelled') {
+                    const chi = {
+                        'tu': 'Annullata da te',
+                        'other': `Annullata da ${escapeHtml(otherUser.name)}`,
+                        'system': 'Annullata automaticamente'
+                    }[b.cancelled_by] || 'Annullata';
+                    const pagamento = {
+                        'refunded': ' · importo rimborsato',
+                        'voided': ' · nessun addebito',
+                    }[b.payment_status] || '';
+                    const motivo = b.cancellation_reason
+                        ? `<div style="font-size:0.75rem;color:#6b7280;">Motivo: ${escapeHtml(b.cancellation_reason)}</div>`
+                        : '';
+                    cancelHTML = `<div style="font-size:0.75rem;color:#dc3545;margin-top:2px;">${chi}${pagamento}</div>${motivo}`;
+                }
 
                 // Review indicator/button
                 let reviewHTML = '';
@@ -2056,6 +2075,7 @@
                         <div style="flex:1;min-width:120px;">
                             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${nameLink} ${statusHTML}</div>
                             <div style="font-size:0.82rem;color:#6b7280;">${roleLabel}</div>
+                            ${cancelHTML}
                             <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">${reviewHTML}${disputeHTML}</div>
                         </div>
                         <div style="text-align:right;flex-shrink:0;font-size:0.82rem;">

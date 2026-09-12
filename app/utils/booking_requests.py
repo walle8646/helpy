@@ -106,6 +106,102 @@ def programma_job_consulenza(booking) -> None:
     schedule_noshow_check(booking.id, fine)
 
 
+def conferma_consulenza(session, booking, *, messaggio_consulente: Optional[str] = None) -> None:
+    """Notifiche e job di una consulenza confermata e pagata.
+
+    Una sola versione per tutti i modi di arrivarci (Stripe, PayPal, offerta
+    accettata): prima ogni flusso aveva la sua copia, e il cliente non riceveva
+    nessuna conferma.
+    """
+    from app.models import User
+    from app.utils.notification_service import send_notification
+
+    cliente = session.get(User, booking.client_user_id)
+    consulente = session.get(User, booking.consultant_user_id)
+    nome_cliente = _nome(cliente, "Un utente")
+    nome_consulente = _nome(consulente, "Il consulente")
+    data = f"{booking.booking_date:%d/%m/%Y}"
+    dettagli = {
+        "client_name": nome_cliente,
+        "consultant_name": nome_consulente,
+        "date": data,
+        "time": booking.start_time,
+        "duration": str(booking.duration_minutes),
+        "action_url": _url("/profile#bookings"),
+    }
+
+    send_notification(
+        user_id=booking.consultant_user_id,
+        type_key="booking_confirmed",
+        title="Nuova Prenotazione!",
+        message=messaggio_consulente or (
+            f"{nome_cliente} ha prenotato una consulenza per il {data} alle {booking.start_time}"
+        ),
+        template_data=dettagli,
+        related_booking_id=booking.id,
+        related_user_id=booking.client_user_id,
+        action_url="/profile#bookings",
+    )
+    send_notification(
+        user_id=booking.client_user_id,
+        type_key="booking_confirmed_client",
+        title="Consulenza confermata",
+        message=f"La tua consulenza con {nome_consulente} del {data} alle {booking.start_time} è confermata",
+        template_data=dettagli,
+        related_booking_id=booking.id,
+        related_user_id=booking.consultant_user_id,
+        action_url="/profile#bookings",
+    )
+    programma_job_consulenza(booking)
+    logger.info(f"📅 Consulenza {booking.id} confermata: notifiche inviate e job schedulati")
+
+
+def avvisa_annullamento(session, booking, annullata_da_user_id: int, motivo: Optional[str] = None) -> None:
+    """Avvisa l'altro partecipante che la consulenza è stata annullata."""
+    from html import escape
+
+    from app.models import User
+    from app.utils.notification_service import send_notification
+    from app.utils.notification_email import NOTA_BLOCCO_ANNULLATO, NOTA_RIMBORSO
+
+    if annullata_da_user_id == booking.client_user_id:
+        destinatario_id, altro_id = booking.consultant_user_id, booking.client_user_id
+    else:
+        destinatario_id, altro_id = booking.client_user_id, booking.consultant_user_id
+
+    destinatario = session.get(User, destinatario_id)
+    altro = session.get(User, altro_id)
+    nome_altro = _nome(altro, "L'altro partecipante")
+    data = f"{booking.booking_date:%d/%m/%Y}"
+
+    sezione_motivo = ""
+    if motivo:
+        sezione_motivo = (
+            '<div style="background:#fff3cd;padding:15px;border-radius:5px;'
+            'border-left:4px solid #ffc107;margin:20px 0;">'
+            f"<p><strong>📝 Motivo:</strong></p><p>{escape(motivo)}</p></div>"
+        )
+
+    send_notification(
+        user_id=destinatario_id,
+        type_key="booking_cancelled",
+        title="Consulenza annullata",
+        message=f"{nome_altro} ha annullato la consulenza del {data} alle {booking.start_time}",
+        template_data={
+            "user_name": _nome(destinatario, "Ciao"),
+            "other_name": nome_altro,
+            "date": data,
+            "time": booking.start_time,
+            "reason_section": sezione_motivo,
+            "refund_note": NOTA_BLOCCO_ANNULLATO if booking.payment_status == "voided" else NOTA_RIMBORSO,
+            "action_url": _url("/profile#bookings"),
+        },
+        related_booking_id=booking.id,
+        related_user_id=altro_id,
+        action_url="/profile#bookings",
+    )
+
+
 def metti_in_attesa(session, booking) -> None:
     """Pagamento autorizzato: la prenotazione aspetta la risposta del consulente."""
     from app.models import User

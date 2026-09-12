@@ -30,6 +30,7 @@ class TestTemplateEmail:
             "comment": "ottimo", "author_name": "Mario", "contact_name": "Anna",
             "question_title": "titolo", "contact_date": "oggi", "reviewer_name": "Mario",
             "deadline": "12/09 alle 15:30", "topic": "Contratto d'affitto",
+            "other_name": "Anna",
         }
         import re
         from app.utils.notification_types import NOTIFICATION_TYPES

@@ -8,10 +8,12 @@ import asyncio
 import os
 
 from ..database import engine
-from ..models import User, ConsultationOffer, Message, Category, CommunityQuestion
+from ..models import User, ConsultationOffer, Message, Category, CommunityQuestion, Booking
 from .auth import get_current_user
 from app.utils_user import has_payment_method
 from app.logger_config import logger
+from app.routes.booking import slot_gia_prenotato
+from app.utils.stripe_config import create_checkout_session
 
 router = APIRouter()
 
@@ -369,7 +371,6 @@ async def confirm_booking(
     user: User = Depends(get_current_user)
 ):
     """Create Stripe Checkout Session for consultation booking"""
-    from app.utils.stripe_config import create_checkout_session
     import json
     import os
     
@@ -407,10 +408,40 @@ async def confirm_booking(
             session.add(offer)
             session.commit()
             raise HTTPException(status_code=400, detail="Questa offerta è scaduta")
-        
+
+        # Lo slot dev'essere ancora libero: l'offerta puo' essere stata mandata
+        # giorni prima, e nel frattempo quell'ora puo' essere stata prenotata.
+        if slot_gia_prenotato(session, offer.consultant_user_id, selected_date, start_time):
+            raise HTTPException(status_code=409, detail="Questo slot è già stato prenotato")
+
+        # Prenota lo slot prima di mandare al checkout, come per le prenotazioni
+        # diritte: senza la riga, due clienti potevano pagare lo stesso orario.
+        inizio = datetime.strptime(f"{selected_date} {start_time}", "%Y-%m-%d %H:%M")
+        fine = datetime.strptime(f"{selected_date} {end_time}", "%Y-%m-%d %H:%M")
+        pending_booking = Booking(
+            client_user_id=offer.client_user_id,
+            consultant_user_id=offer.consultant_user_id,
+            booking_date=inizio,
+            start_time=start_time,
+            end_time=end_time,
+            duration_minutes=offer.duration_minutes,
+            price=offer.price,
+            status="pending_payment",
+            payment_status="pending",
+            payment_method="stripe",
+            payment_held_until=fine + timedelta(hours=48),
+            community_question_id=int(community_question_id) if community_question_id else None,
+            client_notes=description if description.strip() else f"Prenotazione da offerta consulenza #{offer.id}",
+            description=description,
+            recording_requested=recording_requested if isinstance(recording_requested, bool) else str(recording_requested).lower() == "true",
+        )
+        session.add(pending_booking)
+        session.commit()
+        session.refresh(pending_booking)
+
         # Get APP_URL from environment
         app_url = os.getenv("BASE_URL", "http://localhost:8080")
-        
+
         # Create Stripe Checkout Session
         try:
             # Convert price to cents (Stripe uses smallest currency unit)
@@ -427,6 +458,7 @@ async def confirm_booking(
                 cancel_url=f"{app_url}/consulenza/prenota/{offer_id}?cancelled=true",
                 metadata={
                     'offer_id': str(offer.id),
+                    'booking_id': str(pending_booking.id),  # riga gia' creata da confermare
                     'client_user_id': str(offer.client_user_id),
                     'consultant_user_id': str(offer.consultant_user_id),
                     'selected_date': selected_date,
@@ -439,13 +471,20 @@ async def confirm_booking(
                 },
             )
             
+            pending_booking.stripe_checkout_session_id = checkout_session.id
+            session.add(pending_booking)
+            session.commit()
+
             return JSONResponse({
                 "success": True,
                 "checkout_url": checkout_session.url,
                 "session_id": checkout_session.id
             })
-            
+
         except Exception as e:
+            # Niente checkout, niente slot occupato
+            session.delete(pending_booking)
+            session.commit()
             logger.error(f"Error creating Stripe checkout session: {e}")
             raise HTTPException(status_code=500, detail=f"Errore nella creazione del pagamento: {str(e)}")
 

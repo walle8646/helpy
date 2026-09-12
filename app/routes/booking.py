@@ -16,7 +16,8 @@ from app.utils.stripe_config import create_checkout_session
 from app.utils_user import has_payment_method
 from app.utils.orari import iso_ora_italiana, now_italy_naive
 from app.utils.booking_requests import (
-    RichiestaNonValida, accetta_richiesta, annulla_blocco, richiede_accettazione, scadenza_risposta,
+    RichiestaNonValida, accetta_richiesta, annulla_blocco, avvisa_annullamento,
+    richiede_accettazione, scadenza_risposta,
 )
 from app.utils.notification_email import NOTA_BLOCCO_ANNULLATO, NOTA_RIMBORSO
 
@@ -86,6 +87,21 @@ def mark_absent(booking_id: int, user_id: int) -> set:
         _call_presence.pop(booking_id, None)
         return set()
     return present
+
+def slot_gia_prenotato(session, consultant_user_id: int, giorno: str, start_time: str) -> bool:
+    """True se quell'orario del consulente e' gia' occupato da un'altra prenotazione.
+
+    Stessa regola per prenotazioni dirette, PayPal e offerte di consulenza:
+    il pagamento di un'offerta non lo controllava affatto.
+    """
+    return session.exec(
+        select(Booking.id)
+        .where(func.date(Booking.booking_date) == giorno)
+        .where(Booking.consultant_user_id == consultant_user_id)
+        .where(Booking.start_time == start_time)
+        .where(Booking.status.in_(BLOCKING_BOOKING_STATUSES))
+    ).first() is not None
+
 
 def booking_start_datetime(booking: Booking) -> datetime:
     """Combina booking_date e start_time in un datetime naive (ora italiana)."""
@@ -509,15 +525,7 @@ async def create_booking(
                 raise HTTPException(status_code=400, detail="La consulenza deve essere prenotata almeno 4 ore nel futuro")
         
         # Verifica che lo slot sia ancora disponibile (prevenzione double booking)
-        existing_booking = session.exec(
-            select(Booking)
-            .where(func.date(Booking.booking_date) == booking_date_str)
-            .where(Booking.consultant_user_id == consultant_id)
-            .where(Booking.start_time == start_time)
-            .where(Booking.status.in_(BLOCKING_BOOKING_STATUSES))
-        ).first()
-
-        if existing_booking:
+        if slot_gia_prenotato(session, consultant_id, booking_date_str, start_time):
             raise HTTPException(status_code=409, detail="Questo slot è già stato prenotato")
         
         # Validazione prezzo ricevuto dal frontend
@@ -810,9 +818,16 @@ async def get_booking_history(request: Request):
     with Session(engine) as session:
         now = now_italy_naive()
 
+        # Consulenze svolte, piu' quelle annullate o rimborsate: prima sparivano
+        # dallo storico e il cliente non trovava piu' traccia di cosa era successo.
+        # Restano fuori i checkout mai completati (payment_status 'pending').
+        svolte = Booking.payment_status.in_(PAID_PAYMENT_STATUSES)
+        annullate = (Booking.status == 'cancelled') & Booking.payment_status.in_(
+            PAID_PAYMENT_STATUSES + ['refunded', 'voided']
+        )
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
-            Booking.payment_status.in_(PAID_PAYMENT_STATUSES)
+            svolte | annullate
         ).order_by(Booking.booking_date.desc(), Booking.start_time.desc())
         
         bookings = session.exec(statement).all()
@@ -832,9 +847,11 @@ async def get_booking_history(request: Request):
             )
             
             end_datetime = booking_datetime + timedelta(minutes=booking.duration_minutes)
-            
-            # Solo appuntamenti già terminati
-            if end_datetime >= now:
+
+            annullata = booking.status == 'cancelled'
+            # Solo appuntamenti già terminati (le annullate si mostrano subito:
+            # non ci sarà nessuna call da aspettare)
+            if end_datetime >= now and not annullata:
                 continue
             
             is_client = booking.client_user_id == current_user.id
@@ -855,7 +872,8 @@ async def get_booking_history(request: Request):
             # Can dispute: client, within 48h, recording was requested, no existing dispute
             hours_since_end = (now - end_datetime).total_seconds() / 3600
             can_dispute = (
-                is_client
+                not annullata
+                and is_client
                 and hours_since_end <= 48
                 and booking.recording_requested
                 and existing_dispute is None
@@ -867,6 +885,16 @@ async def get_booking_history(request: Request):
                 and existing_review is None
                 and booking.status == 'completed'
             )
+
+            if annullata:
+                if booking.cancelled_by == current_user.id:
+                    annullata_da = 'tu'
+                elif booking.cancelled_by:
+                    annullata_da = 'other'
+                else:
+                    annullata_da = 'system'
+            else:
+                annullata_da = None
             
             history.append({
                 "id": booking.id,
@@ -875,6 +903,9 @@ async def get_booking_history(request: Request):
                 "end_time": booking.end_time,
                 "duration": booking.duration_minutes,
                 "status": booking.status,
+                "payment_status": booking.payment_status,
+                "cancelled_by": annullata_da,
+                "cancellation_reason": booking.cancellation_reason if annullata else None,
                 "role": role,
                 "can_dispute": can_dispute,
                 "has_dispute": existing_dispute is not None,
@@ -1258,7 +1289,15 @@ async def cancel_booking(
         
         session.add(booking)
         session.commit()
-        
+        session.refresh(booking)
+
+        # L'altro partecipante deve saperlo: prima non riceveva nulla e si
+        # accorgeva dell'annullamento solo non trovando più l'appuntamento.
+        try:
+            avvisa_annullamento(session, booking, current_user.id, reason)
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"❌ Avviso di annullamento non inviato per booking {booking_id}: {e}")
+
         return {
             "success": True,
             "message": "Prenotazione cancellata"

@@ -211,6 +211,28 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
             data = {"refund_note": NOTA_RIMBORSO, **data}
             return _fill(_branded_email("⚠️", "Consulenza Rifiutata", RED, RED_D, body, "Cerca altri Consulenti", "{action_url}"), data)
 
+        if template_name == 'booking_confirmed_client.html':
+            body = (
+                "<p>Ciao <strong>{client_name}</strong>,</p>"
+                "<p>La tua consulenza con <strong>{consultant_name}</strong> è confermata e pagata.</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}") + row("⏱️ Durata:", "{duration} minuti"), GREEN)
+                + "<p>Riceverai un promemoria prima dell'inizio. All'orario stabilito entra in call dal tuo profilo: "
+                  "il pulsante compare 10 minuti prima.</p>"
+            )
+            return _fill(_branded_email("✅", "Consulenza confermata", GREEN, GREEN_D, body, "Vai alle tue consulenze", "{action_url}"), data)
+
+        if template_name == 'booking_cancelled.html':
+            body = (
+                "<p>Ciao <strong>{user_name}</strong>,</p>"
+                "<p><strong>{other_name}</strong> ha annullato la consulenza che avevate in programma.</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}"), RED)
+                + "{reason_section}"
+                + '<div style="background:#e8f5e9;border-left:4px solid #43a047;border-radius:6px;padding:14px 18px;margin:20px 0;">'
+                  "<p style='margin:0;'><strong>💰 Pagamento:</strong> {refund_note}</p></div>"
+            )
+            data = {"refund_note": NOTA_RIMBORSO, **data}
+            return _fill(_branded_email("❌", "Consulenza annullata", RED, RED_D, body, "Vai al tuo profilo", "{action_url}"), data)
+
         if template_name == 'booking_request.html':
             body = (
                 "<p>Ciao <strong>{consultant_name}</strong>,</p>"
