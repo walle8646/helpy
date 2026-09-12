@@ -621,6 +621,13 @@ def start_scheduler():
         id="process_social_queue",
         replace_existing=True,
         misfire_grace_time=300,
+        # A ogni riavvio l'intervallo riparte da zero: con i deploy ravvicinati
+        # il giro da 5 minuti veniva rimandato ogni volta e i post programmati
+        # restavano fermi a tempo indeterminato. Gli altri job periodici si
+        # recuperano in fondo a questa funzione; questo no, perche' parla con
+        # Post for Me via rete e bloccherebbe l'avvio: parte 30 secondi dopo,
+        # a server gia' in piedi.
+        next_run_time=datetime.now(ITALY_TZ) + timedelta(seconds=30),
     )
 
     # Job periodico: libera gli slot dei checkout abbandonati
