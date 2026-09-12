@@ -367,13 +367,9 @@ async function retryDraft(id, raggiuntoLaPiattaforma) {
     // dire inviarne uno nuovo. Facebook a volte segnala un errore anche quando
     // il post è uscito: meglio controllare prima di rischiare un doppione.
     if (raggiuntoLaPiattaforma && !confirm(
-        'Il post era arrivato al social ed è stato rifiutato lì.
-
-' +
+        'Il post era arrivato al social ed è stato rifiutato lì.\n\n' +
         'Prima di ritentare controlla sulla pagina che non sia uscito comunque: ' +
-        'a volte il social segnala un errore anche quando pubblica.
-
-' +
+        'a volte il social segnala un errore anche quando pubblica.\n\n' +
         'Ritentare con un nuovo invio?')) return;
     await draftAction(id, 'approve');
 }
