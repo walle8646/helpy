@@ -1819,11 +1819,15 @@
                 <div class="upcoming-appointments">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                         <h3 style="margin:0;"><i class="fas fa-calendar-check"></i> Prossimi Appuntamenti</h3>
-                        <span onclick="openBookingHistory()" style="color:#2e7d32;cursor:pointer;font-size:0.9rem;font-weight:600;display:flex;align-items:center;gap:4px;">
-                            <i class="fas fa-history"></i> Storico
-                        </span>
+                        <button type="button" class="history-toggle" onclick="toggleStorico()"
+                                aria-expanded="${storicoAperto}" aria-controls="storicoLista"
+                                title="${storicoAperto ? 'Nascondi le consulenze passate' : 'Mostra le consulenze passate'}">
+                            <i class="fas fa-${storicoAperto ? 'minus' : 'plus'}"></i>
+                            <span><i class="fas fa-history"></i> Storico</span>
+                        </button>
                     </div>
-                    ${bookingsHTML}
+                    ${bookingsHTML || '<p style="color:#6b7280;margin:0;">Nessuna consulenza in programma.</p>'}
+                    ${storicoHTML()}
                 </div>
             `;
             
@@ -2017,122 +2021,137 @@
         }
     }
 
-    async function openBookingHistory() {
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.id = 'history-modal';
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width:550px;padding:24px;width:calc(100% - 32px);box-sizing:border-box;">
-                <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <h3 style="margin:0;font-size:1.2rem;"><i class="fas fa-history"></i> Storico Appuntamenti</h3>
-                    <button class="close-btn" onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;">✕</button>
+    // ========== STORICO (drill down) ==========
+    // Lo storico non e' piu' una finestra a parte: sta sotto gli appuntamenti
+    // futuri e si apre col "+". Di suo il profilo mostra solo cio' che deve
+    // ancora succedere.
+    let storicoAperto = false;
+    let storicoVoci = null;   // null = mai caricato
+
+    function storicoVoceHTML(b) {
+        const otherUser = b.other_user;
+        const roleLabel = b.role === 'client' ? 'Consulenza con' : 'Consulenza richiesta da';
+        let dateParts = b.date.split('-');
+        const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        const dateStr = dateObj.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+        
+        const avatarHTML = otherUser.picture
+            ? `<img src="${otherUser.picture}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #2e7d32;">`
+            : `<div style="width:32px;height:32px;border-radius:50%;background:#d4edda;display:flex;align-items:center;justify-content:center;font-size:0.85rem;">👤</div>`;
+        
+        const nameLink = otherUser.id
+            ? `<a href="/user/${otherUser.id}" style="color:#1a202c;text-decoration:none;font-weight:600;">${escapeHtml(otherUser.name)}</a>`
+            : `<span style="font-weight:600;">${escapeHtml(otherUser.name)}</span>`;
+
+        const statusMap = {
+            'completed': '<span style="color:#2e7d32;font-size:0.8rem;"><i class="fas fa-check-circle"></i> Completata</span>',
+            'cancelled': '<span style="color:#dc3545;font-size:0.8rem;"><i class="fas fa-times-circle"></i> Annullata</span>',
+            'awaiting_acceptance': '<span style="color:#b45309;font-size:0.8rem;"><i class="fas fa-inbox"></i> Da confermare</span>',
+            'no_show': '<span style="color:#f59e0b;font-size:0.8rem;"><i class="fas fa-exclamation-circle"></i> Non presentato</span>',
+            'confirmed': '<span style="color:#6b7280;font-size:0.8rem;"><i class="fas fa-clock"></i> Confermata</span>',
+            'pending': '<span style="color:#6b7280;font-size:0.8rem;"><i class="fas fa-hourglass-half"></i> In attesa</span>'
+        };
+        const statusHTML = statusMap[b.status] || '';
+
+        // Consulenza annullata: chi l'ha annullata, perché e che fine ha fatto il pagamento
+        let cancelHTML = '';
+        if (b.status === 'cancelled') {
+            const chi = {
+                'tu': 'Annullata da te',
+                'other': `Annullata da ${escapeHtml(otherUser.name)}`,
+                'system': 'Annullata automaticamente'
+            }[b.cancelled_by] || 'Annullata';
+            const pagamento = {
+                'refunded': ' · importo rimborsato',
+                'voided': ' · nessun addebito',
+            }[b.payment_status] || '';
+            const motivo = b.cancellation_reason
+                ? `<div style="font-size:0.75rem;color:#6b7280;">Motivo: ${escapeHtml(b.cancellation_reason)}</div>`
+                : '';
+            cancelHTML = `<div style="font-size:0.75rem;color:#dc3545;margin-top:2px;">${chi}${pagamento}</div>${motivo}`;
+        }
+
+        // Review indicator/button
+        let reviewHTML = '';
+        if (b.has_review) {
+            reviewHTML = `<div style="font-size:0.75rem;color:#2e7d32;margin-top:2px;"><i class="fas fa-star"></i> Recensione inviata</div>`;
+        } else if (b.can_review) {
+            reviewHTML = `<button onclick="openHistoryReview(${b.id})" style="margin-top:4px;margin-right:6px;padding:4px 10px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .2s;">⭐ Recensione</button>`;
+        }
+
+        // Dispute button HTML
+        let disputeHTML = '';
+        if (b.has_dispute) {
+            const disputeStatusMap = {
+                'open': '📋 Contestazione aperta',
+                'in_review': '🔍 In revisione',
+                'resolved': '✅ Risolta',
+                'rejected': '❌ Respinta'
+            };
+            disputeHTML = `<div style="font-size:0.75rem;color:#f59e0b;margin-top:2px;"><i class="fas fa-exclamation-triangle"></i> ${disputeStatusMap[b.dispute_status] || 'Contestazione'}</div>`;
+        } else if (b.can_dispute) {
+            disputeHTML = `<button onclick="openHistoryDispute(${b.id})" style="margin-top:4px;padding:4px 10px;background:#dc3545;color:white;border:none;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .2s;">⚠️ Contesta</button>`;
+        }
+
+        return `
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f0;">
+                ${avatarHTML}
+                <div style="flex:1;min-width:120px;">
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${nameLink} ${statusHTML}</div>
+                    <div style="font-size:0.82rem;color:#6b7280;">${roleLabel}</div>
+                    ${cancelHTML}
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">${reviewHTML}${disputeHTML}</div>
                 </div>
-                <div id="history-list" style="max-height:60vh;overflow-y:auto;text-align:center;padding:20px 0;">
-                    <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:#999;"></i>
+                <div style="text-align:right;flex-shrink:0;font-size:0.82rem;">
+                    <div style="font-weight:500;">${dateStr}</div>
+                    <div style="color:#6b7280;">${b.start_time} · ${b.duration} min</div>
                 </div>
             </div>
         `;
-        document.body.appendChild(modal);
-        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    }
 
-        try {
-            const response = await fetch('/api/booking/history');
-            if (!response.ok) throw new Error('Errore');
-            const data = await response.json();
-            const bookings = data.bookings || [];
-            const container = document.getElementById('history-list');
-            
-            if (bookings.length === 0) {
-                container.innerHTML = '<p style="color:#999;padding:20px 0;">Nessuna consulenza passata o annullata.</p>';
-                return;
-            }
-            
-            container.style.textAlign = 'left';
-            container.innerHTML = bookings.map(b => {
-                const otherUser = b.other_user;
-                const roleLabel = b.role === 'client' ? 'Consulenza con' : 'Consulenza richiesta da';
-                let dateParts = b.date.split('-');
-                const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-                const dateStr = dateObj.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
-                
-                const avatarHTML = otherUser.picture
-                    ? `<img src="${otherUser.picture}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #2e7d32;">`
-                    : `<div style="width:32px;height:32px;border-radius:50%;background:#d4edda;display:flex;align-items:center;justify-content:center;font-size:0.85rem;">👤</div>`;
-                
-                const nameLink = otherUser.id
-                    ? `<a href="/user/${otherUser.id}" style="color:#1a202c;text-decoration:none;font-weight:600;">${escapeHtml(otherUser.name)}</a>`
-                    : `<span style="font-weight:600;">${escapeHtml(otherUser.name)}</span>`;
+    async function caricaStorico() {
+        const response = await fetch('/api/booking/history');
+        if (!response.ok) throw new Error('storico non disponibile');
+        const data = await response.json();
+        storicoVoci = data.bookings || [];
+        return storicoVoci;
+    }
 
-                const statusMap = {
-                    'completed': '<span style="color:#2e7d32;font-size:0.8rem;"><i class="fas fa-check-circle"></i> Completata</span>',
-                    'cancelled': '<span style="color:#dc3545;font-size:0.8rem;"><i class="fas fa-times-circle"></i> Annullata</span>',
-                    'awaiting_acceptance': '<span style="color:#b45309;font-size:0.8rem;"><i class="fas fa-inbox"></i> Da confermare</span>',
-                    'no_show': '<span style="color:#f59e0b;font-size:0.8rem;"><i class="fas fa-exclamation-circle"></i> Non presentato</span>',
-                    'confirmed': '<span style="color:#6b7280;font-size:0.8rem;"><i class="fas fa-clock"></i> Confermata</span>',
-                    'pending': '<span style="color:#6b7280;font-size:0.8rem;"><i class="fas fa-hourglass-half"></i> In attesa</span>'
-                };
-                const statusHTML = statusMap[b.status] || '';
-
-                // Consulenza annullata: chi l'ha annullata, perché e che fine ha fatto il pagamento
-                let cancelHTML = '';
-                if (b.status === 'cancelled') {
-                    const chi = {
-                        'tu': 'Annullata da te',
-                        'other': `Annullata da ${escapeHtml(otherUser.name)}`,
-                        'system': 'Annullata automaticamente'
-                    }[b.cancelled_by] || 'Annullata';
-                    const pagamento = {
-                        'refunded': ' · importo rimborsato',
-                        'voided': ' · nessun addebito',
-                    }[b.payment_status] || '';
-                    const motivo = b.cancellation_reason
-                        ? `<div style="font-size:0.75rem;color:#6b7280;">Motivo: ${escapeHtml(b.cancellation_reason)}</div>`
-                        : '';
-                    cancelHTML = `<div style="font-size:0.75rem;color:#dc3545;margin-top:2px;">${chi}${pagamento}</div>${motivo}`;
-                }
-
-                // Review indicator/button
-                let reviewHTML = '';
-                if (b.has_review) {
-                    reviewHTML = `<div style="font-size:0.75rem;color:#2e7d32;margin-top:2px;"><i class="fas fa-star"></i> Recensione inviata</div>`;
-                } else if (b.can_review) {
-                    reviewHTML = `<button onclick="openHistoryReview(${b.id})" style="margin-top:4px;margin-right:6px;padding:4px 10px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .2s;">⭐ Recensione</button>`;
-                }
-
-                // Dispute button HTML
-                let disputeHTML = '';
-                if (b.has_dispute) {
-                    const disputeStatusMap = {
-                        'open': '📋 Contestazione aperta',
-                        'in_review': '🔍 In revisione',
-                        'resolved': '✅ Risolta',
-                        'rejected': '❌ Respinta'
-                    };
-                    disputeHTML = `<div style="font-size:0.75rem;color:#f59e0b;margin-top:2px;"><i class="fas fa-exclamation-triangle"></i> ${disputeStatusMap[b.dispute_status] || 'Contestazione'}</div>`;
-                } else if (b.can_dispute) {
-                    disputeHTML = `<button onclick="openHistoryDispute(${b.id})" style="margin-top:4px;padding:4px 10px;background:#dc3545;color:white;border:none;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .2s;">⚠️ Contesta</button>`;
-                }
-
-                return `
-                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f0;">
-                        ${avatarHTML}
-                        <div style="flex:1;min-width:120px;">
-                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${nameLink} ${statusHTML}</div>
-                            <div style="font-size:0.82rem;color:#6b7280;">${roleLabel}</div>
-                            ${cancelHTML}
-                            <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">${reviewHTML}${disputeHTML}</div>
-                        </div>
-                        <div style="text-align:right;flex-shrink:0;font-size:0.82rem;">
-                            <div style="font-weight:500;">${dateStr}</div>
-                            <div style="color:#6b7280;">${b.start_time} · ${b.duration} min</div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        } catch (error) {
-            console.error('Error loading history:', error);
-            document.getElementById('history-list').innerHTML = '<p style="color:#dc3545;padding:20px 0;">Errore nel caricamento dello storico.</p>';
+    function storicoHTML() {
+        if (!storicoAperto) return '';
+        if (storicoVoci === null) {
+            return '<div id="storicoLista" style="padding:12px 0;color:#6b7280;"><i class="fas fa-spinner fa-spin"></i> Caricamento…</div>';
         }
+        if (storicoVoci.length === 0) {
+            return '<div id="storicoLista" style="padding:12px 0;color:#6b7280;">Nessuna consulenza passata o annullata.</div>';
+        }
+        return `<div id="storicoLista" style="margin-top:4px;">${storicoVoci.map(storicoVoceHTML).join('')}</div>`;
+    }
+
+    async function toggleStorico() {
+        storicoAperto = !storicoAperto;
+        loadUpcomingAppointments();
+        if (storicoAperto && storicoVoci === null) {
+            try {
+                await caricaStorico();
+            } catch (e) {
+                console.error('Errore storico:', e);
+                storicoVoci = [];
+            }
+            loadUpcomingAppointments();
+        }
+    }
+
+    // Dopo una recensione o una contestazione i dati dello storico cambiano
+    async function aggiornaStorico() {
+        if (!storicoAperto) return;
+        try {
+            await caricaStorico();
+        } catch (e) {
+            console.error('Errore storico:', e);
+        }
+        loadUpcomingAppointments();
     }
 
     // ========== DISPUTE FROM HISTORY ==========
@@ -2203,7 +2222,7 @@
             if (response.ok) {
                 closeHistoryDispute();
                 // Refresh the history to show updated dispute status
-                openBookingHistory();
+                aggiornaStorico();
                 showSuccess('Contestazione inviata con successo');
             } else {
                 errorDiv.textContent = data.detail || 'Errore durante l\'invio della contestazione.';
@@ -2335,7 +2354,7 @@
             const data = await response.json();
             if (response.ok) {
                 closeHistoryReview();
-                openBookingHistory();
+                aggiornaStorico();
                 showSuccess('Grazie per la tua recensione! ⭐');
             } else {
                 errorDiv.textContent = data.detail || 'Errore nell\'invio della recensione.';

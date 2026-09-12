@@ -142,12 +142,15 @@ class TestStorico:
         svolta = _prenotazione(persone, giorni=-2, ora="15:00", fine="16:00", stato="completed")
         mai_pagata = _prenotazione(persone, giorni=-3, ora="18:00", fine="19:00",
                                    stato="cancelled", pagamento="pending")
+        assenza = _prenotazione(persone, giorni=-4, ora="20:00", fine="21:00",
+                                stato="no_show", pagamento="refunded")
 
         _login(csrf_client, persone.email_cliente, persone.password)
         storico = csrf_client.get("/api/booking/history").json()["bookings"]
         per_id = {b["id"]: b for b in storico}
 
         assert svolta in per_id
+        assert assenza in per_id, "anche un'assenza rimborsata è successa"
         assert mai_pagata not in per_id, "un checkout mai completato non è una consulenza"
         voce = per_id[annullata]
         assert voce["status"] == "cancelled"

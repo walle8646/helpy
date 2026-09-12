@@ -828,16 +828,14 @@ async def get_booking_history(request: Request):
     with Session(engine) as session:
         now = now_italy_naive()
 
-        # Consulenze svolte, piu' quelle annullate o rimborsate: prima sparivano
-        # dallo storico e il cliente non trovava piu' traccia di cosa era successo.
-        # Restano fuori i checkout mai completati (payment_status 'pending').
-        svolte = Booking.payment_status.in_(PAID_PAYMENT_STATUSES)
-        annullate = (Booking.status == 'cancelled') & Booking.payment_status.in_(
-            PAID_PAYMENT_STATUSES + ['refunded', 'voided']
-        )
+        # Tutto cio' che ha mosso del denaro: svolte, annullate, rimborsate,
+        # assenze. Prima restavano fuori le annullate (e le assenze, rimborsate)
+        # e il cliente non trovava piu' traccia di cosa era successo.
+        # Restano fuori i checkout mai completati ('pending') e le richieste
+        # ancora da confermare ('authorized'), che hanno un gruppo tutto loro.
         statement = select(Booking).where(
             (Booking.client_user_id == current_user.id) | (Booking.consultant_user_id == current_user.id),
-            svolte | annullate
+            Booking.payment_status.in_(PAID_PAYMENT_STATUSES + ['refunded', 'partially_refunded', 'voided'])
         ).order_by(Booking.booking_date.desc(), Booking.start_time.desc())
         
         bookings = session.exec(statement).all()
