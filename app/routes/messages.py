@@ -14,6 +14,7 @@ from app.utils_user import has_payment_method, get_display_name
 from app.utils.notification_service import send_notification
 from app.utils.orari import now_italy_naive
 from app.utils.rate_limit import enforce_rate_limit
+from app.utils.ai_service import modera_testo_chat
 
 router = APIRouter()
 
@@ -423,6 +424,13 @@ async def send_message(
         return JSONResponse({
             "error": f"Messaggio troppo lungo (max {max_lunghezza} caratteri)"
         }, status_code=400)
+
+    # Stessa moderazione della chat durante la call: prima qui non c'era nulla,
+    # e la chat fra utenti era l'unico posto senza controlli sui contenuti.
+    moderazione = await modera_testo_chat(content)
+    if not moderazione["approved"]:
+        logger.warning(f"🚫 Messaggio rifiutato dalla moderazione (utente {current_user.id})")
+        return JSONResponse({"error": moderazione["reason"]}, status_code=400)
     
     try:
         with get_session() as session:

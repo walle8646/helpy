@@ -159,32 +159,49 @@ async def genera_tags(descrizione: str, aree_interesse: str = None, professione:
         raise
 
 
+def ai_configurata() -> bool:
+    """True se c'e' una chiave OpenAI: senza, non si puo' moderare nulla."""
+    return bool(os.getenv("OPENAI_API_KEY"))
+
+
 async def modera_immagine(image_base64: str, titolo: str, descrizione: str) -> dict:
+    """Modera un'immagine della community (compatibilita': chiama la verifica comune)."""
+    return await modera_immagine_vision(
+        f"data:image/jpeg;base64,{image_base64}",
+        contesto=f"Titolo: {titolo}\nDescrizione: {(descrizione or '')[:500]}",
+        etichetta=f"community - {titolo[:50]}",
+    )
+
+
+async def modera_immagine_vision(image_data_url: str, contesto: str = None, etichetta: str = "") -> dict:
     """
-    Modera un'immagine caricata nella community tramite GPT-4o vision.
-    
+    Verifica un'immagine con GPT-4o vision. E' il controllo usato nella
+    community, nelle foto profilo e negli allegati delle chat: stesse regole
+    ovunque.
+
     Verifica che l'immagine:
     1. Non sia a sfondo sessuale
     2. Non sia politica
     3. Non sia offensiva/insultante
     4. Non sia pubblicitaria
-    5. Sia abbastanza inerente all'argomento della richiesta
-    
-    Args:
-        image_base64: immagine codificata in base64
-        titolo: titolo della domanda/richiesta
-        descrizione: descrizione della domanda/richiesta
-    
+    5. Sia inerente all'argomento — solo se un contesto viene passato
+       (nella community c'e' la richiesta; in chat un documento o uno
+       screenshot puo' riguardare qualsiasi cosa, quindi non si applica)
+
+    Se manca la chiave OpenAI l'immagine passa: non si puo' bloccare tutto per
+    una configurazione mancante. Se invece la verifica e' configurata ma
+    fallisce, l'immagine viene rifiutata (come ha sempre fatto la community).
+
     Returns:
         dict con {approved: bool, reason: str}
     """
+    if not ai_configurata():
+        logger.warning("⚠️ Moderazione immagini non configurata (OPENAI_API_KEY assente): immagine consentita")
+        return {"approved": True, "reason": ""}
     try:
         client = _get_client()
-        
-        # Determina il content type dall'header base64 o usa jpeg come default
-        image_data_url = f"data:image/jpeg;base64,{image_base64}"
-        
-        logger.info(f"🖼️ Avvio moderazione immagine - Titolo: {titolo[:50]}... - Base64 size: {len(image_base64)} chars")
+
+        logger.info(f"🖼️ Avvio moderazione immagine {etichetta}")
         
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
@@ -198,8 +215,8 @@ async def modera_immagine(image_base64: str, titolo: str, descrizione: str) -> d
                         "2. NON deve contenere propaganda politica, simboli di partiti o messaggi politici\n"
                         "3. NON deve contenere insulti, contenuti offensivi, discriminatori o di odio\n"
                         "4. NON deve essere una pubblicità, un volantino promozionale o spam commerciale\n"
-                        "5. DEVE essere ragionevolmente inerente all'argomento della richiesta dell'utente\n\n"
-                        "Rispondi ESCLUSIVAMENTE con un oggetto JSON (senza markdown, senza backtick, senza altro testo) "
+                        + ("5. DEVE essere ragionevolmente inerente all'argomento indicato dall'utente\n\n" if contesto else "\n")
+                        + "Rispondi ESCLUSIVAMENTE con un oggetto JSON (senza markdown, senza backtick, senza altro testo) "
                         "nel formato: {\"approved\": true, \"reason\": \"Immagine approvata\"} "
                         "oppure {\"approved\": false, \"reason\": \"motivo del rifiuto in italiano\"}"
                     )
@@ -210,10 +227,9 @@ async def modera_immagine(image_base64: str, titolo: str, descrizione: str) -> d
                         {
                             "type": "text",
                             "text": (
-                                f"Richiesta dell'utente:\n"
-                                f"Titolo: {titolo}\n"
-                                f"Descrizione: {descrizione[:500]}\n\n"
-                                f"Verifica se l'immagine allegata è appropriata per questa richiesta."
+                                f"Contesto:\n{contesto}\n\nVerifica se l'immagine allegata è appropriata per questa richiesta."
+                                if contesto else
+                                "Verifica se l'immagine allegata è appropriata per una piattaforma di consulenze."
                             )
                         },
                         {
@@ -798,10 +814,23 @@ async def modera_testo_chat(testo: str) -> dict:
 
 async def modera_immagine_chat(image_data_url: str) -> dict:
     """
-    Modera un'immagine inviata nella chat della call (data URL o URL pubblico).
+    Modera un'immagine inviata in chat (data URL o URL pubblico).
+
+    Due passaggi: prima il filtro rapido di OpenAI (sessuale, violento, odio),
+    poi la stessa verifica della community, che aggiunge politica e pubblicita'.
     Returns: {approved: bool, reason: str}
     """
     if not image_data_url:
+        return {"approved": True, "reason": ""}
+    veloce = await _moderazione_rapida_immagine(image_data_url)
+    if not veloce["approved"]:
+        return veloce
+    return await modera_immagine_vision(image_data_url, etichetta="chat")
+
+
+async def _moderazione_rapida_immagine(image_data_url: str) -> dict:
+    """Filtro rapido (endpoint moderations): costa poco e blocca i casi peggiori."""
+    if not ai_configurata():
         return {"approved": True, "reason": ""}
     try:
         client = _get_client()
