@@ -38,6 +38,11 @@ SYNONYMS = {
     'startup': ['impresa', 'business', 'azienda', 'imprenditoria', 'lancio', 'entrepreneurship'],
     'ecommerce': ['negozio', 'shop', 'vendita', 'online', 'commercio', 'store'],
     'app': ['applicazione', 'mobile', 'software', 'sviluppo', 'programmazione', 'coding'],
+    'lavoro': ['carriera', 'occupazione', 'impiego', 'assunzione', 'colloquio', 'cv', 'curriculum', 'professionale'],
+    'carriera': ['lavoro', 'professionale', 'crescita', 'promozione', 'colloquio', 'cv'],
+    'colloquio': ['lavoro', 'carriera', 'cv', 'curriculum', 'selezione', 'recruiting'],
+    'cv': ['curriculum', 'lavoro', 'carriera', 'colloquio'],
+    'licenziamento': ['lavoro', 'carriera', 'disoccupazione', 'ricollocazione'],
 }
 
 # ========== SKILL/TOOL MAPPING (NUOVO!) ==========
@@ -88,26 +93,30 @@ def clean_search_query(query: str) -> list[str]:
     
     return keywords
 
-def testo_competenze(user: User) -> str:
-    """Le competenze dichiarate dal consulente: aree di interesse e tag.
+def testo_competenze(user: User, nome_categoria: str = "") -> str:
+    """Di cosa si occupa il consulente: aree di interesse, tag e categoria.
 
-    La ricerca guarda solo qui. Cercare anche in nome, professione e
-    descrizione riportava chi *nomina* un argomento invece di chi lo sa
-    trattare: chi scrive "non mi occupo di mutui" usciva fra i consulenti di
-    mutui, e i cognomi facevano rumore ("Cerca: finanziamenti" trovava il
-    signor Finanzi).
+    Restano fuori nome, professione e descrizione: riportavano chi *nomina*
+    un argomento invece di chi lo sa trattare (chi scrive "non mi occupo di
+    mutui" usciva fra i consulenti di mutui, e i cognomi facevano rumore).
+    La categoria invece serve: chi cerca "come trovare lavoro a milano" si
+    aspetta i consulenti di "Lavoro & Carriera", anche se nelle loro aree
+    hanno scritto "Leadership".
     """
-    return ' '.join(filter(None, [user.aree_interesse or '', user.tags or ''])).lower()
+    return ' '.join(filter(None, [
+        user.aree_interesse or '', user.tags or '', nome_categoria or '',
+    ])).lower()
 
 
-def calculate_relevance_score(user: User, keywords: list[str], expanded_keywords: list[str]) -> float:
+def calculate_relevance_score(user: User, keywords: list[str], expanded_keywords: list[str],
+                              nome_categoria: str = "") -> float:
     """
     Calcola uno score di rilevanza per l'utente.
     
     Score più alto = match migliore
     """
     score = 0.0
-    user_text = testo_competenze(user)
+    user_text = testo_competenze(user, nome_categoria)
     
     # +10 punti per ogni keyword originale trovata
     for keyword in keywords:
@@ -173,6 +182,10 @@ async def consultants_page(
                     'children': children
                 })
             
+            # Nome di ogni categoria: serve sia per filtrare sia per il
+            # punteggio, ed e' una tabella piccola.
+            nomi_categorie = {c.id: c.name for c in session.exec(select(Category)).all()}
+
             # ========== BASE QUERY ==========
             # Il filtro sul metodo di pagamento va fatto in SQL, non in Python:
             # prima si caricavano in memoria TUTTI i consulenti verificati a
@@ -234,6 +247,16 @@ async def consultants_page(
                                 )
                             )
                         )
+
+                    # E la categoria: "lavoro" deve portare ai consulenti di
+                    # "Lavoro & Carriera" anche quando nelle loro aree c'e'
+                    # scritto altro.
+                    categorie_in_tema = [
+                        cid for cid, nome in nomi_categorie.items()
+                        if any(k in nome.lower() for k in expanded_keywords)
+                    ]
+                    if categorie_in_tema:
+                        search_conditions.append(User.category_id.in_(categorie_in_tema))
                     
                     query_stmt = query_stmt.where(or_(*search_conditions))
             
@@ -254,7 +277,8 @@ async def consultants_page(
             if search and keywords:
                 # Calcola score per ogni risultato
                 scored_results = [
-                    (user, calculate_relevance_score(user, keywords, expanded_keywords))
+                    (user, calculate_relevance_score(
+                        user, keywords, expanded_keywords, nomi_categorie.get(user.category_id, "")))
                     for user in all_results
                 ]
                 

@@ -137,3 +137,58 @@ class TestRicercaPerCompetenze:
         client, (_, _, solo_nome) = consulenti_vari
         pagina = client.get("/consultants?search=Ecommerce").text
         assert f'/user/{solo_nome}"' not in pagina
+
+
+class TestRicercaPerCategoria:
+    """Chi cerca "come trovare lavoro a milano" si aspetta i consulenti di
+    "Lavoro & Carriera", anche se nelle loro aree c'e' scritto "Leadership"."""
+
+    @pytest.fixture
+    def consulente_di_categoria(self, csrf_client):
+        from app.models import Category
+
+        reset_rate_limit()
+        with Session(engine) as s:
+            categoria = s.exec(select(Category).where(Category.name == "Lavoro & Carriera")).first()
+            creata = categoria is None
+            if creata:
+                categoria = Category(name="Lavoro & Carriera", slug=f"lavoro-{secrets.token_hex(3)}",
+                                     is_principal=True)
+                s.add(categoria)
+                s.commit()
+                s.refresh(categoria)
+            consulente = _consulente("Domenico", venduto=0)
+            consulente.aree_interesse = "Leadership"
+            consulente.category_id = categoria.id
+            s.add(consulente)
+            s.commit()
+            s.refresh(consulente)
+            ids = (consulente.id, categoria.id if creata else None)
+
+        yield csrf_client, ids[0]
+
+        reset_rate_limit()
+        with Session(engine) as s:
+            u = s.get(User, ids[0])
+            if u:
+                s.delete(u)
+            if ids[1]:
+                c = s.get(Category, ids[1])
+                if c:
+                    s.delete(c)
+            s.commit()
+
+    def test_la_frase_intera_lo_trova(self, consulente_di_categoria):
+        client, consulente_id = consulente_di_categoria
+        pagina = client.get("/consultants?search=come+trovare+lavoro+a+milano").text
+        assert f'/user/{consulente_id}"' in pagina
+
+    def test_anche_un_sinonimo_lo_trova(self, consulente_di_categoria):
+        client, consulente_id = consulente_di_categoria
+        pagina = client.get("/consultants?search=colloquio").text
+        assert f'/user/{consulente_id}"' in pagina
+
+    def test_un_argomento_estraneo_non_lo_trova(self, consulente_di_categoria):
+        client, consulente_id = consulente_di_categoria
+        pagina = client.get("/consultants?search=fotografia+matrimoni").text
+        assert f'/user/{consulente_id}"' not in pagina
