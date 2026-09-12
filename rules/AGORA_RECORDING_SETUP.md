@@ -34,8 +34,8 @@ Il tuo file `.env` dovrebbe avere:
 
 ```properties
 # Agora.io Video Call Configuration
-AGORA_APP_ID=ef8f1bbb0d3b468f9171b3ef17f89df7
-AGORA_APP_CERTIFICATE=215cc7280c8643b2897f365463e10a45
+AGORA_APP_ID=il_tuo_app_id_qui
+AGORA_APP_CERTIFICATE=il_tuo_app_certificate_qui
 AGORA_CUSTOMER_ID=il_tuo_customer_id_qui
 AGORA_CUSTOMER_SECRET=il_tuo_customer_secret_qui
 
