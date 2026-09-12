@@ -278,3 +278,35 @@ class TestTokenDellaCall:
         pagina = (Path(__file__).resolve().parent.parent / "app" / "templates" / "call.html").read_text(encoding="utf-8-sig")
         assert "throw new Error('Failed to get Agora token')" not in pagina
         assert "In attesa che ${remoteUserName} entri nella chiamata" in pagina
+
+
+class TestDataDellaConsulenza:
+    """booking_date e' DATE su PostgreSQL e DATETIME su SQLite.
+
+    Il codice della call faceva booking.booking_date.date(): in produzione
+    quel valore e' gia' un date e l'endpoint del token rispondeva 500, cioe'
+    "Impossibile avviare la chiamata". Nei test su SQLite non si vedeva, quindi
+    qui si verifica la funzione con tutte le forme e si vieta il vecchio modo.
+    """
+
+    def test_accetta_date_datetime_e_stringa(self):
+        from datetime import date as _date
+
+        from app.utils.orari import data_consulenza
+
+        atteso = _date(2026, 9, 12)
+        assert data_consulenza(_date(2026, 9, 12)) == atteso
+        assert data_consulenza(datetime(2026, 9, 12, 15, 30)) == atteso
+        assert data_consulenza("2026-09-12") == atteso
+        assert data_consulenza("2026-09-12 15:30:00") == atteso
+
+    def test_nessuno_chiama_piu_date_su_booking_date(self):
+        radice = Path(__file__).resolve().parent.parent / "app"
+        colpevoli = []
+        for f in radice.rglob("*.py"):
+            for n, riga in enumerate(f.read_text(encoding="utf-8-sig").splitlines(), 1):
+                if "booking_date.date()" in riga:
+                    colpevoli.append(f"{f.relative_to(radice.parent)}:{n}")
+        assert not colpevoli, (
+            "su PostgreSQL booking_date e' un date: usare data_consulenza(). " + ", ".join(colpevoli)
+        )

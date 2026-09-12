@@ -15,7 +15,8 @@ from app.logger_config import logger
 from app.utils.stripe_config import create_checkout_session
 from app.utils_user import has_payment_method
 from app.utils.orari import (
-    ORE_LIMITE_ANNULLAMENTO, ORE_PREAVVISO_PRENOTAZIONE, iso_ora_italiana, now_italy_naive,
+    ORE_LIMITE_ANNULLAMENTO, ORE_PREAVVISO_PRENOTAZIONE, data_consulenza,
+    iso_ora_italiana, now_italy_naive,
 )
 from app.utils.booking_requests import (
     RichiestaNonValida, accetta_richiesta, annulla_blocco, avvisa_annullamento,
@@ -111,11 +112,7 @@ def slot_gia_prenotato(session, consultant_user_id: int, giorno: str, start_time
 
 def booking_start_datetime(booking: Booking) -> datetime:
     """Combina booking_date e start_time in un datetime naive (ora italiana)."""
-    booking_date = booking.booking_date
-    if isinstance(booking_date, str):
-        booking_date = datetime.strptime(booking_date, "%Y-%m-%d")
-    if isinstance(booking_date, datetime):
-        booking_date = booking_date.date()
+    booking_date = data_consulenza(booking.booking_date)
 
     start_time_obj = booking.start_time
     if isinstance(start_time_obj, str):
@@ -736,12 +733,7 @@ async def get_upcoming_bookings(request: Request):
         for booking in bookings:
             # Calcola quando inizia l'appuntamento
             # booking.booking_date potrebbe essere date o datetime, convertiamo sempre a date
-            if isinstance(booking.booking_date, str):
-                booking_date = datetime.fromisoformat(booking.booking_date.split()[0]).date()
-            elif isinstance(booking.booking_date, datetime):
-                booking_date = booking.booking_date.date()
-            else:
-                booking_date = booking.booking_date
+            booking_date = data_consulenza(booking.booking_date)
                 
             booking_datetime = datetime.combine(
                 booking_date,
@@ -847,12 +839,7 @@ async def get_booking_history(request: Request):
         
         history = []
         for booking in bookings:
-            if isinstance(booking.booking_date, str):
-                booking_date = datetime.fromisoformat(booking.booking_date.split()[0]).date()
-            elif isinstance(booking.booking_date, datetime):
-                booking_date = booking.booking_date.date()
-            else:
-                booking_date = booking.booking_date
+            booking_date = data_consulenza(booking.booking_date)
                 
             booking_datetime = datetime.combine(
                 booking_date,
@@ -1089,7 +1076,7 @@ async def get_agora_token(booking_id: int, request: Request):
         # senza questo controllo il token si poteva ottenere (e rientrare nel
         # canale) a consulenza finita, chiamando l'endpoint direttamente.
         end_time_obj = datetime.strptime(booking.end_time, "%H:%M").time()
-        call_deadline = datetime.combine(booking.booking_date.date(), end_time_obj) + timedelta(minutes=5)
+        call_deadline = datetime.combine(data_consulenza(booking.booking_date), end_time_obj) + timedelta(minutes=5)
         if now_italy_naive() >= call_deadline:
             raise HTTPException(status_code=403, detail="Il tempo della consulenza è scaduto")
 

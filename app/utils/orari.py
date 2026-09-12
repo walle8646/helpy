@@ -10,7 +10,7 @@ database in UTC (il default di Render) le 15:30 italiane diventano 13:30.
 SQLite invece toglie semplicemente il fuso: in locale e nei test il problema
 non si vede.
 """
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -28,6 +28,22 @@ ORE_PREAVVISO_PRENOTAZIONE = 2
 # Fino a quando cliente e consulente possono annullare una consulenza gia'
 # confermata (dopo, chi non si presenta viene gestito dal controllo assenze).
 ORE_LIMITE_ANNULLAMENTO = 2
+
+
+def data_consulenza(valore) -> date:
+    """La data di una prenotazione, comunque arrivi dal database.
+
+    booking.booking_date e' DATE su PostgreSQL e DATETIME su SQLite: il modello
+    la dichiara datetime, quindi in produzione arriva un `date` e chiamarci
+    `.date()` sopra solleva AttributeError. E' quello che faceva fallire con un
+    500 la richiesta del token della call ("il server ha risposto con un errore
+    (500)"): in sviluppo e nei test, su SQLite, non si vedeva.
+    """
+    if isinstance(valore, str):
+        valore = datetime.fromisoformat(valore.split()[0])
+    if isinstance(valore, datetime):
+        return valore.date()
+    return valore
 
 
 def now_italy_naive() -> datetime:

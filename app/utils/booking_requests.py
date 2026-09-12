@@ -19,7 +19,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from app.logger_config import logger
-from app.utils.orari import now_italy_naive
+from app.utils.orari import data_consulenza, now_italy_naive
 
 ITALY_TZ = ZoneInfo("Europe/Rome")
 
@@ -62,12 +62,12 @@ def formatta_scadenza(scadenza: Optional[datetime]) -> str:
 
 
 def _inizio(booking) -> datetime:
-    data = booking.booking_date.date() if isinstance(booking.booking_date, datetime) else booking.booking_date
+    data = data_consulenza(booking.booking_date)
     return datetime.combine(data, datetime.strptime(booking.start_time, "%H:%M").time())
 
 
 def _fine(booking) -> datetime:
-    data = booking.booking_date.date() if isinstance(booking.booking_date, datetime) else booking.booking_date
+    data = data_consulenza(booking.booking_date)
     return datetime.combine(data, datetime.strptime(booking.end_time, "%H:%M").time())
 
 
