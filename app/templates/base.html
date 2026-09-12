@@ -17,8 +17,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- ✅ CSS Globale -->
-    <link rel="stylesheet" href="/static/style.css?v=2026052101">
-    <link rel="stylesheet" href="/static/mobile.css?v=2026052101">
+    <link rel="stylesheet" href="{{ statico('style.css') }}">
+    <link rel="stylesheet" href="{{ statico('mobile.css') }}">
     
     <!-- CSS specifici per pagina -->
     {% block extra_css %}{% endblock %}
@@ -1043,7 +1043,7 @@
     {% endif %}
 
     <!-- JavaScript Globale -->
-    <script src="/static/script.js"></script>
+    <script src="{{ statico('script.js') }}"></script>
     
     <!-- JavaScript Notifiche -->
     <script>

@@ -95,3 +95,29 @@ class TestNessunGestoreDuplicato:
             testo = (RADICE / "app" / "templates" / pagina).read_text(encoding="utf-8-sig")
             quanti = len(re.findall(rf"getElementById\('{form}'\)\.addEventListener", testo))
             assert quanti == 1, f"{pagina}: {quanti} gestori per {form}"
+
+
+class TestCacheDeiFileStatici:
+    """Dopo un rilascio il browser deve prendere i file nuovi.
+
+    StaticFiles non manda un max-age: con l'URL sempre uguale i browser
+    tenevano il JavaScript vecchio per giorni, e la correzione al reset
+    password sembrava non essere mai arrivata.
+    """
+
+    def test_i_file_statici_hanno_la_versione_nell_url(self, client):
+        pagina = client.get("/login").text
+        assert "/static/script.js?v=" in pagina
+        assert "/static/style.css?v=" in pagina
+
+    def test_la_versione_cambia_con_il_file(self, tmp_path, monkeypatch):
+        from app.main import statico
+
+        primo = statico("script.js")
+        (RADICE / "app" / "static" / "script.js").touch()
+        assert statico("script.js") != primo
+
+    def test_file_inesistente_non_rompe_la_pagina(self):
+        from app.main import statico
+
+        assert statico("non-esiste.css") == "/static/non-esiste.css"

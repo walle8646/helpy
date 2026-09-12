@@ -3,7 +3,7 @@
 {% block title %}{{ user.nome }} {{ user.cognome or '' }} - Ispiramy{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="/static/profile.css">
+<link rel="stylesheet" href="{{ statico('profile.css') }}">
 <style>
 /* ===== PUBLIC PROFILE — CONVERSATIONAL LAYOUT ===== */
 

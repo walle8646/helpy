@@ -152,6 +152,28 @@ templates.env.filters['default_avatar'] = get_default_avatar
 from datetime import datetime as _dt
 templates.env.globals['current_year'] = _dt.now().year
 
+
+def statico(percorso: str) -> str:
+    """URL di un file statico con la sua data di modifica in coda.
+
+    StaticFiles non manda un max-age, quindi i browser applicano una scadenza
+    "a sentimento" che per un file vecchio dura giorni: dopo un rilascio si
+    continuava a usare il JavaScript e il CSS vecchi (con effetti difficili da
+    capire, tipo un errore su un'operazione in realtà riuscita). Il numero di
+    versione scritto a mano nei template invece ci si dimenticava di cambiarlo.
+    """
+    relativo = percorso.lstrip("/")
+    if relativo.startswith("static/"):
+        relativo = relativo[len("static/"):]
+    try:
+        versione = int((Path("app/static") / relativo).stat().st_mtime)
+    except OSError:
+        return f"/static/{relativo}"
+    return f"/static/{relativo}?v={versione}"
+
+
+templates.env.globals['statico'] = statico
+
 # Filtro per parsing JSON (usato per le immagini community)
 import json as _json
 def _parse_json(value):

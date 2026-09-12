@@ -87,14 +87,14 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             body: formData
         });
         
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         
         if (response.ok) {
             // Login riuscito: redirect
             window.location.href = data.redirect_url || '/profile';
         } else {
             // Login fallito: mostra errore
-            errorText.textContent = '❌ ' + (data.error || 'Errore durante il login');
+            errorText.textContent = '❌ ' + (data.error || `Il server ha risposto con un errore (${response.status}). Riprova.`);
             errorDiv.style.display = 'block';
         }
     } catch (error) {
