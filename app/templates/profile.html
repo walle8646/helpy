@@ -730,7 +730,11 @@
 
                 <!-- Richieste di consulenza (offerte inviate/ricevute via chat) -->
                 <section class="pub-narrative" id="consultationOffersSection" style="display:none; margin-bottom: 32px;">
-                    <div class="pub-section-label">💼 Richieste di consulenza</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                        <div class="pub-section-label" style="margin-bottom:0;">💼 Richieste di consulenza</div>
+                        <button type="button" class="history-toggle" id="offerteStoricoBtn"
+                                onclick="toggleStoricoOfferte()" hidden></button>
+                    </div>
                     <div id="consultationOffersContainer"></div>
                 </section>
 
@@ -3059,6 +3063,48 @@
         return d.innerHTML;
     }
 
+    // In vista solo le richieste ancora aperte; quelle chiuse (accettate,
+    // rifiutate, scadute) stanno nello storico, che si apre con il "+".
+    let storicoOfferteAperto = false;
+    let offerte = { riceviteAperte: [], inviateAperte: [], storico: [] };
+
+    function toggleStoricoOfferte() {
+        storicoOfferteAperto = !storicoOfferteAperto;
+        mostraOfferte();
+    }
+
+    function mostraOfferte() {
+        const section = document.getElementById('consultationOffersSection');
+        const container = document.getElementById('consultationOffersContainer');
+        const bottone = document.getElementById('offerteStoricoBtn');
+        const aperte = offerte.riceviteAperte.length + offerte.inviateAperte.length;
+
+        let html = '';
+        if (offerte.riceviteAperte.length > 0) {
+            html += `<div class="co-group-label">📥 Ricevute</div>`;
+            html += offerte.riceviteAperte.map(createOfferCard).join('');
+        }
+        if (offerte.inviateAperte.length > 0) {
+            html += `<div class="co-group-label">📤 Inviate</div>`;
+            html += offerte.inviateAperte.map(createOfferCard).join('');
+        }
+        if (aperte === 0) {
+            html += `<p style="color:#6b7280;margin:0;">Nessuna richiesta aperta.</p>`;
+        }
+        if (storicoOfferteAperto && offerte.storico.length > 0) {
+            html += `<div class="co-group-label">🗂️ Storico</div>`;
+            html += offerte.storico.map(createOfferCard).join('');
+        }
+        container.innerHTML = html;
+
+        bottone.hidden = offerte.storico.length === 0;
+        bottone.innerHTML = storicoOfferteAperto
+            ? '<i class="fas fa-minus"></i><span>Storico</span>'
+            : `<i class="fas fa-plus"></i><span>Storico (${offerte.storico.length})</span>`;
+        bottone.setAttribute('aria-expanded', String(storicoOfferteAperto));
+        section.style.display = 'block';
+    }
+
     async function loadConsultationOffers() {
         try {
             const response = await fetch('/api/consultation-offers/mine');
@@ -3068,20 +3114,13 @@
             const received = data.received || [];
             if (sent.length === 0 && received.length === 0) return; // niente da mostrare
 
-            const section = document.getElementById('consultationOffersSection');
-            const container = document.getElementById('consultationOffersContainer');
-
-            let html = '';
-            if (received.length > 0) {
-                html += `<div class="co-group-label">📥 Ricevute</div>`;
-                html += received.map(createOfferCard).join('');
-            }
-            if (sent.length > 0) {
-                html += `<div class="co-group-label">📤 Inviate</div>`;
-                html += sent.map(createOfferCard).join('');
-            }
-            container.innerHTML = html;
-            section.style.display = 'block';
+            const aperta = (o) => o.status === 'pending';
+            offerte = {
+                riceviteAperte: received.filter(aperta),
+                inviateAperte: sent.filter(aperta),
+                storico: [...received, ...sent].filter(o => !aperta(o)),
+            };
+            mostraOfferte();
         } catch (e) {
             console.error('Error loading consultation offers:', e);
         }

@@ -229,3 +229,16 @@ class TestOffertaSlotOccupato:
         assert offerta_db.status == "accepted" and offerta_db.booking_id == prenotate[0].id
         assert len(_notifiche(persone.cliente, "booking_confirmed_client")) == 1
         assert len(_notifiche(persone.consulente, "booking_confirmed")) == 1
+
+
+class TestStoricoOfferteNelProfilo:
+    """Nella sezione "Richieste di consulenza" restano in vista solo quelle
+    aperte: accettate, rifiutate e scadute stanno nello storico, chiuso."""
+
+    def test_il_profilo_divide_aperte_e_storico(self):
+        from pathlib import Path
+
+        profilo = (Path(__file__).resolve().parent.parent / "app" / "templates" / "profile.html").read_text(encoding="utf-8-sig")
+        assert "toggleStoricoOfferte" in profilo
+        assert "storicoOfferteAperto = false" in profilo, "lo storico parte chiuso"
+        assert "o.status === 'pending'" in profilo, "aperte = in attesa di risposta"
