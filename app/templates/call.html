@@ -555,6 +555,12 @@
         padding: 0 8px;
     }
     
+    .chat-message-text a {
+        color: #ffffff;
+        text-decoration: underline;
+        word-break: break-all;
+    }
+
     .chat-message-text {
         background: #43a047;
         color: white;
@@ -751,6 +757,17 @@
         border: none;
         border-radius: 6px;
         background: #fff;
+    }
+
+    .chat-avviso {
+        align-self: stretch;
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.45);
+        color: #fca5a5;
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 0.82rem;
+        line-height: 1.35;
     }
 
     .chat-input-area {
@@ -3996,7 +4013,7 @@
         // Nome e testo vengono dall'altro partecipante: sempre escapati
         let html = `<span class="chat-message-sender">${escapeHtml(message.user_name)}</span>`;
         if (message.message) {
-            html += `<span class="chat-message-text">${escapeHtml(message.message)}</span>`;
+            html += `<span class="chat-message-text">${testoConLink(message.message)}</span>`;
         }
         messageDiv.innerHTML = html;
 
@@ -4014,6 +4031,27 @@
         chatUI.msgPanel.scrollTop = chatUI.msgPanel.scrollHeight;
     }
     
+    // Avviso visibile nella chat: un allegato rifiutato o un messaggio non
+    // salvato devono dirlo, non restare per sempre su "invio...".
+    function mostraAvvisoChat(testo) {
+        const avviso = document.createElement('div');
+        avviso.className = 'chat-avviso';
+        avviso.setAttribute('role', 'status');
+        avviso.textContent = testo;
+        chatUI.msgPanel.appendChild(avviso);
+        chatUI.msgPanel.scrollTop = chatUI.msgPanel.scrollHeight;
+        // Se la chat e' chiusa, il badge segnala che c'e' qualcosa da leggere
+        if (chatUI.panel.style.display === 'none') {
+            chatUI.unreadCount++;
+            updateChatBadge();
+        }
+    }
+
+    function rimuoviMessaggioProvvisorio(tempId) {
+        const provvisorio = chatUI.msgPanel.querySelector(`[data-temp-id="${tempId}"]`);
+        if (provvisorio) provvisorio.remove();
+    }
+
     /**
      * Carica i messaggi precedenti della chat
      */
@@ -4101,6 +4139,7 @@
         try {
             // Step 1: Carica gli allegati su S3 uno alla volta
             const uploadedAttachments = [];
+            const allegatiRifiutati = [];
             
             if (filesToUpload.length > 0) {
                 for (let i = 0; i < filesToUpload.length; i++) {
@@ -4125,17 +4164,28 @@
                             });
                             console.log(`✅ Allegato caricato: ${file.name}`);
                         } else {
-                            const error = await uploadResponse.json();
-                            console.error(`❌ Errore upload ${file.name}:`, error.detail);
+                            const error = await uploadResponse.json().catch(() => ({}));
+                            const motivo = error.detail || error.error || `il server ha risposto con un errore (${uploadResponse.status})`;
+                            console.error(`❌ Errore upload ${file.name}:`, motivo);
+                            allegatiRifiutati.push(`${file.name}: ${motivo}`);
                         }
                     } catch (uploadErr) {
                         console.error(`❌ Errore upload ${file.name}:`, uploadErr);
+                        allegatiRifiutati.push(`${file.name}: invio non riuscito, controlla la connessione.`);
                     }
                 }
             }
             
+            // Un allegato rifiutato (per esempio dalla moderazione) va detto:
+            // prima il messaggio restava per sempre fermo su "invio...".
+            if (allegatiRifiutati.length > 0) {
+                allegatiRifiutati.forEach(m => mostraAvvisoChat('⚠️ ' + m));
+            }
+
             // Step 2: Invia il messaggio con i riferimenti degli allegati S3
             if (!messageText && uploadedAttachments.length === 0) {
+                rimuoviMessaggioProvvisorio(tempId);
+                anteprimeLocali.forEach(u => URL.revokeObjectURL(u));
                 return;
             }
             
@@ -4164,16 +4214,18 @@
                 displayChatMessage(message, true);
                 console.log('💬 Messaggio salvato sul server');
             } else {
-                const error = await response.json();
-                console.error('❌ Errore invio messaggio:', error);
-                // Il messaggio è già visibile localmente, segna che non è stato salvato
-                const tempMsg = chatUI.msgPanel.querySelector(`[data-temp-id="${tempId}"]`);
-                if (tempMsg) tempMsg.style.opacity = '0.5';
+                const error = await response.json().catch(() => ({}));
+                const motivo = error.detail || error.error || `il server ha risposto con un errore (${response.status})`;
+                console.error('❌ Errore invio messaggio:', motivo);
+                rimuoviMessaggioProvvisorio(tempId);
+                anteprimeLocali.forEach(u => URL.revokeObjectURL(u));
+                mostraAvvisoChat('⚠️ Messaggio non inviato. ' + motivo);
             }
         } catch (error) {
             console.error('❌ Errore send chat:', error);
-            // Il messaggio resta visibile ma il server non l'ha ricevuto
-            // Il polling non lo mostrerà, ma l'utente lo vede comunque
+            rimuoviMessaggioProvvisorio(tempId);
+            anteprimeLocali.forEach(u => URL.revokeObjectURL(u));
+            mostraAvvisoChat('⚠️ Messaggio non inviato: controlla la connessione e riprova.');
         } finally {
             chatUI.isSending = false;
         }

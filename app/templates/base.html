@@ -1516,6 +1516,20 @@
             if (value === null || value === undefined) return '';
             return String(value).replace(/[&<>"'`]/g, ch => MAP[ch]);
         };
+        // Testo di un messaggio con i link cliccabili. Prima si escapa tutto
+        // (il testo arriva dagli utenti), poi si trasformano in link solo gli
+        // indirizzi http/https: nient'altro diventa markup.
+        window.testoConLink = function(valore) {
+            const escapato = window.escapeHtml(valore);
+            return escapato.replace(/\b(https?:\/\/|www\.)[^\s<>"']+/gi, (trovato) => {
+                // la punteggiatura finale non fa parte dell'indirizzo
+                const indirizzo = trovato.replace(/[.,;:!?)\]]+$/, '');
+                const coda = trovato.slice(indirizzo.length);
+                const href = /^www\./i.test(indirizzo) ? 'https://' + indirizzo : indirizzo;
+                return `<a href="${href}" target="_blank" rel="noopener noreferrer nofollow">${indirizzo}</a>${coda}`;
+            });
+        };
+
         // Per un valore che finisce dentro una stringa JS (es. onclick="fn('...')").
         window.escapeJsString = function(value) {
             if (value === null || value === undefined) return '';

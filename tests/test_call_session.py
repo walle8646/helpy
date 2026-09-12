@@ -348,3 +348,28 @@ class TestEffettiSfondo:
         assert "anteprimaLocale" in pagina
         assert "URL.createObjectURL(f)" in pagina
         assert "URL.revokeObjectURL" in pagina
+
+
+class TestLinkEAvvisiInChat:
+    """Due cose che mancavano nella chat: i link e il perché di un invio fallito."""
+
+    def _file(self, nome):
+        return (Path(__file__).resolve().parent.parent / "app" / "templates" / nome).read_text(encoding="utf-8-sig")
+
+    def test_i_link_si_scrivono_con_la_funzione_comune(self):
+        """Un solo punto che escapa il testo e trasforma in link solo http(s):
+        se ognuno lo rifacesse a modo suo, uno dei tre diventerebbe un XSS."""
+        base = self._file("base.html")
+        assert "window.testoConLink" in base
+        assert 'rel="noopener noreferrer nofollow"' in base
+        for pagina in ("call.html", "chat.html", "chat_widget.html"):
+            assert "testoConLink(" in self._file(pagina), f"{pagina} non rende cliccabili i link"
+
+    def test_un_allegato_rifiutato_lo_dice(self):
+        """Con la moderazione attiva l'immagine viene bloccata: prima il
+        messaggio restava per sempre fermo su "invio..."."""
+        call = self._file("call.html")
+        assert "allegatiRifiutati" in call
+        assert "mostraAvvisoChat" in call
+        assert "rimuoviMessaggioProvvisorio" in call
+        assert "chat-avviso" in call
