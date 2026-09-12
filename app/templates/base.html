@@ -1147,11 +1147,14 @@
             console.log('✅ Widget chat riaperto');
         }
         
-        // Chiudi dropdown cliccando fuori
+        // Chiudi dropdown cliccando fuori.
+        // Per chi non ha fatto accesso la campanella non c'e': senza questo
+        // controllo ogni clic sulla pagina lanciava un errore in console.
         document.addEventListener('click', function(e) {
             const dropdown = document.getElementById('notificationsDropdown');
             const icon = document.getElementById('notificationsIcon');
-            
+            if (!dropdown || !icon) return;
+
             if (!dropdown.contains(e.target) && !icon.contains(e.target)) {
                 dropdown.classList.remove('show');
             }
