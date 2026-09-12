@@ -47,6 +47,10 @@ STATI_SENZA_CALL = {'pending_payment', 'awaiting_acceptance', 'cancelled'}
 # Dopo quanto una prenotazione mai pagata smette di occupare lo slot
 PENDING_PAYMENT_TTL_MINUTES = 35
 
+# Quanti appuntamenti e quante richieste da confermare mostra il profilo
+MAX_APPUNTAMENTI_PROFILO = 3
+MAX_RICHIESTE_PROFILO = 20
+
 # Stati di pagamento di una consulenza effettivamente pagata. 'held' e' il
 # trattenuto in attesa delle 48h, 'released' il trasferito al consulente:
 # escludere 'released' faceva sparire la consulenza dallo storico dopo 48 ore.
@@ -718,8 +722,12 @@ async def get_upcoming_bookings(request: Request):
         ).order_by(Booking.booking_date, Booking.start_time)
         
         bookings = session.exec(statement).all()
-        
+
+        # Due elenchi separati: gli appuntamenti veri e propri (al massimo 3,
+        # come prima) e le richieste ancora da confermare, che nel profilo
+        # stanno in un gruppo a parte e possono essere molte.
         upcoming = []
+        richieste = []
         for booking in bookings:
             # Calcola quando inizia l'appuntamento
             # booking.booking_date potrebbe essere date o datetime, convertiamo sempre a date
@@ -771,7 +779,14 @@ async def get_upcoming_bookings(request: Request):
                 select(Review.id).where(Review.booking_id == booking.id)
             ).first() is not None
 
-            upcoming.append({
+            in_attesa = booking.status == 'awaiting_acceptance'
+            elenco = richieste if in_attesa else upcoming
+            if len(elenco) >= (MAX_RICHIESTE_PROFILO if in_attesa else MAX_APPUNTAMENTI_PROFILO):
+                if len(upcoming) >= MAX_APPUNTAMENTI_PROFILO and len(richieste) >= MAX_RICHIESTE_PROFILO:
+                    break
+                continue
+
+            elenco.append({
                 "id": booking.id,
                 "date": str(booking_date) if not isinstance(booking.booking_date, str) else booking.booking_date,
                 "start_time": booking.start_time,
@@ -794,19 +809,14 @@ async def get_upcoming_bookings(request: Request):
                 "can_start_call": can_start_call,
                 # La recensione chiude la consulenza: niente più "Entra in call"
                 "closed_by_review": recensione_lasciata,
-                "awaiting_acceptance": booking.status == 'awaiting_acceptance',
+                "awaiting_acceptance": in_attesa,
                 "acceptance_deadline": iso_ora_italiana(booking.acceptance_deadline),
                 "acceptance_expired": bool(
-                    booking.status == 'awaiting_acceptance'
-                    and booking.acceptance_deadline and now >= booking.acceptance_deadline
+                    in_attesa and booking.acceptance_deadline and now >= booking.acceptance_deadline
                 ),
             })
 
-            # LIMITE: Mostra massimo 3 appuntamenti
-            if len(upcoming) >= 3:
-                break
-        
-        return {"bookings": upcoming}
+        return {"bookings": upcoming, "requests": richieste}
 
 @router.get("/api/booking/history")
 async def get_booking_history(request: Request):

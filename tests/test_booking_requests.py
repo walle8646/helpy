@@ -364,15 +364,33 @@ class TestScadenzaAutomatica:
 # ---------------------------------------------------------------- profilo e call
 
 class TestProfilo:
-    def test_la_richiesta_compare_nei_prossimi_appuntamenti(self, persone, csrf_client):
+    def test_la_richiesta_sta_nel_suo_gruppo(self, persone, csrf_client):
+        """Le richieste da confermare non occupano i posti degli appuntamenti:
+        nel profilo stanno in un gruppo a parte, che si apre col "+"."""
         booking_id = _richiesta(persone)
         for email in (persone.email_consulente, persone.email_cliente):
             _login(csrf_client, email, persone.password)
-            prossimi = csrf_client.get("/api/booking/upcoming").json()["bookings"]
-            card = next(b for b in prossimi if b["id"] == booking_id)
+            dati = csrf_client.get("/api/booking/upcoming").json()
+            assert all(b["id"] != booking_id for b in dati["bookings"])
+            card = next(r for r in dati["requests"] if r["id"] == booking_id)
             assert card["awaiting_acceptance"] is True
             assert card["acceptance_expired"] is False
             assert card["acceptance_deadline"].endswith(("+01:00", "+02:00"))
+
+    def test_molte_richieste_non_scacciano_gli_appuntamenti(self, persone, csrf_client):
+        confermato = _richiesta(persone, giorni=1, stato="confirmed", pagamento="held")
+        for ora in ("09:00", "11:00", "12:00", "13:00"):
+            b = _richiesta(persone, giorni=2)
+            with Session(engine) as s:
+                riga = s.get(Booking, b)
+                riga.start_time, riga.end_time = ora, "23:59"
+                s.add(riga)
+                s.commit()
+
+        _login(csrf_client, persone.email_consulente, persone.password)
+        dati = csrf_client.get("/api/booking/upcoming").json()
+        assert [b["id"] for b in dati["bookings"]] == [confermato]
+        assert len(dati["requests"]) == 4
 
     def test_niente_call_prima_dell_accettazione(self, persone, csrf_client):
         booking_id = _richiesta(persone)

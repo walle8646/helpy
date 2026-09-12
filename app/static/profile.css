@@ -836,6 +836,68 @@ input[type="checkbox"] {
     padding: 0 0.25rem;
 }
 
+/* Gruppo delle richieste di consulenza da confermare */
+.requests-group {
+    background: white;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 12px;
+    padding: 1rem 1.25rem 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.requests-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.requests-header h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.requests-header h3 i {
+    color: #b45309;
+}
+
+.requests-count {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+    border-radius: 999px;
+    padding: 0.1rem 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.requests-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #b45309;
+    border-radius: 999px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+    flex-shrink: 0;
+}
+
+.requests-toggle:hover {
+    background: rgba(245, 158, 11, 0.22);
+}
+
+.requests-group .appointment-card:not(:last-child) {
+    margin-bottom: 0.75rem;
+}
+
 /* Richiesta di consulenza da accettare / in attesa di conferma */
 .appointment-request {
     background: rgba(245, 158, 11, 0.08);

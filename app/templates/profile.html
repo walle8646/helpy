@@ -1759,6 +1759,47 @@
     }
 
     // ========== UPCOMING APPOINTMENTS ==========
+    // Le richieste da confermare possono essere tante: stanno in un gruppo a
+    // parte, con la prima in vista e il "+" per aprire le altre. La scelta
+    // resta aperta anche quando l'elenco si ricarica da solo ogni minuto.
+    let richiesteAperte = false;
+    let ricaricaAppuntamenti = null;
+
+    function toggleRichieste() {
+        richiesteAperte = !richiesteAperte;
+        loadUpcomingAppointments();
+    }
+
+    function gruppoRichiesteHTML(richieste) {
+        if (richieste.length === 0) return '';
+
+        const daConfermare = richieste.filter(r => r.role === 'consultant').length;
+        const titolo = daConfermare === richieste.length ? 'Richieste da confermare'
+            : daConfermare === 0 ? 'Richieste in attesa di conferma'
+            : 'Richieste di consulenza';
+        const visibili = richiesteAperte ? richieste : richieste.slice(0, 1);
+        const nascoste = richieste.length - visibili.length;
+
+        const bottone = richieste.length > 1
+            ? `<button type="button" class="requests-toggle" onclick="toggleRichieste()"
+                       aria-expanded="${richiesteAperte}" aria-controls="requestsList"
+                       title="${richiesteAperte ? 'Mostra solo la prima' : 'Mostra tutte le richieste'}">
+                   <i class="fas fa-${richiesteAperte ? 'minus' : 'plus'}"></i>
+                   <span>${richiesteAperte ? 'Riduci' : `+${nascoste}`}</span>
+               </button>`
+            : '';
+
+        return `
+            <div class="requests-group">
+                <div class="requests-header">
+                    <h3><i class="fas fa-inbox"></i> ${titolo} <span class="requests-count">${richieste.length}</span></h3>
+                    ${bottone}
+                </div>
+                <div class="appointments-list" id="requestsList">${visibili.map(r => createAppointmentCard(r)).join('')}</div>
+            </div>
+        `;
+    }
+
     async function loadUpcomingAppointments() {
         try {
             const response = await fetch('/api/booking/upcoming');
@@ -1766,6 +1807,7 @@
             
             const data = await response.json();
             const bookings = data.bookings || [];
+            const richieste = data.requests || [];
             const section = document.getElementById('upcomingAppointmentsSection');
             
             const bookingsHTML = bookings.length > 0
@@ -1773,6 +1815,7 @@
                 : '';
             
             section.innerHTML = `
+                ${gruppoRichiesteHTML(richieste)}
                 <div class="upcoming-appointments">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                         <h3 style="margin:0;"><i class="fas fa-calendar-check"></i> Prossimi Appuntamenti</h3>
@@ -1785,7 +1828,8 @@
             `;
             
             bookings.forEach(b => { if (b.can_start_call) updateCallButtonStatus(b.id); });
-            setTimeout(loadUpcomingAppointments, 60000);
+            clearTimeout(ricaricaAppuntamenti);
+            ricaricaAppuntamenti = setTimeout(loadUpcomingAppointments, 60000);
         } catch (error) {
             console.error('Error loading appointments:', error);
         }
