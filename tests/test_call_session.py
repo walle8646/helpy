@@ -425,3 +425,20 @@ class TestSfondoVerificato:
         assert "background/check" in call
         assert "sfondoApprovato" in call
         assert "verificata" in call, "le immagini ricordate prima del controllo vanno riscelte"
+
+
+class TestSfondoIspiramy:
+    def test_l_immagine_ha_le_misure_giuste(self):
+        """1280x720: la webcam riprende spesso in 4:3 e l'immagine viene
+        ritagliata ai lati, quindi il marchio sta nella fascia centrale."""
+        from PIL import Image
+
+        percorso = Path(__file__).resolve().parent.parent / "app" / "static" / "call-background.png"
+        with Image.open(percorso) as immagine:
+            assert immagine.size == (1280, 720)
+
+    def test_lo_sfondo_si_puo_rigenerare(self):
+        """Lo script che lo produce sta nel repo, insieme al logo sorgente."""
+        radice = Path(__file__).resolve().parent.parent
+        assert (radice / "scripts" / "genera_sfondo_call.py").exists()
+        assert (radice / "app" / "static" / "logo-marchio.png").exists()
