@@ -387,6 +387,21 @@
         text-align: center;
     }
 
+    .bg-option-thumb {
+        width: 34px;
+        height: 22px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .bg-option.bg-option-secondaria {
+        background: none;
+        color: #9ca3af;
+        font-size: 0.82rem;
+        padding: 6px 12px;
+    }
+
     .bg-option .bg-option-check {
         margin-left: auto;
         opacity: 0;
@@ -1570,6 +1585,18 @@
                     <span>Sfondo Ispiramy</span>
                     <i class="fas fa-check bg-option-check"></i>
                 </button>
+                <button type="button" class="bg-option" data-bg="custom" id="bgCustomOption">
+                    <i class="fas fa-upload"></i>
+                    <img class="bg-option-thumb" id="bgCustomThumb" alt="" hidden>
+                    <span id="bgCustomLabel">Immagine dal computer</span>
+                    <i class="fas fa-check bg-option-check"></i>
+                </button>
+                <button type="button" class="bg-option bg-option-secondaria" id="bgCustomChange" hidden>
+                    <i class="fas fa-rotate"></i>
+                    <span>Cambia immagine</span>
+                </button>
+                <!-- Sta dentro il pannello della call: nessuna finestra esterna -->
+                <input type="file" id="bgFileInput" accept="image/png,image/jpeg,image/webp" hidden>
                 <div class="bg-panel-hint" id="bgPanelHint"></div>
             </div>
         </div>
@@ -1743,7 +1770,10 @@
 
 <!-- Agora RTC SDK -->
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
-<script src="https://download.agora.io/sdk/release/agora-extension-virtual-background.js"></script>
+<!-- Effetti sfondo. L'indirizzo senza versione su download.agora.io e' sparito
+     (404 NoSuchKey) e gli effetti non partivano piu': qui la versione e' fissata
+     e l'indirizzo e' immutabile. -->
+<script src="https://cdn.jsdelivr.net/npm/agora-extension-virtual-background@2.1.0/agora-extension-virtual-background.js"></script>
 
 <script>
     const bookingId = {{ booking.id }};
@@ -1803,7 +1833,17 @@
     let vbUnavailableReason = '';   // motivo leggibile, mostrato nel pannello
     let vbBusy = false;             // evita click sovrapposti mentre applichiamo
 
-    const VB_IMAGE_URL = 'https://ispiramy-images.s3.eu-north-1.amazonaws.com/call-background.png';
+    // Servita dal nostro dominio: su S3 mancano gli header CORS e, con
+    // crossOrigin='anonymous' (necessario per darla in pasto al processore
+    // video), il browser la rifiutava e "Sfondo Ispiramy" non funzionava.
+    const VB_IMAGE_URL = '{{ statico('call-background.png') }}';
+
+    // Immagine scelta dall'utente dal proprio computer. Resta sul dispositivo:
+    // non viene caricata da nessuna parte, serve solo al processore video.
+    const VB_CHIAVE_IMMAGINE = 'ispiramy-sfondo-personale';
+    const VB_LATO_MASSIMO = { larghezza: 1280, altezza: 720 };
+    const VB_PESO_MASSIMO = 10 * 1024 * 1024;
+    let vbImmagineUtente = null;   // HTMLImageElement pronto per il processor
 
     // Lo sfondo virtuale usa WASM + segmentazione: su mobile non e' supportato
     // (e il caricamento del modulo puo' restare appeso, bloccando tutta la call).
@@ -1894,6 +1934,83 @@
         return vbImagePromise;
     }
 
+    // Ridimensiona e ricomprime: una foto da 12 megapixel come sfondo costa
+    // memoria senza migliorare nulla, e non entrerebbe in localStorage.
+    function immagineRidotta(immagine) {
+        const scala = Math.min(1, VB_LATO_MASSIMO.larghezza / immagine.width, VB_LATO_MASSIMO.altezza / immagine.height);
+        const tela = document.createElement('canvas');
+        tela.width = Math.max(1, Math.round(immagine.width * scala));
+        tela.height = Math.max(1, Math.round(immagine.height * scala));
+        tela.getContext('2d').drawImage(immagine, 0, 0, tela.width, tela.height);
+        return tela.toDataURL('image/jpeg', 0.85);
+    }
+
+    function immagineDa(dataUrl) {
+        return new Promise((ok, ko) => {
+            const img = new Image();
+            img.onload = () => ok(img);
+            img.onerror = () => ko(new Error('immagine non leggibile'));
+            img.src = dataUrl;
+        });
+    }
+
+    async function impostaImmagineUtente(file) {
+        if (!file) return false;
+        if (!/^image\//.test(file.type)) {
+            vbUnavailableReason = 'Serve un file immagine (JPG, PNG o WEBP).';
+            updateBgUi();
+            return false;
+        }
+        if (file.size > VB_PESO_MASSIMO) {
+            vbUnavailableReason = 'Immagine troppo pesante: massimo 10 MB.';
+            updateBgUi();
+            return false;
+        }
+        try {
+            const originale = await immagineDa(URL.createObjectURL(file));
+            const ridotta = immagineRidotta(originale);
+            URL.revokeObjectURL(originale.src);
+            vbImmagineUtente = await immagineDa(ridotta);
+            // Ricordata per la prossima call, solo su questo computer
+            try { localStorage.setItem(VB_CHIAVE_IMMAGINE, ridotta); } catch (e) { /* spazio esaurito: pazienza */ }
+            aggiornaAnteprimaUtente();
+            return true;
+        } catch (e) {
+            console.error('❌ Immagine di sfondo non caricata:', e);
+            vbUnavailableReason = 'Non è stato possibile leggere questa immagine.';
+            updateBgUi();
+            return false;
+        }
+    }
+
+    function aggiornaAnteprimaUtente() {
+        const anteprima = document.getElementById('bgCustomThumb');
+        const etichetta = document.getElementById('bgCustomLabel');
+        const cambia = document.getElementById('bgCustomChange');
+        const icona = document.querySelector('#bgCustomOption > i:first-child');
+        const presente = !!vbImmagineUtente;
+        if (anteprima) {
+            anteprima.hidden = !presente;
+            if (presente) anteprima.src = vbImmagineUtente.src;
+        }
+        // FontAwesome impone display:inline-block, che vince sull'attributo
+        // hidden: l'icona va nascosta con lo stile.
+        if (icona) icona.style.display = presente ? 'none' : '';
+        if (etichetta) etichetta.textContent = presente ? 'La tua immagine' : 'Immagine dal computer';
+        if (cambia) cambia.hidden = !presente;
+    }
+
+    // Se ne aveva scelta una in una call precedente, la ritrova qui
+    (async () => {
+        try {
+            const salvata = localStorage.getItem(VB_CHIAVE_IMMAGINE);
+            if (salvata) {
+                vbImmagineUtente = await immagineDa(salvata);
+                aggiornaAnteprimaUtente();
+            }
+        } catch (e) { /* niente immagine ricordata */ }
+    })();
+
     async function applyBackground(type) {
         if (type === 'none') {
             // Spegnere l'effetto non deve richiedere il caricamento del WASM
@@ -1922,6 +2039,10 @@
                 const img = await loadBackgroundImage();
                 vbProcessor.setOptions({ type: 'img', source: img });
                 await vbProcessor.enable();
+            } else if (type === 'custom') {
+                if (!vbImmagineUtente) return false;
+                vbProcessor.setOptions({ type: 'img', source: vbImmagineUtente });
+                await vbProcessor.enable();
             } else {
                 return false;
             }
@@ -1947,7 +2068,8 @@
             const titles = {
                 none: 'Effetti sfondo: nessuno',
                 blur: 'Effetti sfondo: sfocatura',
-                img: 'Effetti sfondo: sfondo Ispiramy'
+                img: 'Effetti sfondo: sfondo Ispiramy',
+                custom: 'Effetti sfondo: la tua immagine'
             };
             btn.title = titles[currentBackground] || 'Effetti sfondo';
         }
@@ -2058,12 +2180,32 @@
             toggleBgPanel();
         });
     }
+    const bgFileInput = document.getElementById('bgFileInput');
     if (bgPanel) {
         bgPanel.addEventListener('click', (e) => {
             e.stopPropagation();
             const opt = e.target.closest ? e.target.closest('.bg-option') : null;
             if (!opt || opt.disabled) return;
+            if (opt.id === 'bgCustomChange' || (opt.dataset.bg === 'custom' && !vbImmagineUtente)) {
+                bgFileInput.click();   // il selettore del sistema, non una finestra nostra
+                return;
+            }
             selectBackground(opt.dataset.bg);
+        });
+    }
+    if (bgFileInput) {
+        bgFileInput.addEventListener('change', async () => {
+            const file = bgFileInput.files && bgFileInput.files[0];
+            bgFileInput.value = '';   // così si può riscegliere lo stesso file
+            if (!file || vbBusy) return;
+            vbBusy = true;
+            updateBgUi();
+            try {
+                if (await impostaImmagineUtente(file)) await applyBackground('custom');
+            } finally {
+                vbBusy = false;
+                updateBgUi();
+            }
         });
     }
     // Il pannello si chiude con un clic fuori o con ESC: niente finestre da
@@ -3774,49 +3916,63 @@
         const nome = att.filename || 'file';
         const ext = estensioneFile(nome);
         const box = document.createElement('div');
+        // Appena inviato: il file e' ancora in viaggio verso il server, quindi
+        // non ha un indirizzo. Prima chi inviava vedeva un'immagine rotta,
+        // mentre chi riceveva la vedeva bene.
+        const inInvio = !att.url;
+        const sorgenteAnteprima = att.anteprimaLocale
+            || (ESTENSIONI_IMMAGINE.includes(ext) && att.url ? urlAllegato(att, 'view') : null);
 
-        if (ESTENSIONI_IMMAGINE.includes(ext)) {
+        if (sorgenteAnteprima) {
             const thumb = document.createElement('button');
             thumb.type = 'button';
             thumb.className = 'chat-attachment-thumb';
-            thumb.title = `Apri ${nome}`;
+            thumb.disabled = inInvio;
+            thumb.title = inInvio ? 'Invio in corso...' : `Apri ${nome}`;
             const img = document.createElement('img');
-            img.src = urlAllegato(att, 'view');
+            img.src = sorgenteAnteprima;
             img.alt = nome;
             img.loading = 'lazy';
             img.addEventListener('load', () => {
                 chatUI.msgPanel.scrollTop = chatUI.msgPanel.scrollHeight;
             }, { once: true });
             thumb.appendChild(img);
-            thumb.addEventListener('click', () => apriVisualizzatore(att));
+            if (!inInvio) thumb.addEventListener('click', () => apriVisualizzatore(att));
             box.appendChild(thumb);
         }
 
         const riga = document.createElement('div');
         riga.className = 'chat-attachment';
         const icona = document.createElement('i');
-        icona.className = `fas ${getFileIcon(nome)}`;
+        icona.className = `fas ${inInvio ? 'fa-spinner fa-spin' : getFileIcon(nome)}`;
         const apri = document.createElement('button');
         apri.type = 'button';
         apri.className = 'chat-attachment-open';
         apri.textContent = nome;
+        apri.disabled = inInvio;
         const visualizzabile = ESTENSIONI_VISUALIZZABILI.includes(ext);
-        apri.title = visualizzabile ? `Apri ${nome}` : `Scarica ${nome}`;
-        apri.addEventListener('click', () => {
-            if (visualizzabile) apriVisualizzatore(att);
-            else scaricaAllegato(urlAllegato(att, 'download'));
-        });
+        apri.title = inInvio ? 'Invio in corso...' : (visualizzabile ? `Apri ${nome}` : `Scarica ${nome}`);
+        if (!inInvio) {
+            apri.addEventListener('click', () => {
+                if (visualizzabile) apriVisualizzatore(att);
+                else scaricaAllegato(urlAllegato(att, 'download'));
+            });
+        }
         const dimensione = document.createElement('span');
         dimensione.className = 'attachment-size';
-        dimensione.textContent = formatFileSize(Number(att.file_size) || 0);
-        const scarica = document.createElement('button');
-        scarica.type = 'button';
-        scarica.className = 'chat-attachment-action';
-        scarica.title = `Scarica ${nome}`;
-        scarica.setAttribute('aria-label', `Scarica ${nome}`);
-        scarica.innerHTML = '<i class="fas fa-download"></i>';
-        scarica.addEventListener('click', () => scaricaAllegato(urlAllegato(att, 'download')));
-        riga.append(icona, apri, dimensione, scarica);
+        dimensione.textContent = inInvio ? 'invio...' : formatFileSize(Number(att.file_size) || 0);
+        riga.append(icona, apri, dimensione);
+
+        if (!inInvio) {
+            const scarica = document.createElement('button');
+            scarica.type = 'button';
+            scarica.className = 'chat-attachment-action';
+            scarica.title = `Scarica ${nome}`;
+            scarica.setAttribute('aria-label', `Scarica ${nome}`);
+            scarica.innerHTML = '<i class="fas fa-download"></i>';
+            scarica.addEventListener('click', () => scaricaAllegato(urlAllegato(att, 'download')));
+            riga.appendChild(scarica);
+        }
         box.appendChild(riga);
         return box;
     }
@@ -3914,12 +4070,22 @@
         
         // ✅ Mostra il messaggio ottimisticamente SUBITO nella UI
         const tempId = 'temp_' + Date.now();
+        // Le immagini si vedono subito, dal file sul proprio computer: il
+        // messaggio definitivo arrivera' dal server con gli indirizzi veri.
+        const anteprimeLocali = [];
         const optimisticMessage = {
             id: tempId,
             user_id: {{ current_user.id }},
             user_name: '{{ current_user.nome }} {{ current_user.cognome }}',
             message: messageText,
-            attachments: filesToUpload.map(f => ({ filename: f.name, file_size: f.size }))
+            attachments: filesToUpload.map(f => {
+                const allegato = { filename: f.name, file_size: f.size };
+                if (/^image\//.test(f.type)) {
+                    allegato.anteprimaLocale = URL.createObjectURL(f);
+                    anteprimeLocali.push(allegato.anteprimaLocale);
+                }
+                return allegato;
+            })
         };
         displayChatMessage(optimisticMessage, true);
         displayedMessageIds.add(tempId);  // Evita duplicato dal polling
@@ -3990,7 +4156,13 @@
                 const message = await response.json();
                 // Aggiungi l'ID reale del messaggio al set, così il polling non lo riduplica
                 displayedMessageIds.add(message.id);
-                console.log('💬 Messaggio salvato sul server:', messageText);
+                // Sostituisce l'anteprima con il messaggio vero: da qui in poi
+                // chi ha inviato vede e scarica l'allegato come chi lo riceve.
+                const provvisorio = chatUI.msgPanel.querySelector(`[data-temp-id="${tempId}"]`);
+                if (provvisorio) provvisorio.remove();
+                anteprimeLocali.forEach(u => URL.revokeObjectURL(u));
+                displayChatMessage(message, true);
+                console.log('💬 Messaggio salvato sul server');
             } else {
                 const error = await response.json();
                 console.error('❌ Errore invio messaggio:', error);

@@ -310,3 +310,41 @@ class TestDataDellaConsulenza:
         assert not colpevoli, (
             "su PostgreSQL booking_date e' un date: usare data_consulenza(). " + ", ".join(colpevoli)
         )
+
+
+class TestEffettiSfondo:
+    """Gli effetti sfondo non partivano proprio: due dipendenze esterne rotte.
+
+    - il modulo su download.agora.io, indirizzo senza versione, rispondeva 404
+      ("Modulo effetti sfondo non caricato");
+    - l'immagine di sfondo su S3 non manda gli header CORS, e serve
+      crossOrigin='anonymous' per darla al processore video.
+    """
+
+    def _pagina(self):
+        return (Path(__file__).resolve().parent.parent / "app" / "templates" / "call.html").read_text(encoding="utf-8-sig")
+
+    def test_il_modulo_ha_una_versione_fissata(self):
+        pagina = self._pagina()
+        assert "download.agora.io/sdk/release/agora-extension-virtual-background.js" not in pagina
+        assert "agora-extension-virtual-background@" in pagina
+
+    def test_lo_sfondo_ispiramy_e_servito_da_noi(self):
+        pagina = self._pagina()
+        assert "ispiramy-images.s3" not in pagina, "immagine su S3: niente CORS, il browser la rifiuta"
+        assert "statico('call-background.png')" in pagina
+        assert (Path(__file__).resolve().parent.parent / "app" / "static" / "call-background.png").exists()
+
+    def test_si_puo_scegliere_un_immagine_dal_computer(self):
+        pagina = self._pagina()
+        assert 'id="bgFileInput"' in pagina
+        assert 'data-bg="custom"' in pagina
+        assert "impostaImmagineUtente" in pagina
+
+    def test_chi_invia_vede_la_propria_anteprima(self):
+        """Il messaggio ottimistico non ha ancora l'indirizzo dell'allegato:
+        senza anteprima locale chi inviava vedeva un'immagine rotta."""
+        pagina = self._pagina()
+        assert "anteprimaLocale" in pagina
+        assert "URL.createObjectURL(f)" in pagina
+        assert "URL.revokeObjectURL" in pagina
