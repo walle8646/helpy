@@ -85,3 +85,55 @@ class TestElencoConsulenti:
         pagina = client.get("/consultants").text
         assert f'/user/{mio_id}"' in pagina
         assert f'/user/{altro_id}"' in pagina
+
+
+class TestRicercaPerCompetenze:
+    """La ricerca guarda solo aree di interesse e tag del consulente.
+
+    Prima cercava anche in nome, cognome, professione e descrizione: usciva
+    chi *nomina* un argomento invece di chi lo sa trattare.
+    """
+
+    @pytest.fixture
+    def consulenti_vari(self, csrf_client):
+        reset_rate_limit()
+        with Session(engine) as s:
+            per_competenza = _consulente("Anna", venduto=0)
+            per_competenza.aree_interesse = "Mutui, finanziamenti per la casa"
+            per_tag = _consulente("Bruno", venduto=0)
+            per_tag.tags = "ecommerce, vendere online"
+            solo_nel_nome = _consulente("Ecommerce", venduto=0)
+            solo_nel_nome.professione = "Esperto di ecommerce"
+            solo_nel_nome.descrizione = "Parlo spesso di ecommerce ma non me ne occupo"
+            for u in (per_competenza, per_tag, solo_nel_nome):
+                s.add(u)
+            s.commit()
+            for u in (per_competenza, per_tag, solo_nel_nome):
+                s.refresh(u)
+            ids = (per_competenza.id, per_tag.id, solo_nel_nome.id)
+
+        yield csrf_client, ids
+
+        reset_rate_limit()
+        with Session(engine) as s:
+            for uid in ids:
+                u = s.get(User, uid)
+                if u:
+                    s.delete(u)
+            s.commit()
+
+    def test_trova_per_area_di_interesse(self, consulenti_vari):
+        client, (per_area, _, _) = consulenti_vari
+        pagina = client.get("/consultants?search=finanziamenti").text
+        assert f'/user/{per_area}"' in pagina
+
+    def test_trova_per_tag(self, consulenti_vari):
+        client, (_, per_tag, solo_nome) = consulenti_vari
+        pagina = client.get("/consultants?search=ecommerce").text
+        assert f'/user/{per_tag}"' in pagina
+        assert f'/user/{solo_nome}"' not in pagina, "nome e descrizione non contano"
+
+    def test_il_cognome_non_basta(self, consulenti_vari):
+        client, (_, _, solo_nome) = consulenti_vari
+        pagina = client.get("/consultants?search=Ecommerce").text
+        assert f'/user/{solo_nome}"' not in pagina

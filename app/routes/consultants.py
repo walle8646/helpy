@@ -88,6 +88,18 @@ def clean_search_query(query: str) -> list[str]:
     
     return keywords
 
+def testo_competenze(user: User) -> str:
+    """Le competenze dichiarate dal consulente: aree di interesse e tag.
+
+    La ricerca guarda solo qui. Cercare anche in nome, professione e
+    descrizione riportava chi *nomina* un argomento invece di chi lo sa
+    trattare: chi scrive "non mi occupo di mutui" usciva fra i consulenti di
+    mutui, e i cognomi facevano rumore ("Cerca: finanziamenti" trovava il
+    signor Finanzi).
+    """
+    return ' '.join(filter(None, [user.aree_interesse or '', user.tags or ''])).lower()
+
+
 def calculate_relevance_score(user: User, keywords: list[str], expanded_keywords: list[str]) -> float:
     """
     Calcola uno score di rilevanza per l'utente.
@@ -95,16 +107,7 @@ def calculate_relevance_score(user: User, keywords: list[str], expanded_keywords
     Score più alto = match migliore
     """
     score = 0.0
-    
-    # Concatena tutti i campi testuale dell'utente
-    user_text = ' '.join(filter(None, [
-        user.nome or '',
-        user.cognome or '',
-        user.professione or '',
-        user.descrizione or '',
-        user.aree_interesse or '',  # ✅ Rimosso macro_aree
-        user.tags or ''  # 🏷️ Tags generati da AI
-    ])).lower()
+    user_text = testo_competenze(user)
     
     # +10 punti per ogni keyword originale trovata
     for keyword in keywords:
@@ -116,14 +119,8 @@ def calculate_relevance_score(user: User, keywords: list[str], expanded_keywords
         if keyword in user_text:
             score += 5
     
-    # +3 punti se professione matcha
-    if user.professione:
-        prof_lower = user.professione.lower()
-        for keyword in keywords:
-            if keyword in prof_lower:
-                score += 3
-    
-    # +1 punto per consulenze vendute
+    # +1 punto per consulenze vendute: a parità di competenza viene prima chi
+    # ha già lavorato sulla piattaforma
     score += user.consulenze_vendute
     
     return score
@@ -224,12 +221,9 @@ async def consultants_page(
                     for keyword in expanded_keywords:
                         keyword_pattern = f"%{keyword}%"
                         
+                        # Solo competenze dichiarate: aree di interesse e tag
                         search_conditions.append(
                             or_(
-                                User.nome.ilike(keyword_pattern),
-                                User.cognome.ilike(keyword_pattern),
-                                User.professione.ilike(keyword_pattern),
-                                User.descrizione.ilike(keyword_pattern),
                                 and_(
                                     User.aree_interesse.isnot(None),
                                     User.aree_interesse.ilike(keyword_pattern)
