@@ -1971,6 +1971,27 @@
         });
     }
 
+    // Lo sfondo lo vede l'altra persona: passa dallo stesso controllo degli
+    // allegati. L'immagine parte solo per la verifica e non viene salvata.
+    async function sfondoApprovato(dataUrl) {
+        try {
+            const risposta = await fetchWithTimeout(`/api/booking/${bookingId}/background/check`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: dataUrl }),
+            }, 30000);
+            const esito = await risposta.json().catch(() => ({}));
+            if (!risposta.ok) {
+                return { ok: false, motivo: esito.detail || esito.error || `verifica non riuscita (${risposta.status}).` };
+            }
+            return esito.approved
+                ? { ok: true }
+                : { ok: false, motivo: esito.reason || 'Immagine non adatta a una consulenza.' };
+        } catch (e) {
+            return { ok: false, motivo: 'Non è stato possibile verificare l\'immagine: controlla la connessione e riprova.' };
+        }
+    }
+
     async function impostaImmagineUtente(file) {
         if (!file) return false;
         if (!/^image\//.test(file.type)) {
@@ -1987,9 +2008,23 @@
             const originale = await immagineDa(URL.createObjectURL(file));
             const ridotta = immagineRidotta(originale);
             URL.revokeObjectURL(originale.src);
+
+            vbUnavailableReason = 'Controllo dell\'immagine in corso...';
+            updateBgUi();
+            const verifica = await sfondoApprovato(ridotta);
+            if (!verifica.ok) {
+                vbUnavailableReason = verifica.motivo;
+                updateBgUi();
+                return false;
+            }
+            vbUnavailableReason = '';
+
             vbImmagineUtente = await immagineDa(ridotta);
-            // Ricordata per la prossima call, solo su questo computer
-            try { localStorage.setItem(VB_CHIAVE_IMMAGINE, ridotta); } catch (e) { /* spazio esaurito: pazienza */ }
+            // Ricordata per la prossima call, solo su questo computer, con la
+            // nota che e' gia' stata verificata.
+            try {
+                localStorage.setItem(VB_CHIAVE_IMMAGINE, JSON.stringify({ dati: ridotta, verificata: true }));
+            } catch (e) { /* spazio esaurito: pazienza */ }
             aggiornaAnteprimaUtente();
             return true;
         } catch (e) {
@@ -2017,14 +2052,21 @@
         if (cambia) cambia.hidden = !presente;
     }
 
-    // Se ne aveva scelta una in una call precedente, la ritrova qui
+    // Se ne aveva scelta una in una call precedente, la ritrova qui — ma solo
+    // se era passata dal controllo: le immagini ricordate prima che il
+    // controllo esistesse vanno riscelte.
     (async () => {
         try {
             const salvata = localStorage.getItem(VB_CHIAVE_IMMAGINE);
-            if (salvata) {
-                vbImmagineUtente = await immagineDa(salvata);
-                aggiornaAnteprimaUtente();
+            if (!salvata) return;
+            let ricordata = null;
+            try { ricordata = JSON.parse(salvata); } catch (e) { ricordata = null; }
+            if (!ricordata || !ricordata.verificata || !ricordata.dati) {
+                localStorage.removeItem(VB_CHIAVE_IMMAGINE);
+                return;
             }
+            vbImmagineUtente = await immagineDa(ricordata.dati);
+            aggiornaAnteprimaUtente();
         } catch (e) { /* niente immagine ricordata */ }
     })();
 

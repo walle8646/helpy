@@ -26,6 +26,7 @@ from app.utils.notification_email import NOTA_BLOCCO_ANNULLATO, NOTA_RIMBORSO
 
 DEBUG_MODE = os.getenv("DEBUG", "false").lower() == "true"
 from app.utils.notification_service import send_notification
+from app.utils.rate_limit import enforce_rate_limit
 
 router = APIRouter()
 
@@ -2140,6 +2141,50 @@ def _nome_da_chiave(chiave: str) -> str:
     ultimo = chiave.rsplit("/", 1)[-1]
     parti = ultimo.split("_", 4)
     return parti[4] if len(parti) == 5 else ultimo
+
+
+@router.post("/api/booking/{booking_id}/background/check")
+async def verifica_sfondo_call(
+    booking_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Controlla l'immagine che l'utente vuole usare come sfondo in call.
+
+    Lo sfondo lo vede l'altra persona, quindi passa dagli stessi controlli
+    degli allegati e delle immagini della community. L'immagine arriva gia'
+    ridotta dal browser (1280x720) e non viene salvata da nessuna parte: serve
+    solo per la verifica.
+    """
+    from app.utils.ai_service import modera_immagine_chat
+
+    enforce_rate_limit(
+        request, "sfondo_call", limit=20, window_seconds=3600,
+        extra_key=str(current_user.id),
+        message="Hai provato troppe immagini di sfondo. Riprova fra {attesa} secondi.",
+    )
+
+    with Session(engine) as session:
+        booking = session.exec(
+            select(Booking.client_user_id, Booking.consultant_user_id)
+            .where(Booking.id == booking_id)
+        ).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Prenotazione non trovata")
+    if current_user.id not in [booking.client_user_id, booking.consultant_user_id]:
+        raise HTTPException(status_code=403, detail="Non autorizzato")
+
+    body = await request.json()
+    immagine = body.get("image") or ""
+    if not immagine.startswith("data:image/"):
+        raise HTTPException(status_code=400, detail="Immagine non valida")
+    if len(immagine) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Immagine troppo pesante")
+
+    esito = await modera_immagine_chat(immagine)
+    if not esito["approved"]:
+        logger.warning(f"🚫 Sfondo call rifiutato per l'utente {current_user.id}: {esito['reason']}")
+    return {"approved": esito["approved"], "reason": esito["reason"]}
 
 
 @router.post("/api/booking/{booking_id}/chat/upload-attachment")

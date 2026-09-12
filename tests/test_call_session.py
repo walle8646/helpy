@@ -373,3 +373,55 @@ class TestLinkEAvvisiInChat:
         assert "mostraAvvisoChat" in call
         assert "rimuoviMessaggioProvvisorio" in call
         assert "chat-avviso" in call
+
+
+class TestSfondoVerificato:
+    """Lo sfondo lo vede l'altra persona: passa dagli stessi controlli."""
+
+    def test_immagine_non_adatta_rifiutata(self, cliente_in_call, monkeypatch):
+        client, ids = cliente_in_call
+
+        async def blocca(url):
+            return {"approved": False, "reason": "L'immagine contiene contenuti non appropriati."}
+
+        monkeypatch.setattr("app.utils.ai_service.modera_immagine_chat", blocca)
+        r = client.post(f"/api/booking/{ids['booking']}/background/check",
+                        json={"image": "data:image/jpeg;base64,AAAA"})
+        assert r.status_code == 200
+        assert r.json()["approved"] is False
+        assert "non appropriati" in r.json()["reason"]
+
+    def test_immagine_adatta_approvata(self, cliente_in_call, monkeypatch):
+        client, ids = cliente_in_call
+
+        async def consenti(url):
+            return {"approved": True, "reason": ""}
+
+        monkeypatch.setattr("app.utils.ai_service.modera_immagine_chat", consenti)
+        r = client.post(f"/api/booking/{ids['booking']}/background/check",
+                        json={"image": "data:image/jpeg;base64,AAAA"})
+        assert r.status_code == 200 and r.json()["approved"] is True
+
+    def test_serve_un_immagine(self, cliente_in_call):
+        client, ids = cliente_in_call
+        r = client.post(f"/api/booking/{ids['booking']}/background/check",
+                        json={"image": "https://esempio.it/foto.jpg"})
+        assert r.status_code == 400
+
+    def test_chi_non_partecipa_non_puo_usarlo(self, cliente_in_call):
+        """Non deve diventare un servizio di moderazione per chiunque."""
+        client, ids = cliente_in_call
+        with Session(engine) as s:
+            b = s.get(Booking, ids["booking"])
+            b.client_user_id = ids["consulente"]
+            s.add(b)
+            s.commit()
+        r = client.post(f"/api/booking/{ids['booking']}/background/check",
+                        json={"image": "data:image/jpeg;base64,AAAA"})
+        assert r.status_code == 403
+
+    def test_la_pagina_verifica_prima_di_applicare(self):
+        call = (Path(__file__).resolve().parent.parent / "app" / "templates" / "call.html").read_text(encoding="utf-8-sig")
+        assert "background/check" in call
+        assert "sfondoApprovato" in call
+        assert "verificata" in call, "le immagini ricordate prima del controllo vanno riscelte"
