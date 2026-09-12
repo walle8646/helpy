@@ -233,6 +233,19 @@ def generate_email_html(template_name: str, data: Dict[str, str]) -> Optional[st
             data = {"refund_note": NOTA_RIMBORSO, **data}
             return _fill(_branded_email("❌", "Consulenza annullata", RED, RED_D, body, "Vai al tuo profilo", "{action_url}"), data)
 
+        if template_name == 'dispute_opened.html':
+            body = (
+                "<p>Ciao <strong>{consultant_name}</strong>,</p>"
+                "<p><strong>{client_name}</strong> ha aperto una contestazione sulla consulenza che avete svolto.</p>"
+                + _details_box(row("📅 Data:", "{date}") + row("🕐 Orario:", "{time}"), AMBER)
+                + "{reason_section}"
+                + '<div style="background:#fff8e1;border-left:4px solid #f39c12;border-radius:6px;padding:14px 18px;margin:20px 0;">'
+                  "<p style='margin:0;'>Il compenso di questa consulenza resta trattenuto finché la contestazione "
+                  "non è esaminata. Ti contatteremo se servono chiarimenti: se la consulenza era registrata, "
+                  "la registrazione viene usata per verificare cosa è successo.</p></div>"
+            )
+            return _fill(_branded_email("⚠️", "Contestazione aperta", AMBER, AMBER_D, body, "Vai al tuo profilo", "{action_url}"), data)
+
         if template_name == 'booking_request.html':
             body = (
                 "<p>Ciao <strong>{consultant_name}</strong>,</p>"

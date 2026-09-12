@@ -1417,8 +1417,10 @@
     // Il server rimanda qui chi prova a rientrare in una call già chiusa con
     // la recensione. Se questa è la scheda aperta apposta per la call, la si
     // chiude e l'avviso compare nel profilo da cui era partita.
-    if (urlParams.get('call_closed') === 'review') {
-        const avviso = 'Non puoi rientrare in call perché hai già rilasciato una recensione.';
+    if (urlParams.get('call_closed')) {
+        const avviso = urlParams.get('call_closed') === 'dispute'
+            ? 'Non puoi rientrare in call: su questa consulenza è stata aperta una contestazione.'
+            : 'Non puoi rientrare in call perché hai già rilasciato una recensione.';
         history.replaceState(null, '', window.location.pathname);
         let chiusa = false;
         try {
@@ -1901,12 +1903,17 @@
             } else {
                 statusHTML = `<div class="appointment-request"><i class="fas fa-hourglass-half"></i><p><strong>In attesa di conferma.</strong> ${escapeHtml(otherUser.name)} ha tempo fino a ${escapeHtml(scadenza)} per accettare. L'importo è solo bloccato: ti viene addebitato quando accetta.</p></div>`;
             }
-        } else if (booking.closed_by_review) {
-            // Dopo la recensione la call non si riapre (il server rimanda al
-            // profilo): mostrare "Entra in call" apriva solo un duplicato del sito.
-            const testo = booking.role === 'client'
-                ? 'Hai già lasciato una recensione: non puoi più rientrare in questa call.'
-                : 'Il cliente ha lasciato la recensione: la consulenza è conclusa.';
+        } else if (booking.closed_by_review || booking.closed_by_dispute) {
+            // Dopo la recensione o una contestazione la call non si riapre (il
+            // server rimanda al profilo): mostrare "Entra in call" apriva solo
+            // un duplicato del sito.
+            const testo = booking.closed_by_dispute
+                ? (booking.role === 'client'
+                    ? 'Hai aperto una contestazione: non puoi più rientrare in questa call.'
+                    : 'Il cliente ha aperto una contestazione: la call non è più accessibile.')
+                : (booking.role === 'client'
+                    ? 'Hai già lasciato una recensione: non puoi più rientrare in questa call.'
+                    : 'Il cliente ha lasciato la recensione: la consulenza è conclusa.');
             statusHTML = `<div class="appointment-closed"><i class="fas fa-check-circle"></i><p>${testo}</p></div>`;
         } else if (timeUntilMinutes > 10) {
             const hours = Math.floor(minutesUntil / 60);
@@ -2445,7 +2452,7 @@
             const callStatus = await response.json();
             const btn = document.getElementById(`call-btn-${bookingId}`);
             if (!btn) return;
-            if (callStatus.closed_by_review) {
+            if (callStatus.closed_by_review || callStatus.closed_by_dispute) {
                 // Recensione lasciata da un'altra scheda dopo il caricamento della lista
                 loadUpcomingAppointments();
                 return;

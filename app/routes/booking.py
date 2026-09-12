@@ -96,6 +96,22 @@ def mark_absent(booking_id: int, user_id: int) -> set:
         return set()
     return present
 
+def motivo_chiusura_call(session, booking_id: int) -> Optional[str]:
+    """'review' o 'dispute' se la consulenza e' chiusa, altrimenti None.
+
+    Dopo una recensione la consulenza e' giudicata e finita. Dopo una
+    contestazione lo e' ancora di piu': quello che e' successo e' in
+    discussione, e lasciar rientrare in call permetterebbe di aggiungere
+    materiale a una vicenda gia' aperta (la registrazione, che e' la prova
+    principale, e' quella della consulenza vera).
+    """
+    if session.exec(select(Review.id).where(Review.booking_id == booking_id)).first():
+        return "review"
+    if session.exec(select(Dispute.id).where(Dispute.booking_id == booking_id)).first():
+        return "dispute"
+    return None
+
+
 def slot_gia_prenotato(session, consultant_user_id: int, giorno: str, start_time: str) -> bool:
     """True se quell'orario del consulente e' gia' occupato da un'altra prenotazione.
 
@@ -773,9 +789,7 @@ async def get_upcoming_bookings(request: Request):
                 other_joined = True
                 can_start_call = True
             
-            recensione_lasciata = session.exec(
-                select(Review.id).where(Review.booking_id == booking.id)
-            ).first() is not None
+            motivo_chiusura = motivo_chiusura_call(session, booking.id)
 
             in_attesa = booking.status == 'awaiting_acceptance'
             elenco = richieste if in_attesa else upcoming
@@ -805,8 +819,10 @@ async def get_upcoming_bookings(request: Request):
                 "has_joined": has_joined,
                 "other_joined": other_joined,
                 "can_start_call": can_start_call,
-                # La recensione chiude la consulenza: niente più "Entra in call"
-                "closed_by_review": recensione_lasciata,
+                # Recensione o contestazione chiudono la consulenza: niente
+                # più "Entra in call"
+                "closed_by_review": motivo_chiusura == "review",
+                "closed_by_dispute": motivo_chiusura == "dispute",
                 "awaiting_acceptance": in_attesa,
                 "acceptance_deadline": iso_ora_italiana(booking.acceptance_deadline),
                 "acceptance_expired": bool(
@@ -947,6 +963,9 @@ async def join_booking(booking_id: int, request: Request):
             if booking.status in STATI_SENZA_CALL:
                 raise HTTPException(status_code=403, detail="Questa consulenza non è confermata")
 
+            if motivo_chiusura_call(session, booking_id):
+                raise HTTPException(status_code=403, detail="Questa consulenza è chiusa")
+
             # Determina il ruolo e salva il timestamp
             is_client = booking.client_user_id == current_user.id
             now = now_italy_naive()
@@ -1081,10 +1100,13 @@ async def get_agora_token(booking_id: int, request: Request):
         if now_italy_naive() >= call_deadline:
             raise HTTPException(status_code=403, detail="Il tempo della consulenza è scaduto")
 
-        # Una volta lasciata la recensione la call è chiusa (stessa regola di
+        # Recensione o contestazione chiudono la call (stessa regola di
         # /call-status, che il frontend usa per bloccare il rientro)
-        if session.exec(select(Review).where(Review.booking_id == booking_id)).first():
+        motivo = motivo_chiusura_call(session, booking_id)
+        if motivo == "review":
             raise HTTPException(status_code=403, detail="La consulenza è stata chiusa con una recensione")
+        if motivo == "dispute":
+            raise HTTPException(status_code=403, detail="La consulenza è stata chiusa da una contestazione")
 
 
         # Genera il token Agora
@@ -1166,13 +1188,11 @@ async def call_page(booking_id: int, request: Request):
         if booking.status in STATI_SENZA_CALL:
             return RedirectResponse(url="/profile", status_code=303)
 
-        # Se è già stata lasciata una recensione, la consulenza è conclusa:
+        # Con una recensione o una contestazione la consulenza è conclusa:
         # non è più possibile rientrare nella call (nemmeno entro la fascia oraria).
-        existing_review = session.exec(
-            select(Review).where(Review.booking_id == booking_id)
-        ).first()
-        if existing_review:
-            return RedirectResponse(url="/profile?call_closed=review", status_code=303)
+        motivo = motivo_chiusura_call(session, booking_id)
+        if motivo:
+            return RedirectResponse(url=f"/profile?call_closed={motivo}", status_code=303)
 
         # Recupera nomi reali per i label video
         client_user = session.get(User, booking.client_user_id)
@@ -1886,16 +1906,15 @@ async def call_status(
         end_datetime = end_datetime_naive.replace(tzinfo=ITALY_TZ)
         call_deadline = end_datetime + timedelta(minutes=5)
 
-        # Se è stata lasciata una recensione, la call è chiusa: non rientrabile.
-        existing_review = session.exec(
-            select(Review).where(Review.booking_id == booking_id)
-        ).first()
-        if existing_review:
+        # Recensione o contestazione: la call è chiusa, non rientrabile.
+        motivo_chiusura = motivo_chiusura_call(session, booking_id)
+        if motivo_chiusura:
             return {
                 "booking_id": booking_id,
                 "is_active": False,
                 "is_expired": True,
-                "closed_by_review": True,
+                "closed_by_review": motivo_chiusura == "review",
+                "closed_by_dispute": motivo_chiusura == "dispute",
                 "remaining_seconds": 0,
                 "end_time": booking.end_time,
                 "booking_date": booking.booking_date.isoformat(),
@@ -2039,13 +2058,13 @@ async def get_call_status_extended(
         call_deadline = end_datetime + timedelta(minutes=5)
         
         # Stato della call
-        # Una recensione lasciata chiude la consulenza (stessa regola di
+        # Recensione o contestazione chiudono la consulenza (stessa regola di
         # /call-status): il profilo non deve più proporre "Entra in call".
-        closed_by_review = session.exec(
-            select(Review.id).where(Review.booking_id == booking_id)
-        ).first() is not None
+        motivo_chiusura = motivo_chiusura_call(session, booking_id)
+        closed_by_review = motivo_chiusura == "review"
+        closed_by_dispute = motivo_chiusura == "dispute"
 
-        is_expired = now_italy >= call_deadline or closed_by_review
+        is_expired = now_italy >= call_deadline or motivo_chiusura is not None
         call_has_started = booking.call_started_at is not None
         can_resume = call_has_started and not is_expired
         
@@ -2055,6 +2074,7 @@ async def get_call_status_extended(
             "booking_id": booking_id,
             "is_expired": is_expired,
             "closed_by_review": closed_by_review,
+            "closed_by_dispute": closed_by_dispute,
             "call_has_started": call_has_started,
             "can_resume": can_resume,
             "remaining_seconds": max(0, remaining_seconds),

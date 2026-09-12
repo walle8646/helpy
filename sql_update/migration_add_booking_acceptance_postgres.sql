@@ -27,5 +27,6 @@ INSERT INTO notification_types (type_key, name, description, in_app, send_email,
     ('booking_request_expired', 'Richiesta di consulenza scaduta', 'Al cliente quando il consulente non risponde entro la scadenza', true, true, '⌛ Il consulente non ha risposto alla tua richiesta', 'booking_request_expired.html', true, NOW(), NOW()),
     ('booking_refused', 'Prenotazione rifiutata', 'Quando una prenotazione viene rifiutata', true, true, '❌ Prenotazione rifiutata', 'booking_refused.html', true, NOW(), NOW()),
     ('booking_confirmed_client', 'Consulenza confermata (cliente)', 'Al cliente quando la prenotazione è confermata e pagata', true, true, '✅ La tua consulenza è confermata', 'booking_confirmed_client.html', true, NOW(), NOW()),
-    ('booking_cancelled', 'Consulenza annullata', 'All''altro partecipante quando una consulenza viene annullata', true, true, '❌ Consulenza annullata', 'booking_cancelled.html', true, NOW(), NOW())
+    ('booking_cancelled', 'Consulenza annullata', 'All''altro partecipante quando una consulenza viene annullata', true, true, '❌ Consulenza annullata', 'booking_cancelled.html', true, NOW(), NOW()),
+    ('dispute_opened', 'Contestazione aperta', 'Al consulente quando il cliente apre una contestazione su una consulenza', true, true, '⚠️ È stata aperta una contestazione su una tua consulenza', 'dispute_opened.html', true, NOW(), NOW())
 ON CONFLICT (type_key) DO NOTHING;
