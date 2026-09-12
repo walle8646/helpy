@@ -87,7 +87,7 @@ def test_un_draft_pubblicato_non_si_rigenera(pulizia):
 def test_facebook_genera_una_sola_immagine(monkeypatch, pulizia):
     """Una immagine sola, senza "Scorri": non c'è nessuna seconda slide."""
     caricate = []
-    monkeypatch.setattr(image_generator, "_upload_png",
+    monkeypatch.setattr(image_generator, "_upload_immagine",
                         lambda img, key: caricate.append((img, key)) or f"https://esempio/{key}")
 
     fb = _draft(pulizia, "facebook", titolo="Come chiedere un aumento")
@@ -97,7 +97,7 @@ def test_facebook_genera_una_sola_immagine(monkeypatch, pulizia):
     assert len(caricate) == 1
     immagine, chiave = caricate[0]
     assert immagine.size == (image_generator.W, image_generator.H)
-    assert chiave.endswith("-post.png")
+    assert chiave.endswith("-post.jpg")
     with Session(engine) as s:
         assert "\n" not in (s.get(SocialDraft, fb).media_urls or "")
 

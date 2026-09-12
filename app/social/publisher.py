@@ -66,6 +66,24 @@ def parse_media_urls(raw: Optional[str]) -> list[str]:
     return [u for u in (p.strip() for p in _MEDIA_SPLIT.split(raw)) if u]
 
 
+# Formati che Instagram rifiuta per le immagini: accetta solo JPEG, e il
+# rifiuto arriva come un 400 senza spiegazione. Meglio bloccarlo qui, dove si
+# puo' dire cosa fare, che farselo dire dalla piattaforma.
+_ESTENSIONI_RIFIUTATE_INSTAGRAM = (".png", ".webp", ".gif", ".bmp", ".tiff", ".heic", ".avif")
+
+
+def _formati_non_accettati(platform: str, media: list[str]) -> list[str]:
+    """Gli URL che la piattaforma rifiutera' di sicuro per il formato."""
+    if platform != "instagram":
+        return []
+    cattivi = []
+    for url in media:
+        percorso = urllib.parse.urlparse(url).path.lower()
+        if percorso.endswith(_ESTENSIONI_RIFIUTATE_INSTAGRAM):
+            cattivi.append(percorso.rsplit("/", 1)[-1])
+    return cattivi
+
+
 def _external_id(draft: SocialDraft) -> str:
     """ID stabile per un tentativo di pubblicazione.
 
@@ -105,6 +123,12 @@ def publish_draft(draft_id: int) -> dict:
         media = parse_media_urls(draft.media_urls)
         if draft.platform in PLATFORM_REQUIRES_MEDIA and not media:
             return {"ok": False, "message": f"{draft.platform} richiede almeno un media (aggiungi URL immagine/video)"}
+        non_adatti = _formati_non_accettati(draft.platform, media)
+        if non_adatti:
+            return {"ok": False, "message": (
+                f"Instagram accetta solo immagini JPEG: {', '.join(non_adatti)}. "
+                "Rigenera la grafica e riprova."
+            )}
 
         # Idempotenza: se già inviato (o risulta su Post for Me), non ricreare
         ext_id = _external_id(draft)
@@ -156,6 +180,26 @@ def publish_draft(draft_id: int) -> dict:
         return {"ok": True, "message": f"Inviato a {draft.platform} (post {draft.postforme_post_id})"}
 
 
+def _testo_errore(risultato: dict) -> str:
+    """Il motivo del fallimento, il piu' completo possibile.
+
+    Post for Me a volte restituisce solo "Request failed with status code 400":
+    il perche' vero (formato dell'immagine, proporzioni, account) sta nel resto
+    del risultato. Tenere solo il campo `error` lasciava in dashboard un
+    messaggio che non dice niente e non permette di correggere il post.
+    """
+    errore = risultato.get("error")
+    testo = errore if isinstance(errore, str) else json.dumps(errore, ensure_ascii=False)
+    if len(testo) < 200:
+        resto = {
+            k: v for k, v in risultato.items()
+            if k != "error" and v not in (None, "", [], {})
+        }
+        if resto:
+            testo = f"{testo} — dettagli: {json.dumps(resto, ensure_ascii=False)}"
+    return testo[:2000]
+
+
 def check_publishing_results() -> None:
     """Aggiorna lo stato dei draft in 'publishing' leggendo i risultati da Post for Me."""
     with Session(engine) as session:
@@ -183,7 +227,7 @@ def check_publishing_results() -> None:
                 logger.info(f"✅ Social publisher: draft {draft.id} pubblicato su {draft.platform}")
             else:
                 draft.status = "failed"
-                draft.error = json.dumps(r.get("error"), ensure_ascii=False)[:2000]
+                draft.error = _testo_errore(r)
                 logger.error(f"❌ Social publisher: draft {draft.id} fallito: {draft.error}")
             draft.updated_at = datetime.utcnow()
             session.add(draft)

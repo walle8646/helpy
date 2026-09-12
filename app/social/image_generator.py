@@ -237,8 +237,13 @@ def _slide(text: str, index: int, total: int, is_last: bool) -> Image.Image:
     return img
 
 
-def _upload_png(img: Image.Image, key: str) -> str:
-    """Carica un PNG su S3 e ritorna l'URL pubblico."""
+def _upload_immagine(img: Image.Image, key: str) -> str:
+    """Carica l'immagine su S3 in JPEG e ritorna l'URL pubblico.
+
+    JPEG e non PNG: l'API di pubblicazione di Instagram accetta solo immagini
+    JPEG, e con i PNG il container viene rifiutato con un 400 secco ("Request
+    failed with status code 400"), senza dire perche'.
+    """
     bucket = os.getenv("S3_BUCKET_NAME", "ispiramy-images")
     region = os.getenv("AWS_REGION", "eu-north-1")
     client = boto3.client(
@@ -248,11 +253,11 @@ def _upload_png(img: Image.Image, key: str) -> str:
         region_name=region,
     )
     buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=True)
+    img.convert("RGB").save(buf, format="JPEG", quality=92, optimize=True, progressive=False)
     buf.seek(0)
     client.put_object(
         Bucket=bucket, Key=key, Body=buf.getvalue(),
-        ContentType="image/png", CacheControl="public, max-age=604800",
+        ContentType="image/jpeg", CacheControl="public, max-age=604800",
     )
     # In locale (MinIO) l'URL AWS non risolve: S3_PUBLIC_BASE_URL permette di
     # puntare all'endpoint raggiungibile dal browser (es. http://localhost:9000/ispiramy-images)
@@ -333,7 +338,7 @@ def generate_image_for_draft(draft_id: int, use_ai_cover: bool = True) -> dict:
 
         img = _cover(hook, topic, use_ai=use_ai_cover, swipe=False)
         stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        url = _upload_png(img, f"social/draft-{draft.id}/{stamp}-post.png")
+        url = _upload_immagine(img, f"social/draft-{draft.id}/{stamp}-post.jpg")
 
         draft.media_urls = url
         draft.updated_at = datetime.utcnow()
@@ -392,8 +397,8 @@ def generate_carousel_for_draft(draft_id: int, use_ai_cover: bool = True) -> dic
         stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         urls = []
         for n, img in enumerate(images):
-            key = f"social/draft-{draft.id}/{stamp}-slide-{n}.png"
-            urls.append(_upload_png(img, key))
+            key = f"social/draft-{draft.id}/{stamp}-slide-{n}.jpg"
+            urls.append(_upload_immagine(img, key))
 
         draft.media_urls = "\n".join(urls)
         draft.updated_at = datetime.utcnow()
