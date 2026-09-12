@@ -127,3 +127,96 @@ class TestGenerateBatchSenzaDomande:
 
         assert content_generator.generate_batch(5) == []
         assert chiamate == []
+
+
+class TestErroriDiGenerazione:
+    """Se la generazione fallisce, chi ha premuto il pulsante deve saperlo.
+
+    Gli errori finivano solo nei log e la pagina rispondeva "nessuna domanda
+    nuova da lavorare": il contrario di quello che era successo.
+    """
+
+    def test_gli_errori_tornano_al_chiamante(self, autore, monkeypatch):
+        from app.social import content_generator as generatore
+
+        _domanda(autore, "Come trovare lavoro a Milano", upvotes=10, views=50)
+
+        def esplode(q):
+            raise ValueError("OPENAI_API_KEY non configurata.")
+
+        monkeypatch.setattr(generatore, "generate_for_question", esplode)
+        bozze, errori = generatore.genera_bozze(3)
+        assert bozze == []
+        assert len(errori) == 1 and "OPENAI_API_KEY" in errori[0]
+
+    def test_senza_domande_nessun_errore(self, autore, monkeypatch):
+        from app.social import content_generator as generatore
+
+        bozze, errori = generatore.genera_bozze(3)
+        assert (bozze, errori) == ([], [])
+
+    def test_una_risposta_non_valida_e_un_errore(self, autore, monkeypatch):
+        """Prima produceva una bozza vuota e sembrava tutto a posto."""
+        import types
+
+        from app.social import content_generator as generatore
+
+        risposta = types.SimpleNamespace(
+            choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="non sono json"))]
+        )
+        finto = types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=lambda **kw: risposta))
+        )
+        monkeypatch.setattr(generatore, "_get_client", lambda: finto)
+        with pytest.raises(generatore.GenerazioneFallita):
+            generatore.generate_for_question({"id": 1, "title": "t", "description": "d", "category": "c"})
+
+
+class TestPulsanteGeneraContenuti:
+    @pytest.fixture
+    def admin(self, csrf_client):
+        import secrets as _s
+
+        from app.utils.password import hash_password
+        from app.utils.rate_limit import reset_rate_limit
+
+        reset_rate_limit()
+        password = _s.token_urlsafe(12)
+        with Session(engine) as s:
+            u = User(email=f"adm-{_s.token_hex(4)}@test.local",
+                     password_md5=hash_password(password), confirmed=1, user_type_id=3)
+            s.add(u)
+            s.commit()
+            s.refresh(u)
+            uid, email = u.id, u.email
+        assert csrf_client.post("/api/login", data={"email": email, "password": password}).status_code == 200
+        yield csrf_client
+        csrf_client.get("/logout")
+        reset_rate_limit()
+        with Session(engine) as s:
+            u = s.get(User, uid)
+            if u:
+                s.delete(u)
+                s.commit()
+
+    def test_dice_perche_non_ha_generato(self, admin, autore, monkeypatch):
+        from app.social import content_generator as generatore
+
+        _domanda(autore, "Domanda popolare", upvotes=5, views=20)
+        monkeypatch.setattr(generatore, "genera_bozze",
+                            lambda limit: ([], [f"domanda #1: OPENAI_API_KEY non configurata."]))
+
+        r = admin.post("/admin/social/generate", json={"limit": 3})
+        assert r.status_code == 502
+        corpo = r.json()
+        assert corpo["ok"] is False
+        assert "OPENAI_API_KEY" in corpo["message"]
+
+    def test_senza_domande_lo_dice_senza_allarmare(self, admin, monkeypatch):
+        from app.social import content_generator as generatore
+
+        monkeypatch.setattr(generatore, "genera_bozze", lambda limit: ([], []))
+        r = admin.post("/admin/social/generate", json={"limit": 3})
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+        assert "Nessuna domanda nuova" in r.json()["message"]

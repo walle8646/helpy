@@ -26,6 +26,10 @@ MODEL = "gpt-4o-mini"
 _client: Optional[OpenAI] = None
 
 
+class GenerazioneFallita(Exception):
+    """Nessuna bozza prodotta: il motivo va mostrato a chi ha premuto il pulsante."""
+
+
 def _get_client() -> OpenAI:
     global _client
     if _client is None:
@@ -135,12 +139,14 @@ def generate_for_question(q: dict) -> dict:
         max_tokens=1500,
         response_format={"type": "json_object"},
     )
-    raw = response.choices[0].message.content.strip()
+    raw = (response.choices[0].message.content or "").strip()
     try:
         pkg = json.loads(raw)
-    except json.JSONDecodeError:
-        logger.warning(f"Risposta GPT non JSON per domanda {q['id']}, skip.")
-        pkg = {}
+    except json.JSONDecodeError as e:
+        # Prima si salvava una bozza vuota e sembrava tutto a posto
+        raise GenerazioneFallita(f"risposta non leggibile dal modello ({e})") from e
+    if not pkg:
+        raise GenerazioneFallita("il modello ha risposto senza contenuti")
 
     return {
         "source_question_id": q["id"],
@@ -153,20 +159,35 @@ def generate_for_question(q: dict) -> dict:
     }
 
 
-def generate_batch(limit: int = 5) -> list[dict]:
-    """Genera bozze social per le top N domande non ancora lavorate."""
+def genera_bozze(limit: int = 5) -> tuple[list[dict], list[str]]:
+    """Genera le bozze e restituisce anche gli errori incontrati.
+
+    Prima gli errori venivano solo scritti nei log: se fallivano tutte le
+    generazioni (per esempio con la chiave OpenAI mancante) la pagina
+    rispondeva "nessuna domanda nuova da lavorare", cioe' il contrario di
+    quello che era successo.
+    """
     questions = fetch_top_questions(limit)
     if not questions:
         logger.info("Nessuna domanda community nuova da trasformare in contenuti social.")
-        return []
+        return [], []
 
-    drafts = []
+    drafts, errori = [], []
     for q in questions:
         logger.info(f"🎨 Genero contenuti per domanda #{q['id']}: {q['title'][:60]}...")
         try:
             drafts.append(generate_for_question(q))
         except Exception as e:
             logger.error(f"Errore generazione per domanda {q['id']}: {e}")
+            errori.append(f"domanda #{q['id']}: {e}")
+    return drafts, errori
+
+
+def generate_batch(limit: int = 5) -> list[dict]:
+    """Come genera_bozze, ma solleva se non e' uscita nemmeno una bozza."""
+    drafts, errori = genera_bozze(limit)
+    if not drafts and errori:
+        raise GenerazioneFallita("; ".join(errori)[:400])
     return drafts
 
 

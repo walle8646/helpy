@@ -77,17 +77,28 @@ async def admin_social_generate(data: GenerateRequest, request: Request):
         return JSONResponse({"ok": False, "message": "Non autorizzato"}, status_code=403)
 
     try:
-        from app.social.content_generator import generate_batch, save_packages_as_drafts
+        from app.social.content_generator import genera_bozze, save_packages_as_drafts
         limit = max(1, min(data.limit, 10))
-        packages = await asyncio.to_thread(generate_batch, limit)
+        packages, errori = await asyncio.to_thread(genera_bozze, limit)
+
         if not packages:
+            if errori:
+                # Prima questo caso veniva scambiato per "non c'e' niente da fare"
+                return JSONResponse(
+                    {"ok": False, "message": "Generazione non riuscita. " + "; ".join(errori)[:300]},
+                    status_code=502,
+                )
             return {
                 "ok": True,
                 "message": "Nessuna domanda nuova da lavorare: tutte le domande "
                            "più seguite hanno già delle bozze.",
             }
+
         created = await asyncio.to_thread(save_packages_as_drafts, packages)
-        return {"ok": True, "message": f"Creati {created} draft da {len(packages)} domande"}
+        messaggio = f"Creati {created} draft da {len(packages)} domande"
+        if errori:
+            messaggio += f" ({len(errori)} non riuscite: {'; '.join(errori)[:200]})"
+        return {"ok": True, "message": messaggio}
     except Exception as e:
         logger.error(f"Admin social: errore generazione: {e}", exc_info=True)
         return JSONResponse({"ok": False, "message": str(e)[:300]}, status_code=500)
